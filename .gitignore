@@ -5,3 +5,4 @@
 *.pyd
 *.dll
 .idea
+.DS_Store
