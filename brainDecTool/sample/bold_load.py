@@ -3,6 +3,7 @@
 
 import os
 import numpy as np
+import tables
 
 from brainDecTool.io import hdf5 as bdio
 from brainDecTool.util import configParser
@@ -11,7 +12,7 @@ from brainDecTool.util import configParser
 cf = configParser.Config('config')
 data_dir = cf.get('base', 'path')
 
-tf = bdio.open_hdf5(os.path.join(data_dir, 'VoxelResponses_subjecr1.mat'))
+tf = tables.open_file(os.path.join(data_dir, 'VoxelResponses_subjecr1.mat'))
 tf.listNodes
 data = tf.get_node('/rt')[:]
 roi = tf.get_node('/roi/v1lh')[:].flatten()

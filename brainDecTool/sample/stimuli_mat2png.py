@@ -3,16 +3,16 @@
 
 import os
 import numpy as np
+import tables
 from scipy.misc import imsave
 
-from brainDecTool.io import hdf5 as bdio
 from brainDecTool.util import configParser
 
 # config parser
 cf = configParser.Config('config')
 data_dir = cf.get('base', 'path')
 
-tf = bdio.open_hdf5(os.path.join(data_dir, 'Stimuli.mat'))
+tf = tables.open_file(os.path.join(data_dir, 'Stimuli.mat'))
 #tf.listNodes
 stimages = tf.get_node('/st')[:]
 svimages = tf.get_node('/sv')[:]
