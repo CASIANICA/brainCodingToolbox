@@ -11,9 +11,14 @@ def save2nifti(data, file_name):
     FSL is required.
     """
     fsl_dir = os.getenv('FSLDIR')
-    template = os.path.join(fsl_dir, 'data', 'standard', 'MNI152_T1_2mm.nii.gz')
+    # for code testing
+    if not fsl_dir:
+        fsl_dir = r'/Users/sealhuang/repo/FreeROI/froi'
+    template = os.path.join(fsl_dir, 'data', 'standard',
+                            'MNI152_T1_2mm_brain.nii.gz')
     header = nib.load(template).header
     header['cal_max'] = data.max()
     header['cal_min'] = 0
     img = nib.Nifti1Image(data, None, header)
     nib.save(img, file_name)
+
