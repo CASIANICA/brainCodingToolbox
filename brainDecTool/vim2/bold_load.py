@@ -27,7 +27,7 @@ l_v3a_roi = tf.get_node('/roi/v3alh')[:]
 r_v3a_roi = tf.get_node('/roi/v3arh')[:]
 tf.close()
 
-## merge ROIs in both hemisphere
+##-- merge ROIs in both hemisphere
 #roi_mask = l_v1_roi + r_v1_roi*2 + l_v2_roi*3 + r_v2_roi*4 + \
 #           l_v3_roi*5 + r_v3_roi*6 + l_v3a_roi*7 + r_v3a_roi*8
 #nmask = vutil.convert2ras(roi_mask)
