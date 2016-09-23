@@ -15,5 +15,6 @@ stim_dir = os.path.join(data_dir, 'stimulus_val')
 # load stimulus time courses
 data = np.load(os.path.join(stim_dir, 'feat1_sti_val.npy'), mmap_mode='r')
 # read time course from first node
+# data.shape = (8100, 290400) for validation dataset.
 tc = data[:, 0]
 
