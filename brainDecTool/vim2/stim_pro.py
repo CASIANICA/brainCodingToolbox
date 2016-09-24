@@ -41,6 +41,6 @@ for i in range(ts_shape[1]):
     feat[i, :] = convolved[vol_times]
 
 # save data
-out_file = 'feat1_trs.npz'
-np.savez(out_file, feat)
+out_file = 'feat1_trs.npy'
+np.save(out_file, feat)
 
