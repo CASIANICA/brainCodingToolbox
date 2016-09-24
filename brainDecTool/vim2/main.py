@@ -41,21 +41,34 @@ def gen_mean_vol(fmri_table):
     nvol = vutil.convert2ras(vol)
     bdnifti.save2nifti(nvol, 'mean_vol.nii.gz')
 
-def retinotopic_mapping(fmri_table, feat_table):
-    """Find the retinotopic mapping using activation map from CNN."""
-    pass
+def retinotopic_mapping(fmri_ts, feat_ts):
+    """Make the retinotopic mapping using activation map from CNN."""
+    corr_mtx = vutil.corr2_coef(fmri_ts, feat_ts)
+    # TODO: find the maximum correlation coefficient across CNN features and
+    # image spatial position.
 
 if __name__ == '__main__':
     """Main function."""
     # config parser
     cf = configParser.Config('config')
     data_dir = cf.get('base', 'path')
+    stim_dir = os.path.join(data_dir, 'cnn_rsp')
 
     tf = tables.open_file(os.path.join(data_dir, 'VoxelResponses_subject1.mat'))
     #tf.list_nodes
     #roi2nifti(tf)
     #gen_mean_vol(tf)
 
+    # retinotopic mapping
+    # load fmri response from validation dataset
+    rv_ts = fmri_table.get_node('/rv')[:]
+    # data.shape = (73728, 540)
+    rv_ts = np.nan_to_num(rv_ts)
+    # load convolved cnn activation data
+    feat1_file = os.path.join(stim_dir, 'feat1_trs.npy')
+    # data.shape = (290400, 540)
+    feat1_ts = np.load(feat1_file, mmap_mode='r')
+    retinotopic_mapping(rv_ts, feat1_ts)
 
     tf.close()
 

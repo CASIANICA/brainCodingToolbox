@@ -10,7 +10,7 @@ from brainDecTool.timeseries import hrf
 # config parser
 cf = configParser.Config('config')
 data_dir = cf.get('base', 'path')
-stim_dir = os.path.join(data_dir, 'stimulus_val')
+stim_dir = os.path.join(data_dir, 'cnn_rsp')
 
 # scanning parameter
 TR = 1
