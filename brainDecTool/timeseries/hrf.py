@@ -5,9 +5,9 @@ import numpy as np
 from scipy.stats import gamma
 
 def biGammaHRF(times):
-    """Return values for HRF at given times.
-    This HRF is derived from the sum of two Gamma function.
-    Unit of time: second.
+    """Return values for HRF at given times. Unit of time: second.
+    This HRF is derived from the sum of two Gamma function, it starts at
+    zero, and gets to zero sometime brfore 35 seconds.
     """
     # Gamma pdf for the peak
     peak_values = gamma.pdf(times, 6)
@@ -17,13 +17,4 @@ def biGammaHRF(times):
     values = peak_values - 0.35 * undershoot_values
     # Scale max to 0.6
     return values / np.max(values) * 0.6
-
-def biGammaHRFSignal(end_time, unit):
-    """Return a time course from time 0 to `end_time` generated from
-    the biGammaHRF.
-    Time unit is second. The time resolution is specified with
-    parameter `unit`, for example, 1ms -> 0.001.
-    """
-    hrf_times = np.arange(0, end_time, unit)
-    return biGammaHRF(hrf_times)
 
