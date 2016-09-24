@@ -46,6 +46,7 @@ def retinotopic_mapping(fmri_ts, feat_ts):
     corr_mtx = vutil.corr2_coef(fmri_ts, feat_ts)
     # TODO: find the maximum correlation coefficient across CNN features and
     # image spatial position.
+    return corr_mtx
 
 if __name__ == '__main__':
     """Main function."""
@@ -61,14 +62,16 @@ if __name__ == '__main__':
 
     # retinotopic mapping
     # load fmri response from validation dataset
-    rv_ts = fmri_table.get_node('/rv')[:]
+    rv_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540)
     rv_ts = np.nan_to_num(rv_ts)
     # load convolved cnn activation data
     feat1_file = os.path.join(stim_dir, 'feat1_trs.npy')
     # data.shape = (290400, 540)
     feat1_ts = np.load(feat1_file, mmap_mode='r')
-    retinotopic_mapping(rv_ts, feat1_ts)
+    corr_mtx = retinotopic_mapping(rv_ts, feat1_ts)
+    np.save('corr_mtx.npy', corr_mtx)
+
 
     tf.close()
 
