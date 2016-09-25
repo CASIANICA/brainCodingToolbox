@@ -43,7 +43,15 @@ def gen_mean_vol(fmri_table):
 
 def retinotopic_mapping(fmri_ts, feat_ts):
     """Make the retinotopic mapping using activation map from CNN."""
-    corr_mtx = vutil.corr2_coef(fmri_ts, feat_ts)
+    # to reduce computational burden, we compute Pearson's r iteratively
+    fmri_size = fmri_ts.shape[0]
+    feat_size = feat_ts.shape[0]
+    corr_mtx = np.zeros((fmri_size, feat_size))
+    for i in range(feat_size):
+        print 'Iter %s of %s' %(i, feat_size)
+        tmp = feat_ts[i, :].reshape(1, -1)
+        corr_mtx[:, i] = vutil.corr2_coef(fmri_ts, tmp)[:, 0]
+    #corr_mtx = vutil.corr2_coef(fmri_ts, feat_ts)
     # TODO: find the maximum correlation coefficient across CNN features and
     # image spatial position.
     return corr_mtx
@@ -71,7 +79,6 @@ if __name__ == '__main__':
     feat1_ts = np.load(feat1_file, mmap_mode='r')
     corr_mtx = retinotopic_mapping(rv_ts, feat1_ts)
     np.save('corr_mtx.npy', corr_mtx)
-
 
     tf.close()
 

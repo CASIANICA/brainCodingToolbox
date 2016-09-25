@@ -40,3 +40,14 @@ def corr2_coef(A, B):
     # Finally get corr coef
     return np.dot(A_mA, B_mB.T)/np.sqrt(np.dot(ssA[:, None], ssB[None]))
 
+def node2feature(node_idx):
+    """Convert node index from CNN activation vector into 3 features including
+    index of channel, row and column position of the filter.
+    Return a tuple of (channel index, row index, column index).
+    """
+    data_size = (96, 55, 55)
+    col_idx = node_idx % data_size[2]
+    channel_idx = node_idx / (data_size[1]*data_size[2])
+    row_idx = (node_idx % (data_size[1]*data_size[2])) / data_size[2]
+    return (channel_idx, row_idx, col_idx)
+
