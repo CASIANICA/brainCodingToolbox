@@ -41,8 +41,10 @@ def gen_mean_vol(fmri_table):
     nvol = vutil.convert2ras(vol)
     bdnifti.save2nifti(nvol, 'mean_vol.nii.gz')
 
-def retinotopic_mapping(fmri_ts, feat_ts):
-    """Make the retinotopic mapping using activation map from CNN."""
+def cross_modal_corr(fmri_ts, feat_ts):
+    """Compute cross-modal correlation between fmri response and image
+    features.
+    """
     # to reduce computational burden, we compute Pearson's r iteratively
     fmri_size = fmri_ts.shape[0]
     feat_size = feat_ts.shape[0]
@@ -52,9 +54,13 @@ def retinotopic_mapping(fmri_ts, feat_ts):
         tmp = feat_ts[i, :].reshape(1, -1)
         corr_mtx[:, i] = vutil.corr2_coef(fmri_ts, tmp)[:, 0]
     #corr_mtx = vutil.corr2_coef(fmri_ts, feat_ts)
+    return corr_mtx
+
+def retinotopic_mapping(fmri_ts, feat_ts):
+    """Make the retinotopic mapping using activation map from CNN."""
+    corr_mtx = cross_modal_corr(fmri_ts, feat_ts)
     # TODO: find the maximum correlation coefficient across CNN features and
     # image spatial position.
-    return corr_mtx
 
 if __name__ == '__main__':
     """Main function."""
