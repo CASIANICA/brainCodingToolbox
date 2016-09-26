@@ -46,7 +46,7 @@ def retinotopic_mapping(fmri_ts, feat_ts):
     # to reduce computational burden, we compute Pearson's r iteratively
     fmri_size = fmri_ts.shape[0]
     feat_size = feat_ts.shape[0]
-    corr_mtx = np.zeros((fmri_size, feat_size))
+    corr_mtx = np.zeros((fmri_size, feat_size), dtype=np.float16)
     for i in range(feat_size):
         print 'Iter %s of %s' %(i, feat_size)
         tmp = feat_ts[i, :].reshape(1, -1)
