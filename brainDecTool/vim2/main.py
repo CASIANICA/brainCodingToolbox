@@ -7,6 +7,7 @@ import tables
 
 from brainDecTool.util import configParser
 from brainDecTool.io import nifti as bdnifti
+from brainDecTool.math import corr2_coef
 import util as vutil
 
 def roi2nifti(fmri_table):
@@ -52,13 +53,17 @@ def cross_modal_corr(fmri_ts, feat_ts):
     for i in range(feat_size):
         print 'Iter %s of %s' %(i, feat_size)
         tmp = feat_ts[i, :].reshape(1, -1)
-        corr_mtx[:, i] = vutil.corr2_coef(fmri_ts, tmp)[:, 0]
-    #corr_mtx = vutil.corr2_coef(fmri_ts, feat_ts)
+        corr_mtx[:, i] = corr2_coef(fmri_ts, tmp)[:, 0]
     return corr_mtx
 
-def retinotopic_mapping(fmri_ts, feat_ts):
+def retinotopic_mapping(data_dir, fmri_ts, feat_ts):
     """Make the retinotopic mapping using activation map from CNN."""
+    retino_dir = os.path.join(data_dir, 'retinotopic')
+    if not os.path.exists(retino_dir):
+        os.mkdir(retino_dir, mode=0755)
     corr_mtx = cross_modal_corr(fmri_ts, feat_ts)
+    corr_file = os.path.join(retino_dir, 'fmri_feat1_corr.npy')
+    np.save(corr_file, corr_mtx)
     # TODO: find the maximum correlation coefficient across CNN features and
     # image spatial position.
 
@@ -83,9 +88,8 @@ if __name__ == '__main__':
     feat1_file = os.path.join(stim_dir, 'feat1_trs.npy')
     # data.shape = (290400, 540)
     feat1_ts = np.load(feat1_file, mmap_mode='r')
-    corr_mtx = retinotopic_mapping(rv_ts, feat1_ts)
-    corr_file = os.path.join(data_dir, 'fmri_feat1_corr.npy')
-    np.save(corr_file, corr_mtx)
+    corr_mtx = retinotopic_mapping(data_dir, rv_ts, feat1_ts)
+
 
     tf.close()
 
