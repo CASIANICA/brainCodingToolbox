@@ -84,7 +84,8 @@ if __name__ == '__main__':
     # data.shape = (290400, 540)
     feat1_ts = np.load(feat1_file, mmap_mode='r')
     corr_mtx = retinotopic_mapping(rv_ts, feat1_ts)
-    np.save('corr_mtx.npy', corr_mtx)
+    corr_file = os.path.join(data_dir, 'fmri_feat1_corr.npy')
+    np.save(corr_file, corr_mtx)
 
     tf.close()
 
