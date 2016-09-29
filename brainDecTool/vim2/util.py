@@ -46,3 +46,13 @@ def node2feature(layer_name, node_idx):
     row_idx = (node_idx % (s[1]*s[2])) / s[2]
     return (channel_idx, row_idx, col_idx)
 
+def dist2center(pos):
+    """Return the distance to the image center."""
+    center_pos = [28, 28]
+    return np.linalg.norm(pos-center_pos)
+
+def coord2angle(pos):
+    """Return the angle given a coordinate in the image."""
+    pass
+
+
