@@ -5,6 +5,7 @@ import os
 import numpy as np
 import tables
 from scipy import ndimage
+from scipy.misc import imsave
 
 from brainDecTool.util import configParser
 from brainDecTool.io import nifti as bdnifti
@@ -61,22 +62,31 @@ def retinotopic_mapping(data_dir, fmri_ts, feat_ts):
     """Make the retinotopic mapping using activation map from CNN."""
     retino_dir = os.path.join(data_dir, 'retinotopic')
     if not os.path.exists(retino_dir):
-        os.mkdir(retino_dir, mode=0755)
+        os.mkdir(retino_dir, 0755)
     #corr_mtx = cross_modal_corr(fmri_ts, feat_ts)
     corr_file = os.path.join(retino_dir, 'fmri_feat1_corr.npy')
     #np.save(corr_file, corr_mtx)
     # TODO: find the maximum correlation coefficient across CNN features and
     # the receptive field of each voxel.
+    fig_dir = os.path.join(retino_dir, 'fig')
+    if not os.path.exists(fig_dir):
+        os.mkdir(fig_dir, 0755)
     # load the cross-correlation matrix from file
     corr_mtx = np.load(corr_file, mmap_mode='r')
     pos_mtx = np.zeros((corr_mtx.shape[0], 2))
     for i in range(corr_mtx.shape[0]):
         print 'Iter %s of %s' %(i, corr_mtx.shape[0])
         tmp = corr_mtx[i, :]
-        tmp = tmp.reshape(96, 55, 55)
-        mmtx = np.max(tmp, axis=0)
-        x, y = ndimage.measurements.center_of_mass(mmtx)
-        pos_mtx[i, :] = [x, y]
+        tmp = np.nan_to_num(np.array(tmp))
+        if np.sum(tmp):
+            tmp = tmp.reshape(96, 55, 55)
+            mmtx = np.max(tmp, axis=0)
+            fig_file = os.path.join(fig_dir, 'v'+str(i)+'.png')
+            imsave(fig_file, mmtx)
+            x, y = ndimage.measurements.center_of_mass(mmtx)
+            pos_mtx[i, :] = [x, y]
+        else:
+            pos_mtx[i, :] = [-1, -1]
     receptive_field_file = os.path.join(retino_dir, 'receptive_field_pos.npy')
     np.save(receptive_field_file, pos_mtx)
 
