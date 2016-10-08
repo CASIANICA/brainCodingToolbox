@@ -8,13 +8,11 @@ from scipy import ndimage
 from scipy.misc import imsave
 
 from brainDecTool.util import configParser
-from brainDecTool.io import nifti as bdnifti
 from brainDecTool.math import corr2_coef
 import util as vutil
 
 def roi2nifti(fmri_table):
     """Save ROI as a nifti file."""
-    #-- load ROI mask
     l_v1_roi = fmri_table.get_node('/roi/v1lh')[:]
     r_v1_roi = fmri_table.get_node('/roi/v1rh')[:]
     l_v2_roi = fmri_table.get_node('/roi/v2lh')[:]
@@ -26,8 +24,7 @@ def roi2nifti(fmri_table):
     # merge ROIs in both hemisphere
     roi_mask = l_v1_roi + r_v1_roi*2 + l_v2_roi*3 + r_v2_roi*4 + \
                l_v3_roi*5 + r_v3_roi*6 + l_v3a_roi*7 + r_v3a_roi*8
-    nmask = vutil.convert2ras(roi_mask)
-    bdnifti.save2nifti(np.around(nmask), 'nmask.nii.gz')
+    vutil.save2nifti(roi_mask, 'S1_roi.nii.gz')
 
 def gen_mean_vol(fmri_table):
     """Make a mean response map as a reference volume."""
@@ -41,8 +38,7 @@ def gen_mean_vol(fmri_table):
         c = vutil.idx2coord(i)
         vol[c[0], c[1], c[2]] = mean_data[i]
     
-    nvol = vutil.convert2ras(vol)
-    bdnifti.save2nifti(np.abs(nvol), 'S1_mean_rv.nii.gz')
+    vutil.save2nifti(vol, 'S1_mean_rv.nii.gz')
 
 def cross_modal_corr(fmri_ts, feat_ts):
     """Compute cross-modal correlation between fmri response and image
@@ -98,8 +94,7 @@ def retinotopic_mapping(data_dir, fmri_ts, feat_ts):
     dist_vec = vutil.dist2center(pos_mtx)
     dist_vec = np.nan_to_num(dist_vec)
     vol = dist_vec.reshape(18, 64, 64)
-    nvol = vutil.convert2ras(vol)
-    bdnifti.save2nifti(nvol, os.path.join(retino_dir, 'dist.nii.gz'))
+    vutil.save2nifti(vol, os.path.join(retino_dir, 'maximum_dist.nii.gz'))
 
 
 
@@ -113,18 +108,18 @@ if __name__ == '__main__':
     tf = tables.open_file(os.path.join(data_dir, 'VoxelResponses_subject1.mat'))
     #tf.list_nodes
     #roi2nifti(tf)
-    gen_mean_vol(tf)
+    #gen_mean_vol(tf)
 
-    ## retinotopic mapping
-    ## load fmri response from validation dataset
-    #rv_ts = tf.get_node('/rv')[:]
-    ## data.shape = (73728, 540)
-    #rv_ts = np.nan_to_num(rv_ts)
-    ## load convolved cnn activation data
-    #feat1_file = os.path.join(stim_dir, 'feat1_trs.npy')
-    ## data.shape = (290400, 540)
-    #feat1_ts = np.load(feat1_file, mmap_mode='r')
-    #corr_mtx = retinotopic_mapping(data_dir, rv_ts, feat1_ts)
+    # retinotopic mapping
+    # load fmri response from validation dataset
+    rv_ts = tf.get_node('/rv')[:]
+    # data.shape = (73728, 540)
+    rv_ts = np.nan_to_num(rv_ts)
+    # load convolved cnn activation data
+    feat1_file = os.path.join(stim_dir, 'feat1_trs.npy')
+    # data.shape = (290400, 540)
+    feat1_ts = np.load(feat1_file, mmap_mode='r')
+    corr_mtx = retinotopic_mapping(data_dir, rv_ts, feat1_ts)
 
 
     tf.close()

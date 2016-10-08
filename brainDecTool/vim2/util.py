@@ -3,21 +3,7 @@
 
 import os
 import numpy as np
-
-def convert2ras(data):
-    """Convert dataset from original space into RAS space.
-    Original space:
-        axis i: A->P
-        axis j: I->S
-        axis k: R->L
-    """
-    # reverse axis i (A-P to P-A)
-    ndata = data[::-1, :, :]
-    # reverse axis k (R-L to L-R)
-    #ndata = ndata[:, :, ::-1]
-    # convert matrix into RAS space
-    ndata = np.rollaxis(ndata, 2)
-    return ndata
+import nibabel as nib
 
 def idx2coord(vec_idx):
     """Convert row index in response data matrix into 3D coordinate in
@@ -57,4 +43,18 @@ def coord2angle(pos):
     """Return the angle given a coordinate in the image."""
     pass
 
+def save2nifti(data, filename):
+    """Save 3D data as nifti file.
+    Original data shape is (18, 64, 64), and the resulting data shape is
+    (64, 64, 18) which orientation is SLP."""
+    # roll axis
+    ndata = np.rollaxis(data, 0, 3)
+    # generate affine matrix
+    aff = np.zeros((4, 4))
+    aff[0, 1] = -2
+    aff[1, 2] = -2.5
+    aff[2, 0] = 2
+    aff[3, 3] = 1
+    img = nib.Nifti1Image(ndata, aff)
+    nib.save(img, filename)
 
