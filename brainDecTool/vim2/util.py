@@ -32,16 +32,31 @@ def node2feature(layer_name, node_idx):
     row_idx = (node_idx % (s[1]*s[2])) / s[2]
     return (channel_idx, row_idx, col_idx)
 
-def dist2center(pos_mtx):
+def coord2ecc(pos_mtx):
     """Return the distance to the image center."""
-    center_pos = [28, 28]
+    center_pos = [27, 27]
     row_num = pos_mtx.shape[0]
     cen = np.repeat([center_pos], row_num, axis=0)
     return np.linalg.norm(pos_mtx-cen, axis=1)
 
-def coord2angle(pos):
+def coord2angle(pos_mtx):
     """Return the angle given a coordinate in the image."""
-    pass
+    std_pos = [0, 27]
+    center_pos = [27, 27]
+    std_vtr = np.array(std_pos) - np.array(center_pos)
+    row_num = pos_mtx.shape[0]
+    cen = np.repeat([center_pos], row_num, axis=0)
+    vtr = pos_mtx - cen
+    ang = np.zeros(row_num)
+    for i in range(row_num):
+        uvtr = unit_vector(vtr[i])
+        usvtr = unit_vector(std_vtr)
+        ang[i] = np.arccos(np.clip(np.dot(uvtr, usvtr), -1.0, 1.0))
+    return ang
+
+def unit_vector(vector):
+    """Return the unit vector of the vector."""
+    return vector / np.linalg.norm(vector)
 
 def save2nifti(data, filename):
     """Save 3D data as nifti file.

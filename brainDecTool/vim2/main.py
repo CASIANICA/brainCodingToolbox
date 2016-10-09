@@ -91,10 +91,16 @@ def retinotopic_mapping(data_dir, fmri_ts, feat_ts):
     #receptive_field_file = os.path.join(retino_dir, 'receptive_field_pos.npy')
     #np.save(receptive_field_file, pos_mtx)
     #pos_mtx = np.load(receptive_field_file)
-    dist_vec = vutil.dist2center(pos_mtx)
+    # eccentricity
+    dist_vec = vutil.coord2ecc(pos_mtx)
     dist_vec = np.nan_to_num(dist_vec)
     vol = dist_vec.reshape(18, 64, 64)
-    vutil.save2nifti(vol, os.path.join(retino_dir, 'maximum_dist.nii.gz'))
+    vutil.save2nifti(vol, os.path.join(retino_dir, 'maximum_ecc.nii.gz'))
+    # angle
+    angle_vec = vutil.coord2angle(pos_mtx)
+    angle_vec = np.nan_to_num(angle_vec)
+    vol = angle_vec.reshape(18, 64, 64)
+    vutil.save2nifti(vol, os.path.join(retino_dir, 'maximum_angle.nii.gz'))
 
 
 
