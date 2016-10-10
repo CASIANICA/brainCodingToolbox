@@ -80,11 +80,16 @@ def retinotopic_mapping(data_dir, fmri_ts, feat_ts):
             print mmtx.min(), mmtx.max()
             #fig_file = os.path.join(fig_dir, 'v'+str(i)+'.png')
             #imsave(fig_file, mmtx)
-            ## center of mass
-            #x, y = ndimage.measurements.center_of_mass(mmtx)
-            # maximum location
-            x, y = np.unravel_index(mmtx.argmax(), mmtx.shape)
-            pos_mtx[i, :] = [x, y]
+            ## maximum location
+            #x, y = np.unravel_index(mmtx.argmax(), mmtx.shape)
+            #pos_mtx[i, :] = [x, y]
+            # get indices of n maximum values
+            row_idx, col_idx = np.unravel_index(np.argsort(mmtx.ravel())[-10:],
+                                                mmtx.shape)
+            nmtx = np.zeros(mmtx.shape)
+            nmtx[row_idx, col_idx] = mmtx[row_idx, col_idx]
+            # center of mass
+            x, y = ndimage.measurements.center_of_mass(nmtx)
         else:
             pos_mtx[i, :] = [np.nan, np.nan]
             print ' '
@@ -95,12 +100,12 @@ def retinotopic_mapping(data_dir, fmri_ts, feat_ts):
     dist_vec = vutil.coord2ecc(pos_mtx)
     dist_vec = np.nan_to_num(dist_vec)
     vol = dist_vec.reshape(18, 64, 64)
-    vutil.save2nifti(vol, os.path.join(retino_dir, 'maximum_ecc.nii.gz'))
+    vutil.save2nifti(vol, os.path.join(retino_dir, 'maximum10_ecc.nii.gz'))
     # angle
     angle_vec = vutil.coord2angle(pos_mtx)
     angle_vec = np.nan_to_num(angle_vec)
     vol = angle_vec.reshape(18, 64, 64)
-    vutil.save2nifti(vol, os.path.join(retino_dir, 'maximum_angle.nii.gz'))
+    vutil.save2nifti(vol, os.path.join(retino_dir, 'maximum10_angle.nii.gz'))
 
 
 
