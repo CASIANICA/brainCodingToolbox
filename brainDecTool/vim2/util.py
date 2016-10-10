@@ -51,7 +51,11 @@ def coord2angle(pos_mtx):
     for i in range(row_num):
         uvtr = unit_vector(vtr[i])
         usvtr = unit_vector(std_vtr)
-        ang[i] = np.arccos(np.clip(np.dot(uvtr, usvtr), -1.0, 1.0))
+        if uvtr[0] < 0:
+            flag = -1
+        else:
+            flag = 1
+        ang[i] = np.arccos(np.clip(np.dot(uvtr, usvtr), -1.0, 1.0)) * flag
     return ang
 
 def unit_vector(vector):
