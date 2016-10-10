@@ -90,6 +90,7 @@ def retinotopic_mapping(data_dir, fmri_ts, feat_ts):
             nmtx[row_idx, col_idx] = mmtx[row_idx, col_idx]
             # center of mass
             x, y = ndimage.measurements.center_of_mass(nmtx)
+            pos_mtx[i, :] = [x, y]
         else:
             pos_mtx[i, :] = [np.nan, np.nan]
             print ' '
