@@ -119,19 +119,19 @@ if __name__ == '__main__':
 
     tf = tables.open_file(os.path.join(data_dir, 'VoxelResponses_subject1.mat'))
     #tf.list_nodes
-    #roi2nifti(tf)
+    roi2nifti(tf)
     #gen_mean_vol(tf)
 
-    # retinotopic mapping
-    # load fmri response from validation dataset
-    rv_ts = tf.get_node('/rv')[:]
-    # data.shape = (73728, 540)
-    rv_ts = np.nan_to_num(rv_ts)
-    # load convolved cnn activation data
-    feat1_file = os.path.join(stim_dir, 'feat1_trs.npy')
-    # data.shape = (290400, 540)
-    feat1_ts = np.load(feat1_file, mmap_mode='r')
-    corr_mtx = retinotopic_mapping(data_dir, rv_ts, feat1_ts)
+    ## retinotopic mapping
+    ## load fmri response from validation dataset
+    #rv_ts = tf.get_node('/rv')[:]
+    ## data.shape = (73728, 540)
+    #rv_ts = np.nan_to_num(rv_ts)
+    ## load convolved cnn activation data
+    #feat1_file = os.path.join(stim_dir, 'feat1_trs.npy')
+    ## data.shape = (290400, 540)
+    #feat1_ts = np.load(feat1_file, mmap_mode='r')
+    #corr_mtx = retinotopic_mapping(data_dir, rv_ts, feat1_ts)
 
 
     tf.close()

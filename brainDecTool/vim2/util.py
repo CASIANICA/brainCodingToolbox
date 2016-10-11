@@ -68,9 +68,11 @@ def save2nifti(data, filename):
     (64, 64, 18) which orientation is SLP."""
     # roll axis
     ndata = np.rollaxis(data, 0, 3)
+    ndata = ndata[:, ::-1, :]
     # generate affine matrix
     aff = np.zeros((4, 4))
-    aff[0, 1] = -2
+    #aff[0, 1] = -2
+    aff[0, 1] = 2
     aff[1, 2] = -2.5
     aff[2, 0] = 2
     aff[3, 3] = 1
