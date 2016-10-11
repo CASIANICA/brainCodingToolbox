@@ -51,7 +51,7 @@ def coord2angle(pos_mtx):
     for i in range(row_num):
         uvtr = unit_vector(vtr[i])
         usvtr = unit_vector(std_vtr)
-        if vtr[i][0] < 27:
+        if vtr[i][0] < 0:
             flag = -1
         else:
             flag = 1
