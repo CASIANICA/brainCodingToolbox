@@ -24,11 +24,11 @@ def roi2nifti(fmri_table):
     # merge ROIs in both hemisphere
     roi_mask = l_v1_roi + r_v1_roi*2 + l_v2_roi*3 + r_v2_roi*4 + \
                l_v3_roi*5 + r_v3_roi*6 + l_v3a_roi*7 + r_v3a_roi*8
-    vutil.save2nifti(roi_mask, 'S1_roi.nii.gz')
+    vutil.save2nifti(roi_mask, 'S1_roi_mask.nii.gz')
 
 def gen_mean_vol(fmri_table):
     """Make a mean response map as a reference volume."""
-    data = fmri_table.get_node('/rv')[:]
+    data = fmri_table.get_node('/rt')[:]
     # replace nan to zero
     data = np.nan_to_num(data)
     mean_data = np.mean(data, axis=1)
@@ -38,7 +38,7 @@ def gen_mean_vol(fmri_table):
         c = vutil.idx2coord(i)
         vol[c[0], c[1], c[2]] = mean_data[i]
     
-    vutil.save2nifti(vol, 'S1_mean_rv.nii.gz')
+    vutil.save2nifti(vol, 'S1_mean_rt.nii.gz')
 
 def cross_modal_corr(fmri_ts, feat_ts):
     """Compute cross-modal correlation between fmri response and image
@@ -119,8 +119,8 @@ if __name__ == '__main__':
 
     tf = tables.open_file(os.path.join(data_dir, 'VoxelResponses_subject1.mat'))
     #tf.list_nodes
-    roi2nifti(tf)
-    #gen_mean_vol(tf)
+    #roi2nifti(tf)
+    gen_mean_vol(tf)
 
     ## retinotopic mapping
     ## load fmri response from validation dataset

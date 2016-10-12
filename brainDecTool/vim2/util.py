@@ -65,13 +65,12 @@ def unit_vector(vector):
 def save2nifti(data, filename):
     """Save 3D data as nifti file.
     Original data shape is (18, 64, 64), and the resulting data shape is
-    (64, 64, 18) which orientation is SLP."""
+    (64, 64, 18) which orientation is SRP."""
     # roll axis
     ndata = np.rollaxis(data, 0, 3)
     ndata = ndata[:, ::-1, :]
     # generate affine matrix
     aff = np.zeros((4, 4))
-    #aff[0, 1] = -2
     aff[0, 1] = 2
     aff[1, 2] = -2.5
     aff[2, 0] = 2
