@@ -37,7 +37,26 @@ def coord2ecc(pos_mtx):
     center_pos = [27, 27]
     row_num = pos_mtx.shape[0]
     cen = np.repeat([center_pos], row_num, axis=0)
-    return np.linalg.norm(pos_mtx-cen, axis=1)
+    dist = np.linalg.norm(pos_mtx-cen, axis=1)
+    # convert distance into degree
+    # 0-4 degree -> d < 5.5
+    # 4-8 degree -> d < 11
+    # 8-12 degree -> d < 16.5
+    # 12-16 degree -> d < 22
+    # else > 16 degree
+    ecc = np.zeros(dist.shape)
+    for i in range(len(dist)):
+        if dist[i] < 5.445:
+            ecc[i] = 1
+        elif dist[i] < 10.91:
+            ecc[i] = 2
+        elif dist[i] < 16.39:
+            ecc[i] = 3
+        elif dist[i] < 21.92:
+            ecc[i] = 4
+        else:
+            ecc[i] = 5
+    return ecc
 
 def coord2angle(pos_mtx):
     """Return the angle given a coordinate in the image."""
@@ -51,11 +70,11 @@ def coord2angle(pos_mtx):
     for i in range(row_num):
         uvtr = unit_vector(vtr[i])
         usvtr = unit_vector(std_vtr)
+        a = np.arccos(np.clip(np.dot(uvtr, usvtr), -1.0, 1.0))
         if vtr[i][0] < 0:
-            flag = -1
+            ang[i] = 2*np.pi - a
         else:
-            flag = 1
-        ang[i] = np.arccos(np.clip(np.dot(uvtr, usvtr), -1.0, 1.0)) * flag
+            ang[i] = a
     return ang
 
 def unit_vector(vector):
