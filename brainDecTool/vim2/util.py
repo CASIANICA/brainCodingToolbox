@@ -71,8 +71,8 @@ def coord2angle(pos_mtx):
         uvtr = unit_vector(vtr[i])
         usvtr = unit_vector(std_vtr)
         a = np.arccos(np.clip(np.dot(uvtr, usvtr), -1.0, 1.0))
-        if vtr[i][0] < 0:
-            ang[i] = 2*np.pi - a
+        if vtr[i][1] < 0:
+            ang[i] = -1*a
         else:
             ang[i] = a
     return ang
