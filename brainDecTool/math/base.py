@@ -14,3 +14,7 @@ def corr2_coef(A, B):
     # Finally get corr coef
     return np.dot(A_mA, B_mB.T)/np.sqrt(np.dot(ssA[:, None], ssB[None]))
 
+def unit_vector(vector):
+    """Return the unit vector of the input."""
+    return vector / np.linalg.norm(vector)
+

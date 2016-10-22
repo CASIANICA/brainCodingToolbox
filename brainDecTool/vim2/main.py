@@ -9,6 +9,7 @@ from scipy.misc import imsave
 
 from brainDecTool.util import configParser
 from brainDecTool.math import corr2_coef
+from brainDecTool.pipeline import retinotopy
 import util as vutil
 
 def roi2nifti(fmri_table):
@@ -98,13 +99,31 @@ def retinotopic_mapping(data_dir, fmri_ts, feat_ts):
     #np.save(receptive_field_file, pos_mtx)
     #pos_mtx = np.load(receptive_field_file)
     # eccentricity
-    dist_vec = vutil.coord2ecc(pos_mtx)
-    dist_vec = np.nan_to_num(dist_vec)
+    dist = vutil.coord2ecc(pos_mtx, (55, 55))
+    # convert distance into degree
+    # 0-4 degree -> d < 5.5
+    # 4-8 degree -> d < 11
+    # 8-12 degree -> d < 16.5
+    # 12-16 degree -> d < 22
+    # else > 16 degree
+    ecc = np.zeros(dist.shape)
+    for i in range(len(dist)):
+        if dist[i] < 5.445:
+            ecc[i] = 1
+        elif dist[i] < 10.91:
+            ecc[i] = 2
+        elif dist[i] < 16.39:
+            ecc[i] = 3
+        elif dist[i] < 21.92:
+            ecc[i] = 4
+        else:
+            ecc[i] = 5
+    dist_vec = np.nan_to_num(ecc)
     vol = dist_vec.reshape(18, 64, 64)
     vutil.save2nifti(vol, os.path.join(retino_dir,
                                        'max' + str(max_n) + '_ecc.nii.gz'))
     # angle
-    angle_vec = vutil.coord2angle(pos_mtx)
+    angle_vec = vutil.coord2angle(pos_mtx, (55, 55))
     angle_vec = np.nan_to_num(angle_vec)
     vol = angle_vec.reshape(18, 64, 64)
     vutil.save2nifti(vol, os.path.join(retino_dir,
