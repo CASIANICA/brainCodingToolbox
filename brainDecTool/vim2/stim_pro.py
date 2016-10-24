@@ -63,7 +63,11 @@ def get_train_tr():
         feat1_ptr.append(tmp)
 
     # data array for storing time series after convolution and down-sampling
-    feat = np.zeros((feat1_ptr[0].shape[1], time_count/fps))
+    # to save memory, a memmap is used
+    out_file = os.path.join(stim_dir, 'feat1_train_trs.npy')
+    feat = np.memmap(out_file, dtype='float64', mode='w+',
+                     shape=(feat1_ptr[0].shape[1], time_count/fps))
+    #feat = np.zeros((feat1_ptr[0].shape[1], time_count/fps))
     # convolution and down-sampling
     for i in range(feat1_ptr[0].shape[1]):
         for p in range(12):
@@ -82,10 +86,10 @@ def get_train_tr():
         # down-sampling
         vol_times = np.arange(0, time_count, fps)
         feat[i, :] = convolved[vol_times]
+    del feat
 
-    # save data
-    out_file = os.path.join(stim_dir, 'feat1_train_trs.npy')
-    np.save(out_file, feat)
+    ## save data
+    #np.save(out_file, feat)
     
 
 if __name__ == "__main__":
