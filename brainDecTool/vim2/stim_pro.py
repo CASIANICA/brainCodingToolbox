@@ -35,6 +35,9 @@ def get_val_tr():
     # convolution and down-sampling
     for i in range(ts_shape[1]):
         ts = feat1_ts[:, i]
+        # log-transform
+        ts = np.log(ts+1)
+        # convolved with HRF
         convolved = np.convolve(ts, hrf_signal)
         # remove time points after the end of the scanning run
         n_to_remove = len(hrf_times) - 1
@@ -62,19 +65,22 @@ def get_train_tr():
     # data array for storing time series after convolution and down-sampling
     feat = np.zeros((feat1_ptr[0].shape[1], time_count/fps))
     # convolution and down-sampling
-    for i in range(ts_shape[1]):
+    for i in range(feat1_ptr[0].shape[1]):
         for p in range(12):
             if not p:
                 ts = feat1_ptr[p][:, i]
             else:
                 ts = np.concatenate([ts, feat1_ptr[p][:, i]])
         print ts.shape
+        # log-transform
+        ts = np.log(ts+1)
+        # convolved with HRF
         convolved = np.convolve(ts, hrf_signal)
         # remove time points after the end of the scanning run
         n_to_remove = len(hrf_times) - 1
         convolved = convolved[:-n_to_remove]
         # down-sampling
-        vol_times = np.arange(0, ts_shape[0], fps)
+        vol_times = np.arange(0, time_count, fps)
         feat[i, :] = convolved[vol_times]
 
     # save data
