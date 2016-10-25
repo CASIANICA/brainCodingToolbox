@@ -64,7 +64,7 @@ def get_train_tr():
 
     # data array for storing time series after convolution and down-sampling
     # to save memory, a memmap is used
-    out_file = os.path.join(stim_dir, 'feat1_train_trs.npy')
+    out_file = os.path.join(stim_dir, 'feat1_train_trs_log.npy')
     feat = np.memmap(out_file, dtype='float64', mode='w+',
                      shape=(feat1_ptr[0].shape[1], time_count/fps))
     #feat = np.zeros((feat1_ptr[0].shape[1], time_count/fps))
