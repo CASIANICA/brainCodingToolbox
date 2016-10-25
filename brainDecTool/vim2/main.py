@@ -8,8 +8,8 @@ from scipy import ndimage
 from scipy.misc import imsave
 
 from brainDecTool.util import configParser
-from brainDecTool.math import corr2_coef
 from brainDecTool.pipeline import retinotopy
+from brainDecTool.pipeline.base import cross_modal_corr
 import util as vutil
 
 def roi2nifti(fmri_table):
@@ -41,28 +41,27 @@ def gen_mean_vol(fmri_table):
     
     vutil.save2nifti(vol, 'S1_mean_rt.nii.gz')
 
-def cross_modal_corr(fmri_ts, feat_ts):
-    """Compute cross-modal correlation between fmri response and image
-    features.
-    """
-    # to reduce computational burden, we compute Pearson's r iteratively
-    fmri_size = fmri_ts.shape[0]
-    feat_size = feat_ts.shape[0]
-    corr_mtx = np.zeros((fmri_size, feat_size), dtype=np.float16)
-    for i in range(feat_size):
-        print 'Iter %s of %s' %(i, feat_size)
-        tmp = feat_ts[i, :].reshape(1, -1)
-        corr_mtx[:, i] = corr2_coef(fmri_ts, tmp)[:, 0]
-    return corr_mtx
+#def cross_modal_corr(fmri_ts, feat_ts):
+#    """Compute cross-modal correlation between fmri response and image
+#    features.
+#    """
+#    # to reduce computational burden, we compute Pearson's r iteratively
+#    fmri_size = fmri_ts.shape[0]
+#    feat_size = feat_ts.shape[0]
+#    corr_mtx = np.zeros((fmri_size, feat_size), dtype=np.float16)
+#    for i in range(feat_size):
+#        print 'Iter %s of %s' %(i, feat_size)
+#        tmp = feat_ts[i, :].reshape(1, -1)
+#        corr_mtx[:, i] = corr2_coef(fmri_ts, tmp)[:, 0]
+#    return corr_mtx
 
 def retinotopic_mapping(data_dir, fmri_ts, feat_ts):
     """Make the retinotopic mapping using activation map from CNN."""
     retino_dir = os.path.join(data_dir, 'retinotopic')
     if not os.path.exists(retino_dir):
         os.mkdir(retino_dir, 0755)
-    #corr_mtx = cross_modal_corr(fmri_ts, feat_ts)
     corr_file = os.path.join(retino_dir, 'fmri_feat1_corr.npy')
-    #np.save(corr_file, corr_mtx)
+    #cross_modal_corr(fmri_ts, feat_ts, corr_file, memmap=False)
     #fig_dir = os.path.join(retino_dir, 'fig')
     #if not os.path.exists(fig_dir):
     #    os.mkdir(fig_dir, 0755)
