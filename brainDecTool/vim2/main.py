@@ -41,20 +41,6 @@ def gen_mean_vol(fmri_table):
     
     vutil.save2nifti(vol, 'S1_mean_rt.nii.gz')
 
-#def cross_modal_corr(fmri_ts, feat_ts):
-#    """Compute cross-modal correlation between fmri response and image
-#    features.
-#    """
-#    # to reduce computational burden, we compute Pearson's r iteratively
-#    fmri_size = fmri_ts.shape[0]
-#    feat_size = feat_ts.shape[0]
-#    corr_mtx = np.zeros((fmri_size, feat_size), dtype=np.float16)
-#    for i in range(feat_size):
-#        print 'Iter %s of %s' %(i, feat_size)
-#        tmp = feat_ts[i, :].reshape(1, -1)
-#        corr_mtx[:, i] = corr2_coef(fmri_ts, tmp)[:, 0]
-#    return corr_mtx
-
 def retinotopic_mapping(data_dir, fmri_ts, feat_ts):
     """Make the retinotopic mapping using activation map from CNN."""
     retino_dir = os.path.join(data_dir, 'retinotopic')
@@ -143,14 +129,16 @@ if __name__ == '__main__':
     #gen_mean_vol(tf)
 
     # retinotopic mapping
-    # load fmri response from validation dataset
-    rv_ts = tf.get_node('/rv')[:]
-    # data.shape = (73728, 540)
+    # load fmri response from training/validation dataset
+    rv_ts = tf.get_node('/rt')[:]
+    # data.shape = (73728, 540) / (73728, 7200)
     rv_ts = np.nan_to_num(rv_ts)
-    # load convolved cnn activation data
-    feat1_file = os.path.join(stim_dir, 'feat1_trs.npy')
-    # data.shape = (290400, 540)
-    feat1_ts = np.load(feat1_file, mmap_mode='r')
+    # load convolved cnn activation data for validation dataset
+    feat1_file = os.path.join(stim_dir, 'feat1_train_trs_log.npy')
+    #feat1_ts = np.load(feat1_file, mmap_mode='r')
+    feat1_ts = np.memmap(feat1_file, dtype='float32', mode='r',
+                         shape=(290400, 7200))
+    # data.shape = (290400, 540)/(290400, 7200)
     corr_mtx = retinotopic_mapping(data_dir, rv_ts, feat1_ts)
 
 
