@@ -4,13 +4,13 @@
 import numpy as np
 from brainDecTool.math import corr2_coef
 
-def cross_modal_corr(fmri_ts, feat_ts, filename, memmap=False):
+def cross_modal_corr(fmri_ts, feat_ts, filename, memmap=False, block_size=32):
     """Compute cross-modality correlation between fMRI response and image
     features derived from CNN.
     
     Usage
     -----
-    cross_modal_corr(fmri_ts, feat_ts, filename, memmap=False)
+    cross_modal_corr(fmri_ts, feat_ts, filename, memmap=False, block_size=32)
     
     Return
     ------
@@ -20,8 +20,9 @@ def cross_modal_corr(fmri_ts, feat_ts, filename, memmap=False):
 
     Note
     ----
-    `memmap` is set as False in default, if True, a memmap would be used to
+    `memmap` is set to False as default, if True, a memmap would be used to
     save memory.
+    'block_size' : the number of rows in `feat_ts` processed in one iter.
     """
     # to reduce memory usage, we compute Pearson's r iteratively
     fmri_size = fmri_ts.shape[0]
@@ -32,10 +33,10 @@ def cross_modal_corr(fmri_ts, feat_ts, filename, memmap=False):
     else:
         corr_mtx = np.zeros((fmri_size, feat_size), dtype=np.float16)
     print 'Compute cross-modality correlation ...'
-    for i in range(feat_size):
-        print 'Iter %s of %s' %(i, feat_size)
-        tmp = feat_ts[i, :].reshape(1, -1)
-        corr_mtx[:, i] = corr2_coef(fmri_ts, tmp)[:, 0]
+    for i in range(feat_size/block_size):
+        print 'Iter %s of %s' %(i, feat_size/block_size)
+        tmp = feat_ts[i*block_size:(i+1)*block_size, :]
+        corr_mtx[:, i*block_size:(i+1)*block_size] = corr2_coef(fmri_ts, tmp)
     if memmap:
         del corrmtx
     else:

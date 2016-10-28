@@ -67,30 +67,31 @@ def get_train_tr():
     out_file = os.path.join(stim_dir, 'feat1_train_trs_log.npy')
     feat = np.memmap(out_file, dtype='float64', mode='w+',
                      shape=(feat1_ptr[0].shape[1], time_count/fps))
-    #feat = np.zeros((feat1_ptr[0].shape[1], time_count/fps))
+    # batch_size config
+    bsize = 32
     # convolution and down-sampling
-    for i in range(feat1_ptr[0].shape[1]):
+    for i in range(feat1_ptr[0].shape[1]/batch_size):
         for p in range(12):
             if not p:
-                ts = feat1_ptr[p][:, i]
+                ts = feat1_ptr[p][:, i*bsize:(i+1)*bsize]
             else:
-                ts = np.concatenate([ts, feat1_ptr[p][:, i]])
+                ts = np.concatenate([ts, feat1_ptr[p][:, i*bsize:(i+1)*bsize]],
+                                    axis=0)
+        ts = ts.T
         print ts.shape
         # log-transform
         ts = np.log(ts+1)
         # convolved with HRF
-        convolved = np.convolve(ts, hrf_signal)
+        convolved = np.apply_along_axis(np.convolve, axis=1, ts, hrf_signal)
         # remove time points after the end of the scanning run
         n_to_remove = len(hrf_times) - 1
-        convolved = convolved[:-n_to_remove]
+        convolved = convolved[:, :-n_to_remove]
         # down-sampling
         vol_times = np.arange(0, time_count, fps)
-        feat[i, :] = convolved[vol_times]
+        feat[i*bsize:(i+1)*bsize, :] = convolved[:, vol_times]
     del feat
 
-    ## save data
-    #np.save(out_file, feat)
-    
+ 
 
 if __name__ == "__main__":
     get_train_tr()
