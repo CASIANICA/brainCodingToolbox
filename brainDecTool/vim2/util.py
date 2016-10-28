@@ -3,21 +3,7 @@
 
 import os
 import numpy as np
-
-def convert2ras(data):
-    """Convert dataset from original space into RAS space.
-    Original space:
-        axis i: A->P
-        axis j: I->S
-        axis k: R->L
-    """
-    # reverse axis i (A-P to P-A)
-    ndata = data[::-1, :, :]
-    # reverse axis k (R-L to L-R)
-    #ndata = ndata[:, :, ::-1]
-    # convert matrix into RAS space
-    ndata = np.rollaxis(ndata, 2)
-    return ndata
+import nibabel as nib
 
 def idx2coord(vec_idx):
     """Convert row index in response data matrix into 3D coordinate in
@@ -28,17 +14,6 @@ def idx2coord(vec_idx):
     coord_x = vec_idx / (data_size[1]*data_size[2])
     coord_y = (vec_idx % (data_size[1]*data_size[2])) / data_size[2]
     return (coord_x, coord_y, coord_z)
-
-def corr2_coef(A, B):
-    """Row-wise Correlation Coefficient calculation for two 2D arrays."""
-    # Row-wise mean of input arrays & subtract from input arrays themselves
-    A_mA = A - A.mean(1)[:, None]
-    B_mB = B - B.mean(1)[:, None]
-    # Sum of squares across rows
-    ssA = (A_mA**2).sum(1)
-    ssB = (B_mB**2).sum(1)
-    # Finally get corr coef
-    return np.dot(A_mA, B_mB.T)/np.sqrt(np.dot(ssA[:, None], ssB[None]))
 
 def node2feature(layer_name, node_idx):
     """Convert node index from CNN activation vector into 3 features including
@@ -56,4 +31,20 @@ def node2feature(layer_name, node_idx):
     channel_idx = node_idx / (s[1]*s[2])
     row_idx = (node_idx % (s[1]*s[2])) / s[2]
     return (channel_idx, row_idx, col_idx)
+
+def save2nifti(data, filename):
+    """Save 3D data as nifti file.
+    Original data shape is (18, 64, 64), and the resulting data shape is
+    (64, 64, 18) which orientation is SRP."""
+    # roll axis
+    ndata = np.rollaxis(data, 0, 3)
+    ndata = ndata[:, ::-1, :]
+    # generate affine matrix
+    aff = np.zeros((4, 4))
+    aff[0, 1] = 2
+    aff[1, 2] = -2.5
+    aff[2, 0] = 2
+    aff[3, 3] = 1
+    img = nib.Nifti1Image(ndata, aff)
+    nib.save(img, filename)
 
