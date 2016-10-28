@@ -32,19 +32,23 @@ def get_val_tr():
 
     # data array for storing time series after convolution and down-sampling
     feat = np.zeros((ts_shape[1], ts_shape[0]/fps))
+    # batch_size config
+    bsize = 32
     # convolution and down-sampling
-    for i in range(ts_shape[1]):
-        ts = feat1_ts[:, i]
+    for i in range(ts_shape[1]/bsize):
+        ts = feat1_ts[:, i*bsize:(i+1)*bsize]
+        ts = ts.T
+        print ts.shape
         # log-transform
         ts = np.log(ts+1)
         # convolved with HRF
-        convolved = np.convolve(ts, hrf_signal)
+        convolved = np.apply_along_axis(np.convolve, axis=1, ts, hrf_signal)
         # remove time points after the end of the scanning run
         n_to_remove = len(hrf_times) - 1
-        convolved = convolved[:-n_to_remove]
+        convolved = convolved[:, :-n_to_remove]
         # down-sampling
         vol_times = np.arange(0, ts_shape[0], fps)
-        feat[i, :] = convolved[vol_times]
+        feat[i*bsize:(i+1)*bsize, :] = convolved[:, vol_times]
 
     # save data
     out_file = os.path.join(stim_dir, 'feat1_val_trs.npy')
@@ -70,7 +74,7 @@ def get_train_tr():
     # batch_size config
     bsize = 32
     # convolution and down-sampling
-    for i in range(feat1_ptr[0].shape[1]/batch_size):
+    for i in range(feat1_ptr[0].shape[1]/bsize):
         for p in range(12):
             if not p:
                 ts = feat1_ptr[p][:, i*bsize:(i+1)*bsize]
