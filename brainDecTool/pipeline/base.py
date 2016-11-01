@@ -38,7 +38,7 @@ def cross_modal_corr(fmri_ts, feat_ts, filename, memmap=False, block_size=32):
         tmp = feat_ts[i*block_size:(i+1)*block_size, :]
         corr_mtx[:, i*block_size:(i+1)*block_size] = corr2_coef(fmri_ts, tmp)
     if memmap:
-        del corrmtx
+        del corr_mtx
     else:
         np.save(filename, corr_mtx)
 

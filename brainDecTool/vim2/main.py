@@ -139,7 +139,7 @@ if __name__ == '__main__':
     feat1_ts = np.memmap(feat1_file, dtype='float32', mode='r',
                          shape=(290400, 7200))
     # data.shape = (290400, 540)/(290400, 7200)
-    corr_mtx = retinotopic_mapping(data_dir, rv_ts, feat1_ts)
+    retinotopic_mapping(data_dir, rv_ts, feat1_ts)
 
 
     tf.close()
