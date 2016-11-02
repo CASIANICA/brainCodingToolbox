@@ -52,7 +52,9 @@ def retinotopic_mapping(data_dir, fmri_ts, feat_ts):
     #if not os.path.exists(fig_dir):
     #    os.mkdir(fig_dir, 0755)
     # load the cross-correlation matrix from file
-    corr_mtx = np.load(corr_file, mmap_mode='r')
+    #corr_mtx = np.load(corr_file, mmap_mode='r')
+    corr_mtx = np.memmap(corr_file, dtype='float16', mode='r',
+                         shape=(73728, 290400))
     pos_mtx = np.zeros((corr_mtx.shape[0], 2))
     for i in range(corr_mtx.shape[0]):
         print 'Iter %s of %s' %(i, corr_mtx.shape[0]),
