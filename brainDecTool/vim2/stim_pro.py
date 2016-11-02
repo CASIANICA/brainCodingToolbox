@@ -95,7 +95,6 @@ def get_train_tr():
         feat[i*bsize:(i+1)*bsize, :] = convolved[:, vol_times]
     del feat
 
- 
 
 if __name__ == "__main__":
     get_train_tr()
