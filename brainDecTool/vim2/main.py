@@ -10,7 +10,84 @@ from scipy.misc import imsave
 from brainDecTool.util import configParser
 from brainDecTool.pipeline import retinotopy
 from brainDecTool.pipeline.base import cross_modal_corr
+from brainDecTool.timeseries import hrf
 import util as vutil
+
+def feat_tr_pro(feat_dir, dataset, layer, out_dir, log_trans=True):
+    """Get TRs from CNN actiavtion datasets.
+    
+    Input
+    -----
+    feat_dir : absolute path of feature directory
+    dataset : train or val
+    layer : index of CNN layers
+    out_dir : output directory
+
+    """
+    # scanning parameter
+    TR = 1
+    # movie fps
+    fps = 15
+    time_unit = 1.0 / fps
+
+    # HRF config
+    hrf_times = np.arange(0, 35, time_unit)
+    hrf_signal = hrf.biGammaHRF(hrf_times)
+
+    # load stimulus time courses
+    prefix_name = 'feat%s_sti_%s' % (layer, dataset)
+    if dataset=='train':
+        feat_ptr = []
+        time_count = 0
+        for i in range(12):
+            tmp = np.load(os.path.join(feat_dir, prefix_name+'_'+str(i+1)+'.npy'),
+                          mmap_mode='r')
+            time_count += tmp.shape[0]
+            feat_ptr.append(tmp)
+        ts_shape = (time_count, feat_ptr[0].shape[1])
+    else:
+        feat_ts = np.load(os.path.join(feat_dir, prefix_name+'.npy'),
+                          mmap_mode='r')
+        ts_shape = feat_ts.shape
+    print 'Original data shape : ', ts_shape
+
+    # data array for storing time series after convolution and down-sampling
+    # to save memory, a memmap is used
+    if log_trans:
+        log_mark = '_log'
+    else:
+        log_mark = ''
+    out_file = os.path.join(out_dir, 'feat%s_%s_trs%s.npy'%(layer, dataset, log_mark))
+    print 'Save TR data into file ', out_file
+    feat = np.memmap(out_file, dtype='float64', mode='w+',
+                     shape=(ts_shape[1], ts_shape[0]/fps))
+
+    # batch_size config
+    bsize = 32
+    # convolution and down-sampling
+    for i in range(ts_shape[1]/bsize):
+        if dataset=='train':
+            for p in range(12):
+                if not p:
+                    ts = feat_ptr[p][:, i*bsize:(i+1)*bsize]
+                else:
+                    ts = np.concatenate([ts, feat_ptr[p][:, i*bsize:(i+1)*bsize]], axis=0)
+        else:
+            ts = feat_ts[:, i*bsize:(i+1)*bsize]
+        ts = ts.T
+        print ts.shape
+        # log-transform
+        if log_trans:
+            ts = np.log(ts+1)
+        # convolved with HRF
+        convolved = np.apply_along_axis(np.convolve, axis=1, ts, hrf_signal)
+        # remove time points after the end of the scanning run
+        n_to_remove = len(hrf_times) - 1
+        convolved = convolved[:, :-n_to_remove]
+        # down-sampling
+        vol_times = np.arange(0, ts_shape[0], fps)
+        feat[i*bsize:(i+1)*bsize, :] = convolved[:, vol_times]
+    del feat
 
 def roi2nifti(fmri_table):
     """Save ROI as a nifti file."""
@@ -123,7 +200,11 @@ if __name__ == '__main__':
     # config parser
     cf = configParser.Config('config')
     data_dir = cf.get('base', 'path')
+    feat_dir = os.path.join(data_dir, 'stimulus')
     stim_dir = os.path.join(data_dir, 'cnn_rsp')
+
+    # CNN activation pre-processing
+    feat_tr_pro(feat_dir, 'train', 1, stim_dir, log_trans=False)
 
     tf = tables.open_file(os.path.join(data_dir, 'VoxelResponses_subject1.mat'))
     #tf.list_nodes
