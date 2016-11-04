@@ -118,14 +118,10 @@ def gen_mean_vol(fmri_table):
     
     vutil.save2nifti(vol, 'S1_mean_rt.nii.gz')
 
-def retinotopic_mapping(data_dir, fmri_ts, feat_ts):
+def retinotopic_mapping(corr_file):
     """Make the retinotopic mapping using activation map from CNN."""
-    retino_dir = os.path.join(data_dir, 'retinotopic')
-    if not os.path.exists(retino_dir):
-        os.mkdir(retino_dir, 0755)
-    corr_file = os.path.join(retino_dir, 'fmri_feat1_corr.npy')
-    #cross_modal_corr(fmri_ts, feat_ts, corr_file, memmap=False)
-    #fig_dir = os.path.join(retino_dir, 'fig')
+    data_dir = os.path.dirname(corr_file)
+    #fig_dir = os.path.join(data_dir, 'fig')
     #if not os.path.exists(fig_dir):
     #    os.mkdir(fig_dir, 0755)
     # load the cross-correlation matrix from file
@@ -159,7 +155,7 @@ def retinotopic_mapping(data_dir, fmri_ts, feat_ts):
         else:
             pos_mtx[i, :] = [np.nan, np.nan]
             print ' '
-    #receptive_field_file = os.path.join(retino_dir, 'receptive_field_pos.npy')
+    #receptive_field_file = os.path.join(data_dir, 'receptive_field_pos.npy')
     #np.save(receptive_field_file, pos_mtx)
     #pos_mtx = np.load(receptive_field_file)
     # eccentricity
@@ -184,15 +180,14 @@ def retinotopic_mapping(data_dir, fmri_ts, feat_ts):
             ecc[i] = 5
     dist_vec = np.nan_to_num(ecc)
     vol = dist_vec.reshape(18, 64, 64)
-    vutil.save2nifti(vol, os.path.join(retino_dir,
-                                       'max' + str(max_n) + '_ecc.nii.gz'))
+    vutil.save2nifti(vol, os.path.join(data_dir,
+                                'train_max' + str(max_n) + '_ecc.nii.gz'))
     # angle
     angle_vec = retinotopy.coord2angle(pos_mtx, (55, 55))
     angle_vec = np.nan_to_num(angle_vec)
     vol = angle_vec.reshape(18, 64, 64)
-    vutil.save2nifti(vol, os.path.join(retino_dir,
-                                       'max'+ str(max_n) + '_angle.nii.gz'))
-
+    vutil.save2nifti(vol, os.path.join(data_dir,
+                                'train_max'+ str(max_n) + '_angle.nii.gz'))
 
 
 if __name__ == '__main__':
@@ -203,31 +198,40 @@ if __name__ == '__main__':
     feat_dir = os.path.join(data_dir, 'stimulus')
     stim_dir = os.path.join(data_dir, 'cnn_rsp')
 
-    # CNN activation pre-processing
+    #-- CNN activation pre-processing
     feat_tr_pro(feat_dir, 'train', 1, stim_dir, log_trans=False)
-
+    
+    #-- load fmri data
     tf = tables.open_file(os.path.join(data_dir, 'VoxelResponses_subject1.mat'))
     #tf.list_nodes
+    #-- mat to nii
     #roi2nifti(tf)
     #gen_mean_vol(tf)
+    #-- to be used
+    #roi = tf.get_node('/roi/v1lh')[:].flatten()
+    #v1lh_idx = np.nonzero(roi==1)[0]
+    #v1lh_resp = data[v1lh_idx]
 
-    # retinotopic mapping
+    #-- calculate cross-modality corrlation 
     # load fmri response from training/validation dataset
-    rv_ts = tf.get_node('/rt')[:]
+    fmri_ts = tf.get_node('/rt')[:]
     # data.shape = (73728, 540) / (73728, 7200)
-    rv_ts = np.nan_to_num(rv_ts)
+    fmri_ts = np.nan_to_num(fmri_ts)
     # load convolved cnn activation data for validation dataset
     feat1_file = os.path.join(stim_dir, 'feat1_train_trs_log.npy')
     #feat1_ts = np.load(feat1_file, mmap_mode='r')
     feat1_ts = np.memmap(feat1_file, dtype='float32', mode='r',
                          shape=(290400, 7200))
     # data.shape = (290400, 540)/(290400, 7200)
-    retinotopic_mapping(data_dir, rv_ts, feat1_ts)
+    retino_dir = os.path.join(data_dir, 'retinotopic')
+    if not os.path.exists(retino_dir):
+        os.mkdir(retino_dir, 0755)
+    corr_file = os.path.join(retino_dir, 'train_fmri_feat1_corr_log.npy')
+    cross_modal_corr(fmri_ts, feat1_ts, corr_file, memmap=False)
+    
+    #-- retinotopic mapping
+    retinotopic_mapping(corr_file)
 
-
+    #-- close fmri data
     tf.close()
-
-    #roi = tf.get_node('/roi/v1lh')[:].flatten()
-    #v1lh_idx = np.nonzero(roi==1)[0]
-    #v1lh_resp = data[v1lh_idx]
 
