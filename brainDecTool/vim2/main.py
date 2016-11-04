@@ -7,6 +7,8 @@ import tables
 from scipy import ndimage
 from scipy.misc import imsave
 
+from joblib import Parallel, delayed
+
 from brainDecTool.util import configParser
 from brainDecTool.pipeline import retinotopy
 from brainDecTool.pipeline.base import cross_modal_corr
@@ -24,70 +26,84 @@ def feat_tr_pro(feat_dir, dataset, layer, out_dir, log_trans=True):
     out_dir : output directory
 
     """
-    # scanning parameter
-    TR = 1
-    # movie fps
-    fps = 15
-    time_unit = 1.0 / fps
-
-    # HRF config
-    hrf_times = np.arange(0, 35, time_unit)
-    hrf_signal = hrf.biGammaHRF(hrf_times)
-
     # load stimulus time courses
     prefix_name = 'feat%s_sti_%s' % (layer, dataset)
+    feat_ptr = []
     if dataset=='train':
-        feat_ptr = []
         time_count = 0
         for i in range(12):
-            tmp = np.load(os.path.join(feat_dir, prefix_name+'_'+str(i+1)+'.npy'),
+            tmp = np.load(os.path.join(feat_dir, 'stimulus_'+dataset,
+                                       prefix_name+'_'+str(i+1)+'.npy'),
                           mmap_mode='r')
             time_count += tmp.shape[0]
             feat_ptr.append(tmp)
         ts_shape = (time_count, feat_ptr[0].shape[1])
     else:
-        feat_ts = np.load(os.path.join(feat_dir, prefix_name+'.npy'),
+        feat_ts = np.load(os.path.join(feat_dir, 'stimulus_'+datatset,
+                                       prefix_name+'.npy'),
                           mmap_mode='r')
+        feat_ptr.append(feat_ts)
         ts_shape = feat_ts.shape
     print 'Original data shape : ', ts_shape
 
+    # movie fps
+    fps = 15
+    
     # data array for storing time series after convolution and down-sampling
     # to save memory, a memmap is used
     if log_trans:
         log_mark = '_log'
     else:
         log_mark = ''
-    out_file = os.path.join(out_dir, 'feat%s_%s_trs%s.npy'%(layer, dataset, log_mark))
+    out_file = os.path.join(out_dir,
+                            'feat%s_%s_trs%s.npy'%(layer, dataset, log_mark))
     print 'Save TR data into file ', out_file
     feat = np.memmap(out_file, dtype='float64', mode='w+',
                      shape=(ts_shape[1], ts_shape[0]/fps))
 
     # batch_size config
-    bsize = 32
+    bsize = 96
     # convolution and down-sampling
-    for i in range(ts_shape[1]/bsize):
-        if dataset=='train':
-            for p in range(12):
-                if not p:
-                    ts = feat_ptr[p][:, i*bsize:(i+1)*bsize]
-                else:
-                    ts = np.concatenate([ts, feat_ptr[p][:, i*bsize:(i+1)*bsize]], axis=0)
-        else:
-            ts = feat_ts[:, i*bsize:(i+1)*bsize]
-        ts = ts.T
-        print ts.shape
-        # log-transform
-        if log_trans:
-            ts = np.log(ts+1)
-        # convolved with HRF
-        convolved = np.apply_along_axis(np.convolve, axis=1, ts, hrf_signal)
-        # remove time points after the end of the scanning run
-        n_to_remove = len(hrf_times) - 1
-        convolved = convolved[:, :-n_to_remove]
-        # down-sampling
-        vol_times = np.arange(0, ts_shape[0], fps)
-        feat[i*bsize:(i+1)*bsize, :] = convolved[:, vol_times]
-    del feat
+    # parallelize the processing
+    Parallel(n_jobs=10)(delayed(stim_pro)(feat_ptr, dataset, feat, bsize, fps,
+                                log_trans, i) for i in range(ts_shape[1]/bsize))
+
+def stim_pro(feat_ptr, dataset, output, bsize, fps, log_trans, i):
+    """Sugar function for parallel computing."""
+    print i
+    # scanning parameter
+    TR = 1
+    # movie fps
+    #fps = 15
+    time_unit = 1.0 / fps
+
+    # HRF config
+    hrf_times = np.arange(0, 35, time_unit)
+    hrf_signal = hrf.biGammaHRF(hrf_times)
+
+    # procssing
+    if dataset=='train':
+        for p in range(len(feat_ptr)):
+            if not p:
+                ts = feat_ptr[p][:, i*bsize:(i+1)*bsize]
+            else:
+                ts = np.concatenate([ts, feat_ptr[p][:, i*bsize:(i+1)*bsize]],
+                                    axis=0)
+    else:
+        ts = feat_ptr[0][:, i*bsize:(i+1)*bsize]
+    ts = ts.T
+    #print ts.shape
+    # log-transform
+    if log_trans:
+        ts = np.log(ts+1)
+    # convolved with HRF
+    convolved = np.apply_along_axis(np.convolve, 1, ts, hrf_signal)
+    # remove time points after the end of the scanning run
+    n_to_remove = len(hrf_times) - 1
+    convolved = convolved[:, :-n_to_remove]
+    # down-sampling
+    vol_times = np.arange(0, ts.shape[1], fps)
+    output[i*bsize:(i+1)*bsize, :] = convolved[:, vol_times]
 
 def roi2nifti(fmri_table):
     """Save ROI as a nifti file."""
@@ -226,8 +242,8 @@ if __name__ == '__main__':
     retino_dir = os.path.join(data_dir, 'retinotopic')
     if not os.path.exists(retino_dir):
         os.mkdir(retino_dir, 0755)
-    corr_file = os.path.join(retino_dir, 'train_fmri_feat1_corr_log.npy')
-    cross_modal_corr(fmri_ts, feat1_ts, corr_file, memmap=False)
+    corr_file = os.path.join(retino_dir, 'train_fmri_feat1_log_corr.npy')
+    cross_modal_corr(fmri_ts, feat1_ts, corr_file, block_size=96)
     
     #-- retinotopic mapping
     retinotopic_mapping(corr_file)
