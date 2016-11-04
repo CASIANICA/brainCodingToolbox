@@ -7,10 +7,102 @@ import tables
 from scipy import ndimage
 from scipy.misc import imsave
 
+from joblib import Parallel, delayed
+
 from brainDecTool.util import configParser
 from brainDecTool.pipeline import retinotopy
 from brainDecTool.pipeline.base import cross_modal_corr
+from brainDecTool.timeseries import hrf
 import util as vutil
+
+def feat_tr_pro(feat_dir, dataset, layer, out_dir, log_trans=True):
+    """Get TRs from CNN actiavtion datasets.
+    
+    Input
+    -----
+    feat_dir : absolute path of feature directory
+    dataset : train or val
+    layer : index of CNN layers
+    out_dir : output directory
+
+    """
+    # load stimulus time courses
+    prefix_name = 'feat%s_sti_%s' % (layer, dataset)
+    feat_ptr = []
+    if dataset=='train':
+        time_count = 0
+        for i in range(12):
+            tmp = np.load(os.path.join(feat_dir, 'stimulus_'+dataset,
+                                       prefix_name+'_'+str(i+1)+'.npy'),
+                          mmap_mode='r')
+            time_count += tmp.shape[0]
+            feat_ptr.append(tmp)
+        ts_shape = (time_count, feat_ptr[0].shape[1])
+    else:
+        feat_ts = np.load(os.path.join(feat_dir, 'stimulus_'+datatset,
+                                       prefix_name+'.npy'),
+                          mmap_mode='r')
+        feat_ptr.append(feat_ts)
+        ts_shape = feat_ts.shape
+    print 'Original data shape : ', ts_shape
+
+    # movie fps
+    fps = 15
+    
+    # data array for storing time series after convolution and down-sampling
+    # to save memory, a memmap is used
+    if log_trans:
+        log_mark = '_log'
+    else:
+        log_mark = ''
+    out_file = os.path.join(out_dir,
+                            'feat%s_%s_trs%s.npy'%(layer, dataset, log_mark))
+    print 'Save TR data into file ', out_file
+    feat = np.memmap(out_file, dtype='float64', mode='w+',
+                     shape=(ts_shape[1], ts_shape[0]/fps))
+
+    # batch_size config
+    bsize = 3025
+    # convolution and down-sampling in a parallel approach
+    Parallel(n_jobs=5)(delayed(stim_pro)(feat_ptr, dataset, feat, bsize, fps,
+                                log_trans, i) for i in range(ts_shape[1]/bsize))
+
+def stim_pro(feat_ptr, dataset, output, bsize, fps, log_trans, i):
+    """Sugar function for parallel computing."""
+    print i
+    # scanning parameter
+    TR = 1
+    # movie fps
+    #fps = 15
+    time_unit = 1.0 / fps
+
+    # HRF config
+    hrf_times = np.arange(0, 35, time_unit)
+    hrf_signal = hrf.biGammaHRF(hrf_times)
+
+    # procssing
+    if dataset=='train':
+        for p in range(len(feat_ptr)):
+            if not p:
+                ts = feat_ptr[p][:, i*bsize:(i+1)*bsize]
+            else:
+                ts = np.concatenate([ts, feat_ptr[p][:, i*bsize:(i+1)*bsize]],
+                                    axis=0)
+    else:
+        ts = feat_ptr[0][:, i*bsize:(i+1)*bsize]
+    ts = ts.T
+    #print ts.shape
+    # log-transform
+    if log_trans:
+        ts = np.log(ts+1)
+    # convolved with HRF
+    convolved = np.apply_along_axis(np.convolve, 1, ts, hrf_signal)
+    # remove time points after the end of the scanning run
+    n_to_remove = len(hrf_times) - 1
+    convolved = convolved[:, :-n_to_remove]
+    # down-sampling
+    vol_times = np.arange(0, ts.shape[1], fps)
+    output[i*bsize:(i+1)*bsize, :] = convolved[:, vol_times]
 
 def roi2nifti(fmri_table):
     """Save ROI as a nifti file."""
@@ -41,18 +133,16 @@ def gen_mean_vol(fmri_table):
     
     vutil.save2nifti(vol, 'S1_mean_rt.nii.gz')
 
-def retinotopic_mapping(data_dir, fmri_ts, feat_ts):
+def retinotopic_mapping(corr_file):
     """Make the retinotopic mapping using activation map from CNN."""
-    retino_dir = os.path.join(data_dir, 'retinotopic')
-    if not os.path.exists(retino_dir):
-        os.mkdir(retino_dir, 0755)
-    corr_file = os.path.join(retino_dir, 'fmri_feat1_corr.npy')
-    #cross_modal_corr(fmri_ts, feat_ts, corr_file, memmap=False)
-    #fig_dir = os.path.join(retino_dir, 'fig')
+    data_dir = os.path.dirname(corr_file)
+    #fig_dir = os.path.join(data_dir, 'fig')
     #if not os.path.exists(fig_dir):
     #    os.mkdir(fig_dir, 0755)
     # load the cross-correlation matrix from file
-    corr_mtx = np.load(corr_file, mmap_mode='r')
+    #corr_mtx = np.load(corr_file, mmap_mode='r')
+    corr_mtx = np.memmap(corr_file, dtype='float16', mode='r',
+                         shape=(73728, 290400))
     pos_mtx = np.zeros((corr_mtx.shape[0], 2))
     for i in range(corr_mtx.shape[0]):
         print 'Iter %s of %s' %(i, corr_mtx.shape[0]),
@@ -80,7 +170,7 @@ def retinotopic_mapping(data_dir, fmri_ts, feat_ts):
         else:
             pos_mtx[i, :] = [np.nan, np.nan]
             print ' '
-    #receptive_field_file = os.path.join(retino_dir, 'receptive_field_pos.npy')
+    #receptive_field_file = os.path.join(data_dir, 'receptive_field_pos.npy')
     #np.save(receptive_field_file, pos_mtx)
     #pos_mtx = np.load(receptive_field_file)
     # eccentricity
@@ -105,15 +195,14 @@ def retinotopic_mapping(data_dir, fmri_ts, feat_ts):
             ecc[i] = 5
     dist_vec = np.nan_to_num(ecc)
     vol = dist_vec.reshape(18, 64, 64)
-    vutil.save2nifti(vol, os.path.join(retino_dir,
-                                       'max' + str(max_n) + '_ecc.nii.gz'))
+    vutil.save2nifti(vol, os.path.join(data_dir,
+                                'train_max' + str(max_n) + '_ecc.nii.gz'))
     # angle
     angle_vec = retinotopy.coord2angle(pos_mtx, (55, 55))
     angle_vec = np.nan_to_num(angle_vec)
     vol = angle_vec.reshape(18, 64, 64)
-    vutil.save2nifti(vol, os.path.join(retino_dir,
-                                       'max'+ str(max_n) + '_angle.nii.gz'))
-
+    vutil.save2nifti(vol, os.path.join(data_dir,
+                                'train_max'+ str(max_n) + '_angle.nii.gz'))
 
 
 if __name__ == '__main__':
@@ -121,30 +210,43 @@ if __name__ == '__main__':
     # config parser
     cf = configParser.Config('config')
     data_dir = cf.get('base', 'path')
+    feat_dir = os.path.join(data_dir, 'stimulus')
     stim_dir = os.path.join(data_dir, 'cnn_rsp')
 
+    #-- CNN activation pre-processing
+    feat_tr_pro(feat_dir, 'train', 1, stim_dir, log_trans=False)
+    
+    #-- load fmri data
     tf = tables.open_file(os.path.join(data_dir, 'VoxelResponses_subject1.mat'))
     #tf.list_nodes
+    #-- mat to nii
     #roi2nifti(tf)
     #gen_mean_vol(tf)
+    #-- to be used
+    #roi = tf.get_node('/roi/v1lh')[:].flatten()
+    #v1lh_idx = np.nonzero(roi==1)[0]
+    #v1lh_resp = data[v1lh_idx]
 
-    # retinotopic mapping
+    #-- calculate cross-modality corrlation 
     # load fmri response from training/validation dataset
-    rv_ts = tf.get_node('/rt')[:]
+    fmri_ts = tf.get_node('/rt')[:]
     # data.shape = (73728, 540) / (73728, 7200)
-    rv_ts = np.nan_to_num(rv_ts)
+    fmri_ts = np.nan_to_num(fmri_ts)
     # load convolved cnn activation data for validation dataset
     feat1_file = os.path.join(stim_dir, 'feat1_train_trs_log.npy')
     #feat1_ts = np.load(feat1_file, mmap_mode='r')
     feat1_ts = np.memmap(feat1_file, dtype='float32', mode='r',
                          shape=(290400, 7200))
     # data.shape = (290400, 540)/(290400, 7200)
-    corr_mtx = retinotopic_mapping(data_dir, rv_ts, feat1_ts)
+    retino_dir = os.path.join(data_dir, 'retinotopic')
+    if not os.path.exists(retino_dir):
+        os.mkdir(retino_dir, 0755)
+    corr_file = os.path.join(retino_dir, 'train_fmri_feat1_log_corr.npy')
+    cross_modal_corr(fmri_ts, feat1_ts, corr_file, block_size=96)
+    
+    #-- retinotopic mapping
+    retinotopic_mapping(corr_file)
 
-
+    #-- close fmri data
     tf.close()
-
-    #roi = tf.get_node('/roi/v1lh')[:].flatten()
-    #v1lh_idx = np.nonzero(roi==1)[0]
-    #v1lh_resp = data[v1lh_idx]
 
