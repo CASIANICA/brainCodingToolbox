@@ -62,9 +62,9 @@ def feat_tr_pro(feat_dir, dataset, layer, out_dir, log_trans=True):
                      shape=(ts_shape[1], ts_shape[0]/fps))
 
     # batch_size config
-    bsize = 3025
+    bsize = 96
     # convolution and down-sampling in a parallel approach
-    Parallel(n_jobs=5)(delayed(stim_pro)(feat_ptr, dataset, feat, bsize, fps,
+    Parallel(n_jobs=10)(delayed(stim_pro)(feat_ptr, dataset, feat, bsize, fps,
                                 log_trans, i) for i in range(ts_shape[1]/bsize))
 
 def stim_pro(feat_ptr, dataset, output, bsize, fps, log_trans, i):
