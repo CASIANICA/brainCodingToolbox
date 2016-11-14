@@ -68,8 +68,7 @@ def down_sample_pro(orig_feat, orig_size, fact, start_idx, output):
     """Sugar function for parallel computing."""
     data_shape = orig_feat.shape
     for i in range(data_shape[0]):
-        tmp = orig_feat[0, :]
-        tmp = tmp.reshape(orig_size)
+        tmp = orig_feat[i, :].reshape(orig_size)
         dtmp = down_sample(tmp, (1, fact, fact))
         output[start_idx+i, :] = dtmp.flatten()
 
