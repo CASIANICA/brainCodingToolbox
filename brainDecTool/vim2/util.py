@@ -15,6 +15,14 @@ def idx2coord(vec_idx):
     coord_y = (vec_idx % (data_size[1]*data_size[2])) / data_size[2]
     return (coord_x, coord_y, coord_z)
 
+def coord2idx(coord):
+    """Convert a 3D coordinate from nifti file into row index in response
+    data matrix.
+    Input must be a tuple.
+    """
+    ncoord = (coord[2], coord[0], 63-coord[1])
+    return ncoord[2]+ncoord[0]*64*64+ncoord[1]*64
+
 def node2feature(layer_name, node_idx):
     """Convert node index from CNN activation vector into 3 features including
     index of channel, row and column position of the filter.
@@ -24,7 +32,7 @@ def node2feature(layer_name, node_idx):
                  'conv2': [256, 27, 27],
                  'conv3': [384, 13, 13],
                  'conv4': [384, 13, 13],
-                 'conv5': [256, 13, 13],
+                 'cpnv5': [256, 13, 13],
                  'pool5': [256, 6, 6]}
     s = data_size[layer_name]
     col_idx = node_idx % s[2]

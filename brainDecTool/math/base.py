@@ -34,3 +34,20 @@ def down_sample(image, block_size, cval=0):
     """
     return block_reduce(image, block_size, func=np.mean, cval=cval)
 
+def time_lag_corr(x, y, maxlag):
+    """Calculate cross-correlation between x and a lagged y.
+    `x` and `y` are two 1-D vector, `maxlag` refers to the maximum lag value.
+
+    formula
+    -------
+    c_{xy}[k] = sum_n x[n] * y[n+k]
+    k : 0 ~ (maxlag-1)
+
+    """
+    c = np.zeros(maxlag)
+    y = np.array(y)
+    for i in range(maxlag):
+        lagy = np.array(y[i:].tolist()+[0]*i)
+        c[i] = np.correlate(x, lagy) / len(x)
+    return c
+
