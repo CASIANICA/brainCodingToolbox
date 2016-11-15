@@ -266,6 +266,39 @@ def retinotopic_mapping(corr_file):
     vutil.save2nifti(vol, os.path.join(data_dir,
                                 'train_max'+ str(max_n) + '_angle.nii.gz'))
 
+def hrf_estimate(tf, feat_ts):
+    """Estimate HRFs."""
+    # voxel coordinates for test
+    # voxels from R_V1
+    # 0. (20, 36, 13) -> (20, 27, 13) -> (13, 20, 27)
+    # 1. (20, 34, 13) -> (20, 29, 13) -> (13, 20, 29)
+    # 2. (22, 34, 9) -> (22, 29, 9) -> (9, 22, 29)
+    # voxels from L_V1
+    # 3. (20, 29, 9) -> (20, 34, 9) -> (9, 20, 34)
+    # 4. (16, 29, 12) -> (16, 34, 12) -> (12, 16, 34)
+
+    voxels = [(20, 36, 13),
+              (20, 34, 13),
+              (22, 34, 9),
+              (20, 29, 9),
+              (16, 29, 12)]
+    # voxel label validation
+    #rv1_roi = tf.get_node('/roi/v1rh')
+    #lv1_roi = tf.get_node('/roi/v1lh')
+    # get time courses for each voxel
+    vxl_idx = [vutil.coord2idx(coord) for coord in voxels]
+    rt = tf.get_node('/rt')[:]
+    vxl_data = rt[vxl_idx, :]
+    vxl_data = np.nan_to_num(vxl_data)
+
+    out = np.zeros((290400, 40, 5))
+    for i in range(5):
+        for j in range(feat_ts.shape[0]):
+            print '%s - %s' %(i, j)
+            tmp = feat_ts[j, :]
+            tmp = (tmp - tmp.mean()) / tmp.std()
+            out[j, :, i] = time_lag_corr(tmp, vxl_data[i, :], 40)
+    np.save('hrf_test.npy', out)
 
 if __name__ == '__main__':
     """Main function."""
