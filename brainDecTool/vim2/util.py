@@ -24,7 +24,7 @@ def node2feature(layer_name, node_idx):
                  'conv2': [256, 27, 27],
                  'conv3': [384, 13, 13],
                  'conv4': [384, 13, 13],
-                 'cpnv5': [256, 13, 13],
+                 'conv5': [256, 13, 13],
                  'pool5': [256, 6, 6]}
     s = data_size[layer_name]
     col_idx = node_idx % s[2]
