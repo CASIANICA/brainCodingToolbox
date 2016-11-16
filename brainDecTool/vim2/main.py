@@ -333,11 +333,15 @@ if __name__ == '__main__':
     # data.shape = (73728, 540) / (73728, 7200)
     fmri_ts = np.nan_to_num(fmri_ts)
     # load convolved cnn activation data for validation dataset
-    feat1_file = os.path.join(stim_dir, 'feat1_train_ds5_trs.npy')
+    feat1_file = os.path.join(stim_dir, 'feat1_train_trs_log.npy')
     #feat1_ts = np.load(feat1_file, mmap_mode='r')
     feat1_ts = np.memmap(feat1_file, dtype='float64', mode='r',
-                         shape=(11616, 7200))
-                         #shape=(290400, 7200))
+                         #shape=(11616, 7200))
+                         shape=(290400, 7200))
+    # sum up all channels
+    feat1_ts = feat1_ts.reshape(96, 55, 55, 7200)
+    feat1_ts = feat1_ts.sum(axis=0)
+    feat1_ts = feat1_ts.reshape(3025, 7200)
     # data.shape = (290400, 540)/(290400, 7200)
     retino_dir = os.path.join(data_dir, 'retinotopic')
     if not os.path.exists(retino_dir):
