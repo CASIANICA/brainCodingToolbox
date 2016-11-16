@@ -4,6 +4,8 @@
 import os
 import numpy as np
 import nibabel as nib
+import matplotlib.pylab as plt
+
 
 def idx2coord(vec_idx):
     """Convert row index in response data matrix into 3D coordinate in
@@ -55,4 +57,23 @@ def save2nifti(data, filename):
     aff[3, 3] = 1
     img = nib.Nifti1Image(ndata, aff)
     nib.save(img, filename)
+
+def plot_prf(prf_file):
+    """Plot pRF."""
+    prf_data = np.load(prf_file)
+    vxl = prf_data[..., 0]
+    # figure config
+
+    for f in range(96):
+        fig, axs = plt.subplots(5, 8)
+        for t in range(40):
+            tmp = vxl[:, t].reshape(96, 55, 55)
+            tmp = tmp[f, :]
+            im = axs[t/8][t%8].imshow(tmp, interpolation='nearest',
+                                      cmap=plt.cm.ocean,
+                                      vmin=-0.2, vmax=0.3)
+        fig.colorbar(im)
+        fig.savefig('%s.png'%(f))
+        #plt.show()
+
 
