@@ -6,6 +6,7 @@ import numpy as np
 import nibabel as nib
 import matplotlib.pylab as plt
 
+from brainDecTool.math import corr2_coef
 
 def idx2coord(vec_idx):
     """Convert row index in response data matrix into 3D coordinate in
@@ -73,7 +74,25 @@ def plot_prf(prf_file):
                                       cmap=plt.cm.ocean,
                                       vmin=-0.2, vmax=0.3)
         fig.colorbar(im)
-        fig.savefig('%s.png'%(f))
         #plt.show()
+        fig.savefig('%s.png'%(f))
 
-
+def layer_sim(feat_file):
+    """Compute similarity between each pair of features."""
+    feat = np.load(feat_file)
+    print feat.shape
+    feat = feat.reshape(96, 55, 55, 540)
+    simmtx = np.zeros((feat.shape[0], feat.shape[0]))
+    for i in range(feat.shape[0]):
+        for j in range(i, feat.shape[0]):
+            print '%s - %s' %(i, j)
+            x = feat[i, :].reshape(-1, feat.shape[3])
+            y = feat[j, :].reshape(-1, feat.shape[3])
+            tmp = corr2_coef(x, y)
+            tmp = tmp.diagonal()
+            simmtx[i, j] = tmp.mean()
+    np.save('sim_mtx.npy', simmtx)
+    im = plt.imshow(simmtx, interpolation='nearest', cmap=plt.cm.ocean)
+    plt.colorbar(im)
+    plt.show()
+ 
