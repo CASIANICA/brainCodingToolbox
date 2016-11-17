@@ -216,9 +216,6 @@ def retinotopic_mapping(corr_file):
             print mmtx.min(), mmtx.max()
             #fig_file = os.path.join(fig_dir, 'v'+str(i)+'.png')
             #imsave(fig_file, mmtx)
-            ## maximum location
-            #x, y = np.unravel_index(mmtx.argmax(), mmtx.shape)
-            #pos_mtx[i, :] = [x, y]
             # get indices of n maximum values
             max_n = 20
             row_idx, col_idx = np.unravel_index(
