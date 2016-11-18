@@ -11,7 +11,7 @@ from joblib import Parallel, delayed
 
 from brainDecTool.util import configParser
 from brainDecTool.pipeline import retinotopy
-from brainDecTool.pipeline.base import cross_modal_corr
+from brainDecTool.pipeline.base import cross_modal_corr, random_cross_modal_corr
 from brainDecTool.math import down_sample
 from brainDecTool.timeseries import hrf
 import util as vutil
@@ -210,6 +210,9 @@ def retinotopic_mapping(corr_file):
         print 'Iter %s of %s' %(i, corr_mtx.shape[0]),
         tmp = corr_mtx[i, :]
         tmp = np.nan_to_num(np.array(tmp))
+        # significant threshold
+        # one-tail test
+        tmp[tmp <= 0.019257] = 0
         if np.sum(tmp):
             tmp = tmp.reshape(96, 55, 55)
             mmtx = np.max(tmp, axis=0)
@@ -242,7 +245,9 @@ def retinotopic_mapping(corr_file):
     # else > 16 degree
     ecc = np.zeros(dist.shape)
     for i in range(len(dist)):
-        if dist[i] < 5.445:
+        if np.isnan(dist[i]):
+            ecc[i] = 0
+        elif dist[i] < 5.445:
             ecc[i] = 1
         elif dist[i] < 10.91:
             ecc[i] = 2
@@ -252,13 +257,14 @@ def retinotopic_mapping(corr_file):
             ecc[i] = 4
         else:
             ecc[i] = 5
-    dist_vec = np.nan_to_num(ecc)
-    vol = dist_vec.reshape(18, 64, 64)
+    #dist_vec = np.nan_to_num(ecc)
+    #vol = dist_vec.reshape(18, 64, 64)
+    vol = ecc.reshape(18, 64, 64)
     vutil.save2nifti(vol, os.path.join(data_dir,
                                 'train_max' + str(max_n) + '_ecc.nii.gz'))
     # angle
     angle_vec = retinotopy.coord2angle(pos_mtx, (55, 55))
-    angle_vec = np.nan_to_num(angle_vec)
+    #angle_vec = np.nan_to_num(angle_vec)
     vol = angle_vec.reshape(18, 64, 64)
     vutil.save2nifti(vol, os.path.join(data_dir,
                                 'train_max'+ str(max_n) + '_angle.nii.gz'))
@@ -296,6 +302,7 @@ def hrf_estimate(tf, feat_ts):
             tmp = (tmp - tmp.mean()) / tmp.std()
             out[j, :, i] = time_lag_corr(tmp, vxl_data[i, :], 40)
     np.save('hrf_test.npy', out)
+
 
 if __name__ == '__main__':
     """Main function."""
@@ -337,6 +344,8 @@ if __name__ == '__main__':
                          shape=(290400, 7200))
     # sum up all channels
     feat1_ts = feat1_ts.reshape(96, 55, 55, 7200)
+    # select parts of channels
+    feat1_ts = feat1_ts[0:48, :]
     feat1_ts = feat1_ts.sum(axis=0)
     feat1_ts = feat1_ts.reshape(3025, 7200)
     # data.shape = (290400, 540)/(290400, 7200)
@@ -344,7 +353,9 @@ if __name__ == '__main__':
     if not os.path.exists(retino_dir):
         os.mkdir(retino_dir, 0755)
     corr_file = os.path.join(retino_dir, 'train_fmri_feat1_ds5_corr.npy')
-    cross_modal_corr(fmri_ts, feat1_ts, corr_file, block_size=96)
+    #cross_modal_corr(fmri_ts, feat1_ts, corr_file, block_size=96)
+    rand_corr_file = os.path.join(retino_dir, 'train_fmri_feat1_rand_corr.npy')
+    random_modal_corr(fmri_ts, feat1_ts, 10, 1000, rand_corr_file)
     
     #-- retinotopic mapping
     #retinotopic_mapping(corr_file)
