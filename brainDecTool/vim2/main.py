@@ -152,7 +152,8 @@ def stim_pro(feat_ptr, output, bsize, fps, log_trans, i):
         else:
             ts = np.concatenate([ts, feat_ptr[p][:, i*bsize:(i+1)*bsize]],
                                 axis=0)
-    ts = ts.T
+    # get the absolute value of response
+    ts = np.abs(ts.T)
     #print ts.shape
     # log-transform
     if log_trans:
