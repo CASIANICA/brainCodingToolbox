@@ -72,8 +72,8 @@ def down_sample_pro(orig_feat, orig_size, fact, start_idx, output):
         dtmp = down_sample(tmp, (1, fact, fact))
         output[start_idx+i, :] = dtmp.flatten()
 
-def feat_tr_pro(feat_dir, out_dir,  data_file=None, data_size=None,
-                dataset=None, layer=None, log_trans=True):
+def feat_tr_pro(feat_dir, out_dir, data_file=None, data_size=None,
+                dataset=None, layer=None, out_size=None, log_trans=True):
     """Get TRs from CNN actiavtion datasets.
     
     Input
@@ -124,15 +124,18 @@ def feat_tr_pro(feat_dir, out_dir,  data_file=None, data_size=None,
     out_file = os.path.join(out_dir, out_file_name)
     print 'Save TR data into file ', out_file
     feat = np.memmap(out_file, dtype='float64', mode='w+',
-                     shape=(ts_shape[1], ts_shape[0]/fps))
+                     shape=(out_size[0], out_size[1], out_size[2],
+                            ts_shape[0]/fps))
+    #                 shape=(ts_shape[1], ts_shape[0]/fps))
 
     # batch_size config
-    bsize = 96
+    #bsize = 96
     # convolution and down-sampling in a parallel approach
-    Parallel(n_jobs=10)(delayed(stim_pro)(feat_ptr, feat, bsize, fps, log_trans,
-                            i) for i in range(ts_shape[1]/bsize))
+    Parallel(n_jobs=10)(delayed(stim_pro)(feat_ptr, feat, out_size,
+                                          fps, log_trans, i)
+                            for i in range(ts_shape[1]/out_size[2]))
 
-def stim_pro(feat_ptr, output, bsize, fps, log_trans, i):
+def stim_pro(feat_ptr, output, data_size, fps, log_trans, i):
     """Sugar function for parallel computing."""
     print i
     # scanning parameter
@@ -146,6 +149,7 @@ def stim_pro(feat_ptr, output, bsize, fps, log_trans, i):
     hrf_signal = hrf.biGammaHRF(hrf_times)
 
     # procssing
+    bsize = data_size[2]
     for p in range(len(feat_ptr)):
         if not p:
             ts = feat_ptr[p][:, i*bsize:(i+1)*bsize]
@@ -165,7 +169,11 @@ def stim_pro(feat_ptr, output, bsize, fps, log_trans, i):
     convolved = convolved[:, :-n_to_remove]
     # down-sampling
     vol_times = np.arange(0, ts.shape[1], fps)
-    output[i*bsize:(i+1)*bsize, :] = convolved[:, vol_times]
+    # get start index
+    idx = i*bsize
+    channel_idx, row, col = vutil.node2feature(idx, data_size)
+    output[channel_idx, row, :] = convolved[:, vol_times]
+    #output[i*bsize:(i+1)*bsize, :] = convolved[:, vol_times]
 
 def roi2nifti(fmri_table):
     """Save ROI as a nifti file."""

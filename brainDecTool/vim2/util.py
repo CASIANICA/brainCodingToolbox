@@ -26,18 +26,19 @@ def coord2idx(coord):
     ncoord = (coord[2], coord[0], 63-coord[1])
     return ncoord[2]+ncoord[0]*64*64+ncoord[1]*64
 
-def node2feature(layer_name, node_idx):
+def node2feature(node_idx, data_shape):
     """Convert node index from CNN activation vector into 3 features including
     index of channel, row and column position of the filter.
     Return a tuple of (channel index, row index, column index).
     """
-    data_size = {'conv1': [96, 55, 55],
-                 'conv2': [256, 27, 27],
-                 'conv3': [384, 13, 13],
-                 'conv4': [384, 13, 13],
-                 'cpnv5': [256, 13, 13],
-                 'pool5': [256, 6, 6]}
-    s = data_size[layer_name]
+    #data_size = {'conv1': [96, 55, 55],
+    #             'conv2': [256, 27, 27],
+    #             'conv3': [384, 13, 13],
+    #             'conv4': [384, 13, 13],
+    #             'cpnv5': [256, 13, 13],
+    #             'pool5': [256, 6, 6]}
+    #s = data_size[layer_name]
+    s = data_shape
     col_idx = node_idx % s[2]
     channel_idx = node_idx / (s[1]*s[2])
     row_idx = (node_idx % (s[1]*s[2])) / s[2]
