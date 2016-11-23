@@ -14,6 +14,7 @@ from brainDecTool.pipeline import retinotopy
 from brainDecTool.pipeline.base import cross_modal_corr, random_cross_modal_corr
 from brainDecTool.math import down_sample
 from brainDecTool.timeseries import hrf
+from brainDecTool.pipeline import lm
 import util as vutil
 
 
@@ -306,19 +307,32 @@ if __name__ == '__main__':
     # data.shape = (96, 55, 55, 540/7200)
     # sum up all channels
     # select parts of channels
-    feat1_ts = feat1_ts[0:48, :]
-    feat1_ts = feat1_ts.sum(axis=0)
+    #feat1_ts = feat1_ts[0:48, :]
+    #feat1_ts = feat1_ts.sum(axis=0)
     retino_dir = os.path.join(data_dir, 'retinotopic')
     if not os.path.exists(retino_dir):
         os.mkdir(retino_dir, 0755)
-    corr_file = os.path.join(retino_dir, 'val_fmri_abs_feat1_corr.npy')
-    feat1_ts = feat1_ts.reshape(3025, 540)
-    cross_modal_corr(fmri_ts, feat1_ts, corr_file, block_size=55)
+    #corr_file = os.path.join(retino_dir, 'val_fmri_abs_feat1_corr.npy')
+    #feat1_ts = feat1_ts.reshape(3025, 540)
+    #cross_modal_corr(fmri_ts, feat1_ts, corr_file, block_size=55)
     #rand_corr_file = os.path.join(retino_dir, 'train_fmri_feat1_rand_corr.npy')
     #random_modal_corr(fmri_ts, feat1_ts, 10, 1000, rand_corr_file)
     
     #-- retinotopic mapping
-    retinotopic_mapping(corr_file)
+    #retinotopic_mapping(corr_file)
+
+    #-- multiple regression voxel ~ channels from each location
+    regress_file = os.path.join(retino_dir, 'val_fmri_abs_feat1_regress.npy')
+    reg_mtx = np.memmap(regress_file, dtype='float16', mode='w+',
+                        shape=(73728, 55, 55))
+    for v in range(73728):
+        for row in range(55):
+            for col in range(55):
+                print '%s-r%s-c%s' %(v, row, col)
+                y = fmri_ts[v, :]
+                x = feat1_ts[:, row, col, :].T
+                reg_mtx[v, row, col] = lm.ols_fit(y, x)
+    
 
     #-- close fmri data
     tf.close()
