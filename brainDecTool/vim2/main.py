@@ -72,18 +72,24 @@ def down_sample_pro(orig_feat, orig_size, fact, start_idx, output):
         dtmp = down_sample(tmp, (1, fact, fact))
         output[start_idx+i, :] = dtmp.flatten()
 
-def feat_tr_pro(feat_dir, out_dir, data_file=None, data_size=None,
-                dataset=None, layer=None, out_size=None, log_trans=True):
+def feat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None):
     """Get TRs from CNN actiavtion datasets.
     
     Input
     -----
     feat_dir : absolute path of feature directory
+    out_dir : output directory
     dataset : train or val
     layer : index of CNN layers
-    out_dir : output directory
+    ds_fact : spatial down-sample factor
 
     """
+    # layer size
+    layer_size = {1: [96, 55, 55],
+                  2: [256, 27, 27],
+                  3: [384, 13, 13],
+                  4: [384, 13, 13],
+                  5: [256, 13, 13]}
     # load stimulus time courses
     prefix_name = 'feat%s_sti_%s' % (layer, dataset)
     feat_ptr = []
@@ -96,16 +102,10 @@ def feat_tr_pro(feat_dir, out_dir, data_file=None, data_size=None,
             time_count += tmp.shape[0]
             feat_ptr.append(tmp)
         ts_shape = (time_count, feat_ptr[0].shape[1])
-    elif dataset=='val':
-        feat_ts = np.load(os.path.join(feat_dir, 'stimulus_'+datatset,
+    else:
+        feat_ts = np.load(os.path.join(feat_dir, 'stimulus_'+dataset,
                                        prefix_name+'.npy'),
                           mmap_mode='r')
-        feat_ptr.append(feat_ts)
-        ts_shape = feat_ts.shape
-    else:
-        feat_ts = np.memmap(os.path.join(feat_dir, data_file),
-                            dtype='float64', mode='r',
-                            shape=data_size)
         feat_ptr.append(feat_ts)
         ts_shape = feat_ts.shape
 
@@ -114,28 +114,33 @@ def feat_tr_pro(feat_dir, out_dir, data_file=None, data_size=None,
     # movie fps
     fps = 15
     
-    # data array for storing time series after convolution and down-sampling
-    # to save memory, a memmap is used
-    if log_trans:
-        log_mark = '_log'
+    # calculate down-sampled data size
+    s = layer_size[layer]
+    if ds_fact:
+        ds_mark = '_ds%s' %(ds_fact)
+        out_s = (s[0], int(np.ceil(s[1]*1.0/ds_fact)),
+                 int(np.ceil(s[2]*1.0/ds_fact)), ts_shape[0]/fps)
     else:
-        log_mark = ''
-    out_file_name = 'feat%s_%s_trs%s.npy'%(layer, dataset, log_mark)
+        ds_mark = ''
+        out_s = (s[0], s[1], s[2], ts_shape[0]/fps)
+    print 'Down-sampled data shape : ', out_s
+ 
+    # data array for storing time series after convolution and down-sampling
+    # to save memory, a memmap is used temporally
+    out_file_name = 'feat%s_%s_trs%s.npy'%(layer, dataset, ds_mark)
     out_file = os.path.join(out_dir, out_file_name)
     print 'Save TR data into file ', out_file
-    feat = np.memmap(out_file, dtype='float64', mode='w+',
-                     shape=(out_size[0], out_size[1], out_size[2],
-                            ts_shape[0]/fps))
-    #                 shape=(ts_shape[1], ts_shape[0]/fps))
+    feat = np.memmap(out_file, dtype='float64', mode='w+', shape=out_s)
 
-    # batch_size config
-    #bsize = 96
     # convolution and down-sampling in a parallel approach
-    Parallel(n_jobs=10)(delayed(stim_pro)(feat_ptr, feat, out_size,
-                                          fps, log_trans, i)
-                            for i in range(ts_shape[1]/out_size[2]))
+    Parallel(n_jobs=9)(delayed(stim_pro)(feat_ptr, feat, s, fps, ds_fact, i)
+                        for i in range(ts_shape[1]/(s[1]*s[2])))
 
-def stim_pro(feat_ptr, output, data_size, fps, log_trans, i):
+    # save memmap object as a numpy.array
+    narray = np.array(feat)
+    save(out_file, narray)
+
+def stim_pro(feat_ptr, output, orig_size, fps, fact, i):
     """Sugar function for parallel computing."""
     print i
     # scanning parameter
@@ -149,7 +154,7 @@ def stim_pro(feat_ptr, output, data_size, fps, log_trans, i):
     hrf_signal = hrf.biGammaHRF(hrf_times)
 
     # procssing
-    bsize = data_size[2]
+    bsize = orig_size[1]*orig_size[2]
     for p in range(len(feat_ptr)):
         if not p:
             ts = feat_ptr[p][:, i*bsize:(i+1)*bsize]
@@ -160,20 +165,30 @@ def stim_pro(feat_ptr, output, data_size, fps, log_trans, i):
     ts = np.abs(ts.T)
     #print ts.shape
     # log-transform
-    if log_trans:
-        ts = np.log(ts+1)
+    ts = np.log(ts+1)
     # convolved with HRF
     convolved = np.apply_along_axis(np.convolve, 1, ts, hrf_signal)
     # remove time points after the end of the scanning run
     n_to_remove = len(hrf_times) - 1
     convolved = convolved[:, :-n_to_remove]
-    # down-sampling
+    # temporal down-sample
     vol_times = np.arange(0, ts.shape[1], fps)
+    dconvolved = convolved[:, vol_times]
+    # reshape to 3D
+    dconvolved3d = dconvolved.reshape(orig_size[1], orig_size[2],
+                                      len(vol_times))
     # get start index
     idx = i*bsize
-    channel_idx, row, col = vutil.node2feature(idx, data_size)
-    output[channel_idx, row, :] = convolved[:, vol_times]
+    channel_idx, row, col = vutil.node2feature(idx, orig_size)
+
+    # spatial down-sample
+    if fact:
+        #out_s = (int(np.ceil(orig_size[1]*1.0/fact)),
+        #         int(np.ceil(orig_size[2]*1.0/fact)))
+        #ddconvolved3d = np.zeros((out_s[1], out_size[2], len(vol_times)))
+        dconvolved3d = down_sample(dconvolved3d, (fact, fact, 1))
     #output[i*bsize:(i+1)*bsize, :] = convolved[:, vol_times]
+    output[channel_idx, ...] = dconvolved3d
 
 def roi2nifti(fmri_table):
     """Save ROI as a nifti file."""
@@ -325,9 +340,10 @@ if __name__ == '__main__':
     #feat_down_sample(feat_dir, 'train', 1, stim_dir, 5)
 
     #-- CNN activation pre-processing
-    #feat_tr_pro(feat_dir, stim_dir, dataset='train', layer=1, log_trans=False)
+    #feat_tr_pro(feat_dir, stim_dir, dataset='train', layer=1,
+    #             out_size=(96, 55, 55))
     #feat_tr_pro(stim_dir, stim_dir, data_file='feat1_train_ds5.npy',
-    #            data_size=(108000, 11616), log_trans=False)
+    #            data_size=(108000, 11616))
     
     #-- load fmri data
     tf = tables.open_file(os.path.join(data_dir, 'VoxelResponses_subject1.mat'))
@@ -349,7 +365,7 @@ if __name__ == '__main__':
     feat1_file = os.path.join(stim_dir, 'feat1_train_trs_log.npy')
     #feat1_ts = np.load(feat1_file, mmap_mode='r')
     feat1_ts = np.memmap(feat1_file, dtype='float64', mode='r',
-                         #shape=(11616, 7200))
+    #                     shape=(11616, 7200))
                          shape=(290400, 7200))
     # sum up all channels
     feat1_ts = feat1_ts.reshape(96, 55, 55, 7200)
