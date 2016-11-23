@@ -17,61 +17,6 @@ from brainDecTool.timeseries import hrf
 import util as vutil
 
 
-def feat_down_sample(feat_dir, dataset, layer, out_dir, fact):
-    """Spatial down-sampling."""
-    # layer size
-    layer_size = {1: [96, 55, 55],
-                  2: [256, 27, 27],
-                  3: [384, 13, 13],
-                  4: [384, 13, 13],
-                  5: [256, 13, 13]}
-    # load stimulus time courses
-    prefix_name = 'feat%s_sti_%s' % (layer, dataset)
-    feat_ptr = []
-    start_idx = []
-    if dataset=='train':
-        time_count = 0
-        for i in range(12):
-            tmp = np.load(os.path.join(feat_dir, 'stimulus_'+dataset,
-                                       prefix_name+'_'+str(i+1)+'.npy'),
-                          mmap_mode='r')
-            start_idx.append(time_count)
-            time_count += tmp.shape[0]
-            feat_ptr.append(tmp)
-        ts_shape = (time_count, feat_ptr[0].shape[1])
-    else:
-        feat_ts = np.load(os.path.join(feat_dir, 'stimulus_'+datatset,
-                                       prefix_name+'.npy'),
-                          mmap_mode='r')
-        feat_ptr.append(feat_ts)
-        start_idx.append(0)
-        ts_shape = feat_ts.shape
-    print 'Original data shape : ', ts_shape
-    
-    # calculate down-sampled data size
-    s = layer_size[layer]
-    new_shape = (ts_shape[0], int(s[0]*(np.ceil(s[1]*1.0/fact)**2)))
-    print 'Down-sampled data shape : ', new_shape
-
-    # open a new file for data storage
-    out_file = os.path.join(out_dir,
-                'feat%s_%s_ds%s.npy'%(layer, dataset, fact))
-    print 'Save down-sampled data into file ', out_file
-    feat = np.memmap(out_file, dtype='float64', mode='w+', shape=new_shape)
-
-    # down-sampling processing in a parallel approach
-    Parallel(n_jobs=12)(delayed(down_sample_pro)(feat_ptr[i], s, fact,
-                                start_idx[i], feat)
-                                for i in range(len(feat_ptr)))
-
-def down_sample_pro(orig_feat, orig_size, fact, start_idx, output):
-    """Sugar function for parallel computing."""
-    data_shape = orig_feat.shape
-    for i in range(data_shape[0]):
-        tmp = orig_feat[i, :].reshape(orig_size)
-        dtmp = down_sample(tmp, (1, fact, fact))
-        output[start_idx+i, :] = dtmp.flatten()
-
 def feat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None):
     """Get TRs from CNN actiavtion datasets.
     
@@ -127,18 +72,18 @@ def feat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None):
  
     # data array for storing time series after convolution and down-sampling
     # to save memory, a memmap is used temporally
-    out_file_name = 'feat%s_%s_trs%s.npy'%(layer, dataset, ds_mark)
+    out_file_name = 'abs_feat%s_%s_trs%s.npy'%(layer, dataset, ds_mark)
     out_file = os.path.join(out_dir, out_file_name)
     print 'Save TR data into file ', out_file
     feat = np.memmap(out_file, dtype='float64', mode='w+', shape=out_s)
 
     # convolution and down-sampling in a parallel approach
-    Parallel(n_jobs=9)(delayed(stim_pro)(feat_ptr, feat, s, fps, ds_fact, i)
+    Parallel(n_jobs=2)(delayed(stim_pro)(feat_ptr, feat, s, fps, ds_fact, i)
                         for i in range(ts_shape[1]/(s[1]*s[2])))
 
     # save memmap object as a numpy.array
     narray = np.array(feat)
-    save(out_file, narray)
+    np.save(out_file, narray)
 
 def stim_pro(feat_ptr, output, orig_size, fps, fact, i):
     """Sugar function for parallel computing."""
@@ -163,6 +108,7 @@ def stim_pro(feat_ptr, output, orig_size, fps, fact, i):
                                 axis=0)
     # get the absolute value of response
     ts = np.abs(ts.T)
+    #ts = ts.T
     #print ts.shape
     # log-transform
     ts = np.log(ts+1)
@@ -183,11 +129,7 @@ def stim_pro(feat_ptr, output, orig_size, fps, fact, i):
 
     # spatial down-sample
     if fact:
-        #out_s = (int(np.ceil(orig_size[1]*1.0/fact)),
-        #         int(np.ceil(orig_size[2]*1.0/fact)))
-        #ddconvolved3d = np.zeros((out_s[1], out_size[2], len(vol_times)))
         dconvolved3d = down_sample(dconvolved3d, (fact, fact, 1))
-    #output[i*bsize:(i+1)*bsize, :] = convolved[:, vol_times]
     output[channel_idx, ...] = dconvolved3d
 
 def roi2nifti(fmri_table):
@@ -228,7 +170,8 @@ def retinotopic_mapping(corr_file):
     # load the cross-correlation matrix from file
     #corr_mtx = np.load(corr_file, mmap_mode='r')
     corr_mtx = np.memmap(corr_file, dtype='float16', mode='r',
-                         shape=(73728, 290400))
+                         shape=(73728, 3025))
+                         #shape=(73728, 290400))
     pos_mtx = np.zeros((corr_mtx.shape[0], 2))
     for i in range(corr_mtx.shape[0]):
         print 'Iter %s of %s' %(i, corr_mtx.shape[0]),
@@ -238,8 +181,10 @@ def retinotopic_mapping(corr_file):
         # one-tail test
         tmp[tmp <= 0.019257] = 0
         if np.sum(tmp):
-            tmp = tmp.reshape(96, 55, 55)
-            mmtx = np.max(tmp, axis=0)
+            tmp = tmp.reshape(55, 55)
+            #tmp = tmp.reshape(96, 55, 55)
+            mmtx = tmp
+            #mmtx = np.max(tmp, axis=0)
             print mmtx.min(), mmtx.max()
             #fig_file = os.path.join(fig_dir, 'v'+str(i)+'.png')
             #imsave(fig_file, mmtx)
@@ -336,14 +281,8 @@ if __name__ == '__main__':
     feat_dir = os.path.join(data_dir, 'stimulus')
     stim_dir = os.path.join(data_dir, 'cnn_rsp')
 
-    #-- spatial down-sample stimulus
-    #feat_down_sample(feat_dir, 'train', 1, stim_dir, 5)
-
     #-- CNN activation pre-processing
-    #feat_tr_pro(feat_dir, stim_dir, dataset='train', layer=1,
-    #             out_size=(96, 55, 55))
-    #feat_tr_pro(stim_dir, stim_dir, data_file='feat1_train_ds5.npy',
-    #            data_size=(108000, 11616))
+    #feat_tr_pro(feat_dir, stim_dir, dataset='val', layer=1)
     
     #-- load fmri data
     tf = tables.open_file(os.path.join(data_dir, 'VoxelResponses_subject1.mat'))
@@ -358,32 +297,28 @@ if __name__ == '__main__':
 
     #-- calculate cross-modality corrlation 
     # load fmri response from training/validation dataset
-    fmri_ts = tf.get_node('/rt')[:]
-    # data.shape = (73728, 540) / (73728, 7200)
+    fmri_ts = tf.get_node('/rv')[:]
+    # data.shape = (73728, 540/7200)
     fmri_ts = np.nan_to_num(fmri_ts)
     # load convolved cnn activation data for validation dataset
-    feat1_file = os.path.join(stim_dir, 'feat1_train_trs_log.npy')
-    #feat1_ts = np.load(feat1_file, mmap_mode='r')
-    feat1_ts = np.memmap(feat1_file, dtype='float64', mode='r',
-    #                     shape=(11616, 7200))
-                         shape=(290400, 7200))
+    feat1_file = os.path.join(stim_dir, 'abs_feat1_val_trs.npy')
+    feat1_ts = np.load(feat1_file, mmap_mode='r')
+    # data.shape = (96, 55, 55, 540/7200)
     # sum up all channels
-    feat1_ts = feat1_ts.reshape(96, 55, 55, 7200)
     # select parts of channels
     feat1_ts = feat1_ts[0:48, :]
     feat1_ts = feat1_ts.sum(axis=0)
-    feat1_ts = feat1_ts.reshape(3025, 7200)
-    # data.shape = (290400, 540)/(290400, 7200)
     retino_dir = os.path.join(data_dir, 'retinotopic')
     if not os.path.exists(retino_dir):
         os.mkdir(retino_dir, 0755)
-    corr_file = os.path.join(retino_dir, 'train_fmri_feat1_ds5_corr.npy')
-    #cross_modal_corr(fmri_ts, feat1_ts, corr_file, block_size=96)
-    rand_corr_file = os.path.join(retino_dir, 'train_fmri_feat1_rand_corr.npy')
-    random_modal_corr(fmri_ts, feat1_ts, 10, 1000, rand_corr_file)
+    corr_file = os.path.join(retino_dir, 'val_fmri_abs_feat1_corr.npy')
+    feat1_ts = feat1_ts.reshape(3025, 540)
+    cross_modal_corr(fmri_ts, feat1_ts, corr_file, block_size=55)
+    #rand_corr_file = os.path.join(retino_dir, 'train_fmri_feat1_rand_corr.npy')
+    #random_modal_corr(fmri_ts, feat1_ts, 10, 1000, rand_corr_file)
     
     #-- retinotopic mapping
-    #retinotopic_mapping(corr_file)
+    retinotopic_mapping(corr_file)
 
     #-- close fmri data
     tf.close()

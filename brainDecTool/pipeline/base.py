@@ -30,7 +30,7 @@ def cross_modal_corr(fmri_ts, feat_ts, filename, block_size=32):
                          shape=(fmri_size, feat_size))
     print 'Compute cross-modality correlation ...'
     # parallelize the corr computation
-    Parallel(n_jobs=5)(delayed(f)(fmri_ts, feat_ts, corr_mtx, i, block_size)
+    Parallel(n_jobs=2)(delayed(f)(fmri_ts, feat_ts, corr_mtx, i, block_size)
                                   for i in range(feat_size/block_size))
 
 def f(in_fmri, in_feat, output, i, block_size):
