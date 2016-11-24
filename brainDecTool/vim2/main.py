@@ -333,7 +333,7 @@ if __name__ == '__main__':
     #-- multiple regression voxel ~ channels from each location
     regress_file = os.path.join(retino_dir, 'val_fmri_abs_feat1_regress.npy')
     roi_mask = get_roi_mask(tf)
-    multiple_regression(fmri_ts, fmri_mask=roi_mask  feat1_ts, regress_file)
+    multiple_regression(fmri_ts, feat1_ts, regress_file, fmri_mask=roi_mask)
     
     #-- retinotopic mapping
     #retinotopic_mapping(corr_file)

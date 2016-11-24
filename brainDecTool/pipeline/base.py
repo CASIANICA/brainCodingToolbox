@@ -58,29 +58,32 @@ def random_cross_modal_corr(fmri_ts, feat_ts, voxel_num, iter_num, filename):
             fmri_data[j, :] = np.random.permutation(fmri_ts[vxl_idx[i]])
         corr_mtx[i, :] = corr2_coef(feat_data, fmri_data)
 
-def multiple_regression(fmri_ts, fmri_mask=None, feat_ts, filename):
+def multiple_regression(fmri_ts, feat_ts, filename, fmri_mask=None):
     """Multiple regression between voxel time course and channels from each
     location."""
     fmri_size = fmri_ts.shape[0]
-    if not fmri_mask:
+    if not isinstance(fmri_mask, np.ndarray):
         fmri_mask = np.ones(fmri_size)
     vxl_idx = np.nonzero(fmri_mask==1)[0]
     feat_size = feat_ts.shape
-    reg_mtx = mmemmap(filename, dtype='float16', mode='w+',
-                      shape=(fmri_size, feat_size[1], feat_size[2]))
+    reg_mtx = np.memmap(filename, dtype='float16', mode='w+',
+                        shape=(fmri_size, feat_size[1], feat_size[2]))
     print 'Compute multiple regression correlation ...'
-    f_idx = [(i, j, k) for i in vxl_idx for j in range(feat_size[1]) 
-             for k in range(feat_size[2])]
-    Parallel(n_jobs=2)(delayed(mrf)(fmri_ts, feat_ts, reg_mtx, idx) for 
-                            idx in f_idx)
+    Parallel(n_jobs=2)(delayed(mrf)(fmri_ts, feat_ts, reg_mtx, v)
+                                    for v in vxl_idx)
     
     narray = np.array(reg_mtx)
     np.save(filename, narray)
 
 def mrf(in_fmri, in_feat, out, idx):
     """Sugar function for multiple regression."""
-    y = in_fmri[idx[0], :]
-    x = in_feat[:, idx[1], idx[2], :].T
-    out[idx[0], idx[1], idx[2]] = ols_fit(y, x)
+    print idx
+    y = in_fmri[idx, :]
+    feat_size = in_feat.shape
+    for i in range(feat_size[1]):
+        for j in range(feat_size[2]):
+            #print '%s-%s-%s' %(idx, i, j)
+            x = in_feat[:, i, j, :].T
+            out[idx, i, j] = ols_fit(y, x)
 
 
