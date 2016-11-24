@@ -6,15 +6,15 @@ import numpy as np
 import tables
 from scipy import ndimage
 from scipy.misc import imsave
-
 from joblib import Parallel, delayed
 
 from brainDecTool.util import configParser
 from brainDecTool.pipeline import retinotopy
-from brainDecTool.pipeline.base import cross_modal_corr, random_cross_modal_corr
+from brainDecTool.pipeline.base import cross_modal_corr
+from brainDecTool.pipeline.base import random_cross_modal_corr
+from brainDecTool.pipeline.base import multiple_regression
 from brainDecTool.math import down_sample
 from brainDecTool.timeseries import hrf
-from brainDecTool.pipeline import lm
 import util as vutil
 
 
@@ -147,6 +147,18 @@ def roi2nifti(fmri_table):
     roi_mask = l_v1_roi + r_v1_roi*2 + l_v2_roi*3 + r_v2_roi*4 + \
                l_v3_roi*5 + r_v3_roi*6 + l_v3a_roi*7 + r_v3a_roi*8
     vutil.save2nifti(roi_mask, 'S1_roi_mask.nii.gz')
+
+def get_roi_mask(fmri_table, nifti=False):
+    """Save ROIs as a mask."""
+    roi_list = fmri_table.list_nodes('/roi')
+    roi_shape = roi_list[0].shape
+    mask = np.zeros(roi_shape)
+    for r in roi_list:
+        mask += fmri_table.get_node('/roi/%s'%(r.name))[:]
+    if nifti:
+        vutil.save2nifti(mask, 'all_roi_mask.nii.gz')
+    else:
+        return mask.flatten()
 
 def gen_mean_vol(fmri_table):
     """Make a mean response map as a reference volume."""
@@ -318,21 +330,13 @@ if __name__ == '__main__':
     #rand_corr_file = os.path.join(retino_dir, 'train_fmri_feat1_rand_corr.npy')
     #random_modal_corr(fmri_ts, feat1_ts, 10, 1000, rand_corr_file)
     
-    #-- retinotopic mapping
-    #retinotopic_mapping(corr_file)
-
     #-- multiple regression voxel ~ channels from each location
     regress_file = os.path.join(retino_dir, 'val_fmri_abs_feat1_regress.npy')
-    reg_mtx = np.memmap(regress_file, dtype='float16', mode='w+',
-                        shape=(73728, 55, 55))
-    for v in range(73728):
-        for row in range(55):
-            for col in range(55):
-                print '%s-r%s-c%s' %(v, row, col)
-                y = fmri_ts[v, :]
-                x = feat1_ts[:, row, col, :].T
-                reg_mtx[v, row, col] = lm.ols_fit(y, x)
+    roi_mask = get_roi_mask(tf)
+    multiple_regression(fmri_ts, fmri_mask=roi_mask  feat1_ts, regress_file)
     
+    #-- retinotopic mapping
+    #retinotopic_mapping(corr_file)
 
     #-- close fmri data
     tf.close()
