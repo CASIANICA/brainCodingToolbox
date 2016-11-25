@@ -78,14 +78,14 @@ def plot_prf(prf_file):
         #plt.show()
         fig.savefig('%s.png'%(f))
 
-def layer_sim(feat_file):
-    """Compute similarity between each pair of features."""
+def channel_sim(feat_file):
+    """Compute similarity between each pair of channels."""
     feat = np.load(feat_file)
     print feat.shape
     feat = feat.reshape(96, 55, 55, 540)
     simmtx = np.zeros((feat.shape[0], feat.shape[0]))
     for i in range(feat.shape[0]):
-        for j in range(i, feat.shape[0]):
+        for j in range(i+1, feat.shape[0]):
             print '%s - %s' %(i, j)
             x = feat[i, :].reshape(-1, feat.shape[3])
             y = feat[j, :].reshape(-1, feat.shape[3])
