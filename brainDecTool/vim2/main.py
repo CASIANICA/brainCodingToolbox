@@ -285,6 +285,10 @@ def hrf_estimate(tf, feat_ts):
             out[j, :, i] = time_lag_corr(tmp, vxl_data[i, :], 40)
     np.save('hrf_test.npy', out)
 
+def plscorr():
+    """Compute PLS correlation between brain activity and CNN activation."""
+    pass
+
 
 if __name__ == '__main__':
     """Main function."""
