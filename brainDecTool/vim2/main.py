@@ -73,7 +73,7 @@ def feat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None):
  
     # data array for storing time series after convolution and down-sampling
     # to save memory, a memmap is used temporally
-    out_file_name = 'abs_feat%s_%s_trs%s.npy'%(layer, dataset, ds_mark)
+    out_file_name = 'feat%s_%s_trs%s.npy'%(layer, dataset, ds_mark)
     out_file = os.path.join(out_dir, out_file_name)
     print 'Save TR data into file ', out_file
     feat = np.memmap(out_file, dtype='float64', mode='w+', shape=out_s)
@@ -107,9 +107,7 @@ def stim_pro(feat_ptr, output, orig_size, fps, fact, i):
         else:
             ts = np.concatenate([ts, feat_ptr[p][:, i*bsize:(i+1)*bsize]],
                                 axis=0)
-    # get the absolute value of response
-    ts = np.abs(ts.T)
-    #ts = ts.T
+    ts = ts.T
     #print ts.shape
     # log-transform
     ts = np.log(ts+1)
@@ -318,7 +316,7 @@ if __name__ == '__main__':
     # data.shape = (73728, 540/7200)
     fmri_ts = np.nan_to_num(fmri_ts)
     # load convolved cnn activation data for validation dataset
-    feat1_file = os.path.join(stim_dir, 'abs_feat1_val_trs.npy')
+    feat1_file = os.path.join(stim_dir, 'feat1_val_trs.npy')
     feat1_ts = np.load(feat1_file, mmap_mode='r')
     # data.shape = (96, 55, 55, 540/7200)
     # sum up all channels
@@ -328,14 +326,14 @@ if __name__ == '__main__':
     retino_dir = os.path.join(data_dir, 'retinotopic')
     if not os.path.exists(retino_dir):
         os.mkdir(retino_dir, 0755)
-    #corr_file = os.path.join(retino_dir, 'val_fmri_abs_feat1_corr.npy')
+    #corr_file = os.path.join(retino_dir, 'val_fmri_feat1_corr.npy')
     #feat1_ts = feat1_ts.reshape(3025, 540)
     #cross_modal_corr(fmri_ts, feat1_ts, corr_file, block_size=55)
     #rand_corr_file = os.path.join(retino_dir, 'train_fmri_feat1_rand_corr.npy')
     #random_modal_corr(fmri_ts, feat1_ts, 10, 1000, rand_corr_file)
     
     #-- multiple regression voxel ~ channels from each location
-    regress_file = os.path.join(retino_dir, 'val_fmri_abs_feat1_regress.npy')
+    regress_file = os.path.join(retino_dir, 'val_fmri_feat1_regress.npy')
     roi_mask = get_roi_mask(tf)
     multiple_regression(fmri_ts, feat1_ts, regress_file, fmri_mask=roi_mask)
     
