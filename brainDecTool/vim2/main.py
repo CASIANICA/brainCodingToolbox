@@ -79,7 +79,7 @@ def feat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None):
     feat = np.memmap(out_file, dtype='float64', mode='w+', shape=out_s)
 
     # convolution and down-sampling in a parallel approach
-    Parallel(n_jobs=2)(delayed(stim_pro)(feat_ptr, feat, s, fps, ds_fact, i)
+    Parallel(n_jobs=10)(delayed(stim_pro)(feat_ptr, feat, s, fps, ds_fact, i)
                         for i in range(ts_shape[1]/(s[1]*s[2])))
 
     # save memmap object as a numpy.array
