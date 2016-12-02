@@ -69,7 +69,7 @@ def multiple_regression(fmri_ts, feat_ts, filename, fmri_mask=None):
     reg_mtx = np.memmap(filename, dtype='float16', mode='w+',
                         shape=(fmri_size, feat_size[1], feat_size[2]))
     print 'Compute multiple regression correlation ...'
-    Parallel(n_jobs=2)(delayed(mrf)(fmri_ts, feat_ts, reg_mtx, v)
+    Parallel(n_jobs=4)(delayed(mrf)(fmri_ts, feat_ts, reg_mtx, v)
                                     for v in vxl_idx)
     
     narray = np.array(reg_mtx)
