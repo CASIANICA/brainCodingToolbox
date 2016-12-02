@@ -193,8 +193,8 @@ def retinotopic_mapping(corr_file):
         tmp[tmp <= 0.019257] = 0
         if np.sum(tmp):
             tmp = tmp.reshape(55, 55)
-            #tmp = tmp.reshape(96, 55, 55)
             mmtx = tmp
+            #tmp = tmp.reshape(96, 55, 55)
             #mmtx = np.max(tmp, axis=0)
             print mmtx.min(), mmtx.max()
             #fig_file = os.path.join(fig_dir, 'v'+str(i)+'.png')
@@ -226,7 +226,7 @@ def retinotopic_mapping(corr_file):
     ecc = np.zeros(dist.shape)
     for i in range(len(dist)):
         if np.isnan(dist[i]):
-            ecc[i] = 0
+            ecc[i] = np.nan
         elif dist[i] < 5.445:
             ecc[i] = 1
         elif dist[i] < 10.91:
@@ -328,7 +328,7 @@ if __name__ == '__main__':
         os.mkdir(retino_dir, 0755)
     #corr_file = os.path.join(retino_dir, 'val_fmri_feat1_corr.npy')
     #feat1_ts = feat1_ts.reshape(3025, 540)
-    #cross_modal_corr(fmri_ts, feat1_ts, corr_file, block_size=55)
+    #cross_modal_corr(fmri_ts, feat1_ts, corr_file, block_size=96)
     #rand_corr_file = os.path.join(retino_dir, 'train_fmri_feat1_rand_corr.npy')
     #random_modal_corr(fmri_ts, feat1_ts, 10, 1000, rand_corr_file)
     
