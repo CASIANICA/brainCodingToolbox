@@ -13,7 +13,7 @@ from brainDecTool.pipeline import retinotopy
 from brainDecTool.pipeline.base import cross_modal_corr
 from brainDecTool.pipeline.base import random_cross_modal_corr
 from brainDecTool.pipeline.base import multiple_regression
-from brainDecTool.math import down_sample
+from brainDecTool.math import down_sample, ridge
 from brainDecTool.timeseries import hrf
 import util as vutil
 
@@ -286,6 +286,23 @@ def hrf_estimate(tf, feat_ts):
 def plscorr():
     """Compute PLS correlation between brain activity and CNN activation."""
     pass
+
+def ridge_regreesion(train_feat, train_fmri, val_feat, val_fmri):
+    """Calculate ridge regression between features from one pixel location and
+    the fmri responses from all voxels.
+    """
+    pixel_size = (train_feat.shape[1], train_feat.shape[2])
+    voxel_size = train_fmri.shape[0]
+    ridge_corr_mtx = np.zeros(pixel_size[0]*pixel_size[1], voxel_size)
+    for row in range(pixel_size[0]):
+        for col in range(pixel_size[1]):
+            print 'row %s - col %s' % (row, col)
+            tfeat = train_feat[:, row, col, :]
+            vfeat = val_feat[:, row, col, :]
+            wt, corr, valphas, bscores, valinds = ridge.bootstrap_ridge(tfeat.T, train_fmri.T, vfeat.T, val_fmri.T, alphas=np.logspace(-2, 2, 20), nboots=5, chunklen=100, nchunks=10, single_alpha=True)
+            ridge_corr_mtx[row*pixel_size[0]+col] = corr
+    np.save('ridge_corr.npy', ridge_corr_mtx)
+
 
 
 if __name__ == '__main__':
