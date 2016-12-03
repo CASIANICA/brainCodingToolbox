@@ -3,7 +3,7 @@
 
 import numpy as np
 from joblib import Parallel, delayed
-from brainDecTool.math import corr2_coef, ols_fit
+from brainDecTool.math import corr2_coef, ols_fit, ridge
 
 def cross_modal_corr(fmri_ts, feat_ts, filename, block_size=32):
     """Compute cross-modality correlation between fMRI response and image
@@ -86,4 +86,22 @@ def mrf(in_fmri, in_feat, out, idx):
             x = in_feat[:, i, j, :].T
             out[idx, i, j] = ols_fit(y, x)
 
+def ridge_regreesion(train_feat, train_fmri, val_feat, val_fmri, outfile):
+    """Calculate ridge regression between features from one pixel location and
+    the fmri responses from all voxels.
+    """
+    pixel_size = (train_feat.shape[1], train_feat.shape[2])
+    voxel_size = train_fmri.shape[0]
+    ridge_corr_mtx = np.zeros(pixel_size[0]*pixel_size[1], voxel_size)
+    for row in range(pixel_size[0]):
+        for col in range(pixel_size[1]):
+            print 'row %s - col %s' % (row, col)
+            tfeat = train_feat[:, row, col, :]
+            m = np.mean(tfeat)
+            s = np.std(tfeat)
+            tfeat = (tfeat-m) / (1e-10+s)
+            vfeat = (val_feat[:, row, col, :]-m) / (1e-10+s)
+            wt, corr, valphas, bscores, valinds = ridge.bootstrap_ridge(tfeat.T, train_fmri.T, vfeat.T, val_fmri.T, alphas=np.logspace(-2, 2, 20), nboots=5, chunklen=100, nchunks=10, single_alpha=True)
+            ridge_corr_mtx[row*pixel_size[0]+col] = corr
+    np.save(outfile, ridge_corr_mtx)
 
