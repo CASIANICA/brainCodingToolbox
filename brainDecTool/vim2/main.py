@@ -173,30 +173,37 @@ def gen_mean_vol(fmri_table):
     
     vutil.save2nifti(vol, 'S1_mean_rt.nii.gz')
 
-def retinotopic_mapping(corr_file):
+def retinotopic_mapping(corr_file, mask=None):
     """Make the retinotopic mapping using activation map from CNN."""
     data_dir = os.path.dirname(corr_file)
     #fig_dir = os.path.join(data_dir, 'fig')
     #if not os.path.exists(fig_dir):
     #    os.mkdir(fig_dir, 0755)
     # load the cross-correlation matrix from file
-    #corr_mtx = np.load(corr_file, mmap_mode='r')
-    corr_mtx = np.memmap(corr_file, dtype='float16', mode='r',
-                         shape=(73728, 3025))
-                         #shape=(73728, 290400))
-    pos_mtx = np.zeros((corr_mtx.shape[0], 2))
-    for i in range(corr_mtx.shape[0]):
-        print 'Iter %s of %s' %(i, corr_mtx.shape[0]),
+    corr_mtx = np.load(corr_file, mmap_mode='r')
+    #corr_mtx = np.memmap(corr_file, dtype='float16', mode='r',
+    #                     shape=(73728, 3025))
+    #                     shape=(73728, 290400))
+    if isinstance(mask, np.ndarray):
+        vxl_num = len(mask)
+        vxl_idx = np.nonzero(mask==1)[0]
+    else:
+        vxl_num = corr_mtx.shape[0]
+        vxl_idx = np.arange(vxl_num)
+    pos_mtx = np.zeros((vxl_num, 2))
+    pos_mtx[:] = np.nan
+    for i in range(len(vxl_idx)):
+        print 'Iter %s of %s' %(i, len(vxl_idx)),
         tmp = corr_mtx[i, :]
         tmp = np.nan_to_num(np.array(tmp))
         # significant threshold
         # one-tail test
         tmp[tmp <= 0.019257] = 0
         if np.sum(tmp):
-            tmp = tmp.reshape(55, 55)
-            mmtx = tmp
-            #tmp = tmp.reshape(96, 55, 55)
-            #mmtx = np.max(tmp, axis=0)
+            #tmp = tmp.reshape(55, 55)
+            #mmtx = tmp
+            tmp = tmp.reshape(96, 55, 55)
+            mmtx = np.max(tmp, axis=0)
             print mmtx.min(), mmtx.max()
             #fig_file = os.path.join(fig_dir, 'v'+str(i)+'.png')
             #imsave(fig_file, mmtx)
@@ -209,9 +216,8 @@ def retinotopic_mapping(corr_file):
             nmtx[row_idx, col_idx] = mmtx[row_idx, col_idx]
             # center of mass
             x, y = ndimage.measurements.center_of_mass(nmtx)
-            pos_mtx[i, :] = [x, y]
+            pos_mtx[vxl_idx[i], :] = [x, y]
         else:
-            pos_mtx[i, :] = [np.nan, np.nan]
             print ' '
     #receptive_field_file = os.path.join(data_dir, 'receptive_field_pos.npy')
     #np.save(receptive_field_file, pos_mtx)
@@ -340,12 +346,12 @@ if __name__ == '__main__':
     #random_modal_corr(fmri_ts, feat1_ts, 10, 1000, rand_corr_file)
     
     #-- multiple regression voxel ~ channels from each location
-    regress_file = os.path.join(retino_dir, 'val_fmri_feat1_regress.npy')
-    roi_mask = get_roi_mask(tf)
-    multiple_regression(fmri_ts, feat1_ts, regress_file, fmri_mask=roi_mask)
+    #regress_file = os.path.join(retino_dir, 'val_fmri_feat1_regress.npy')
+    #roi_mask = get_roi_mask(tf)
+    #multiple_regression(fmri_ts, feat1_ts, regress_file)
     
     #-- retinotopic mapping
-    #retinotopic_mapping(corr_file)
+    retinotopic_mapping(corr_file, mask)
 
     #-- ridge regression
     #ridge_regression(train_feat, train_fmri, val_feat, val_fmri, outfile)

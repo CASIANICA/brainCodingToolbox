@@ -59,19 +59,16 @@ def random_cross_modal_corr(fmri_ts, feat_ts, voxel_num, iter_num, filename):
             fmri_data[j, :] = np.random.permutation(fmri_ts[vxl_idx[i]])
         corr_mtx[i, :] = corr2_coef(feat_data, fmri_data)
 
-def multiple_regression(fmri_ts, feat_ts, filename, fmri_mask=None):
+def multiple_regression(fmri_ts, feat_ts, filename):
     """Multiple regression between voxel time course and channels from each
     location."""
     fmri_size = fmri_ts.shape[0]
-    if not isinstance(fmri_mask, np.ndarray):
-        fmri_mask = np.ones(fmri_size)
-    vxl_idx = np.nonzero(fmri_mask==1)[0]
     feat_size = feat_ts.shape
     reg_mtx = np.memmap(filename, dtype='float16', mode='w+',
                         shape=(fmri_size, feat_size[1], feat_size[2]))
     print 'Compute multiple regression correlation ...'
     Parallel(n_jobs=4)(delayed(mrf)(fmri_ts, feat_ts, reg_mtx, v)
-                                    for v in vxl_idx)
+                                    for v in range(fmri_size))
     
     narray = np.array(reg_mtx)
     np.save(filename, narray)
