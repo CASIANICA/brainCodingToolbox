@@ -316,6 +316,11 @@ if __name__ == '__main__':
     # load fmri response from training/validation dataset
     fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
+    # load brain mask
+    mask_file = os.path.join(data_dir, 'S1_mask.nii.gz')
+    mask = vutil.data_swap(mask_file).flatten()
+    vxl_idx = np.nonzero(mask==1)[0]
+    fmri_ts = fmri_ts[vxl_idx]
     fmri_ts = np.nan_to_num(fmri_ts)
     # load convolved cnn activation data for validation dataset
     feat1_file = os.path.join(stim_dir, 'feat1_val_trs.npy')

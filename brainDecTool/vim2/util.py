@@ -96,4 +96,12 @@ def channel_sim(feat_file):
     im = plt.imshow(simmtx, interpolation='nearest', cmap=plt.cm.ocean)
     plt.colorbar(im)
     plt.show()
- 
+
+def data_swap(nifti_file):
+    """Convert nifti data into original data shape."""
+    data = nib.load(nifti_file).get_data()
+    ndata = data[:, ::-1, :]
+    ndata = np.rollaxis(ndata, 0, 3)
+    ndata = np.rollaxis(ndata, 0, 3)
+    return ndata
+
