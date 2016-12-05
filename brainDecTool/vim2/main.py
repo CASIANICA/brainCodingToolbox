@@ -14,7 +14,7 @@ from brainDecTool.pipeline.base import cross_modal_corr
 from brainDecTool.pipeline.base import random_cross_modal_corr
 from brainDecTool.pipeline.base import multiple_regression
 from brainDecTool.pipeline.base import ridge_regression
-from brainDecTool.math import down_sample, ridge
+from brainDecTool.math import down_sample
 from brainDecTool.timeseries import hrf
 import util as vutil
 

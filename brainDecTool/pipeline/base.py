@@ -87,7 +87,7 @@ def mrf(in_fmri, in_feat, out, idx):
             x = in_feat[:, i, j, :].T
             out[idx, i, j] = ols_fit(y, x)
 
-def ridge_regreesion(train_feat, train_fmri, val_feat, val_fmri, outfile):
+def ridge_regression(train_feat, train_fmri, val_feat, val_fmri, outfile):
     """Calculate ridge regression between features from one pixel location and
     the fmri responses from all voxels.
     """
