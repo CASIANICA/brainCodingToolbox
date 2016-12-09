@@ -6,7 +6,7 @@ import numpy as np
 import tables
 from scipy import ndimage
 from scipy.misc import imsave
-from joblib import Parallel, delayed
+from sklearn.cross_decomposition import PLSCanonical
 
 from brainDecTool.util import configParser
 from brainDecTool.pipeline import retinotopy
@@ -14,123 +14,8 @@ from brainDecTool.pipeline.base import cross_modal_corr
 from brainDecTool.pipeline.base import random_cross_modal_corr
 from brainDecTool.pipeline.base import multiple_regression
 from brainDecTool.pipeline.base import ridge_regression
-from brainDecTool.math import down_sample
-from brainDecTool.timeseries import hrf
 import util as vutil
 
-
-def feat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None):
-    """Get TRs from CNN actiavtion datasets.
-    
-    Input
-    -----
-    feat_dir : absolute path of feature directory
-    out_dir : output directory
-    dataset : train or val
-    layer : index of CNN layers
-    ds_fact : spatial down-sample factor
-
-    """
-    # layer size
-    layer_size = {1: [96, 55, 55],
-                  2: [256, 27, 27],
-                  3: [384, 13, 13],
-                  4: [384, 13, 13],
-                  5: [256, 13, 13]}
-    # load stimulus time courses
-    prefix_name = 'feat%s_sti_%s' % (layer, dataset)
-    feat_ptr = []
-    if dataset=='train':
-        time_count = 0
-        for i in range(12):
-            tmp = np.load(os.path.join(feat_dir, 'stimulus_'+dataset,
-                                       prefix_name+'_'+str(i+1)+'.npy'),
-                          mmap_mode='r')
-            time_count += tmp.shape[0]
-            feat_ptr.append(tmp)
-        ts_shape = (time_count, feat_ptr[0].shape[1])
-    else:
-        feat_ts = np.load(os.path.join(feat_dir, 'stimulus_'+dataset,
-                                       prefix_name+'.npy'),
-                          mmap_mode='r')
-        feat_ptr.append(feat_ts)
-        ts_shape = feat_ts.shape
-
-    print 'Original data shape : ', ts_shape
-
-    # movie fps
-    fps = 15
-    
-    # calculate down-sampled data size
-    s = layer_size[layer]
-    if ds_fact:
-        ds_mark = '_ds%s' %(ds_fact)
-        out_s = (s[0], int(np.ceil(s[1]*1.0/ds_fact)),
-                 int(np.ceil(s[2]*1.0/ds_fact)), ts_shape[0]/fps)
-    else:
-        ds_mark = ''
-        out_s = (s[0], s[1], s[2], ts_shape[0]/fps)
-    print 'Down-sampled data shape : ', out_s
- 
-    # data array for storing time series after convolution and down-sampling
-    # to save memory, a memmap is used temporally
-    out_file_name = 'feat%s_%s_trs%s.npy'%(layer, dataset, ds_mark)
-    out_file = os.path.join(out_dir, out_file_name)
-    print 'Save TR data into file ', out_file
-    feat = np.memmap(out_file, dtype='float64', mode='w+', shape=out_s)
-
-    # convolution and down-sampling in a parallel approach
-    Parallel(n_jobs=10)(delayed(stim_pro)(feat_ptr, feat, s, fps, ds_fact, i)
-                        for i in range(ts_shape[1]/(s[1]*s[2])))
-
-    # save memmap object as a numpy.array
-    narray = np.array(feat)
-    np.save(out_file, narray)
-
-def stim_pro(feat_ptr, output, orig_size, fps, fact, i):
-    """Sugar function for parallel computing."""
-    print i
-    # scanning parameter
-    TR = 1
-    # movie fps
-    #fps = 15
-    time_unit = 1.0 / fps
-
-    # HRF config
-    hrf_times = np.arange(0, 35, time_unit)
-    hrf_signal = hrf.biGammaHRF(hrf_times)
-
-    # procssing
-    bsize = orig_size[1]*orig_size[2]
-    for p in range(len(feat_ptr)):
-        if not p:
-            ts = feat_ptr[p][:, i*bsize:(i+1)*bsize]
-        else:
-            ts = np.concatenate([ts, feat_ptr[p][:, i*bsize:(i+1)*bsize]],
-                                axis=0)
-    ts = ts.T
-    #print ts.shape
-    # log-transform
-    ts = np.log(ts+1)
-    # convolved with HRF
-    convolved = np.apply_along_axis(np.convolve, 1, ts, hrf_signal)
-    # remove time points after the end of the scanning run
-    n_to_remove = len(hrf_times) - 1
-    convolved = convolved[:, :-n_to_remove]
-    # temporal down-sample
-    vol_times = np.arange(0, ts.shape[1], fps)
-    dconvolved = convolved[:, vol_times]
-    # reshape to 3D
-    dconvolved3d = dconvolved.reshape(orig_size[1], orig_size[2],
-                                      len(vol_times))
-    # get start index
-    idx = i*bsize
-    channel_idx, row, col = vutil.node2feature(idx, orig_size)
-
-    # spatial down-sample
-    if fact:
-        dconvolved3d = down_sample(dconvolved3d, (fact, fact, 1))
-    output[channel_idx, ...] = dconvolved3d
 
 def roi2nifti(fmri_table):
     """Save ROI as a nifti file."""
@@ -290,9 +175,22 @@ def hrf_estimate(tf, feat_ts):
             out[j, :, i] = time_lag_corr(tmp, vxl_data[i, :], 40)
     np.save('hrf_test.npy', out)
 
-def plscorr():
+def plscorr(fmri_ts, feat_ts, components_num, out_dir):
     """Compute PLS correlation between brain activity and CNN activation."""
-    pass
+    feat_ts = feat_ts.reshape(-1, feat_ts.shape[3]).T
+    fmri_ts = fmri_ts.T
+    plscca = PLSCanonical(n_components=components_num)
+    plscca.fit(feat_ts, fmri_ts)
+    feat_c, fmri_c = plscca.transform(feat_ts, fmri_ts)
+    np.save(os.path.join(out_dir, 'feat_c.npy'), feat_c)
+    np.save(os.path.join(out_dir, 'fmri_c.npy'), fmri_c)
+    feat_weight = plscca.x_weights_.reshape(96, 11, 11, components_num)
+    fmri_weight = plscca.y_weights_
+    np.save(os.path.join(out_dir, 'feat_weights.npy'), feat_weight)
+    np.save(os.path.join(out_dir, 'fmri_weights.npy'), fmri_weight)
+    vutil.plot_cca_fweights(feat_weight, out_dir)
+    vutil.save_cca_volweights(fmri_weight,
+            '/home/huanglijie/workingdir/brainDecoding/S1_mask.nii.gz', out_dir)
 
 
 
@@ -301,12 +199,8 @@ if __name__ == '__main__':
     # config parser
     cf = configParser.Config('config')
     data_dir = cf.get('base', 'path')
-    feat_dir = os.path.join(data_dir, 'stimulus')
-    stim_dir = os.path.join(data_dir, 'cnn_rsp')
+    feat_dir = os.path.join(data_dir, 'sfeatures')
 
-    #-- CNN activation pre-processing
-    #feat_tr_pro(feat_dir, stim_dir, dataset='val', layer=1)
-    
     #-- load fmri data
     tf = tables.open_file(os.path.join(data_dir, 'VoxelResponses_subject1.mat'))
     #tf.list_nodes
@@ -320,7 +214,7 @@ if __name__ == '__main__':
 
     #-- calculate cross-modality corrlation 
     # load fmri response from training/validation dataset
-    fmri_ts = tf.get_node('/rv')[:]
+    fmri_ts = tf.get_node('/rt')[:]
     # data.shape = (73728, 540/7200)
     # load brain mask
     mask_file = os.path.join(data_dir, 'S1_mask.nii.gz')
@@ -329,7 +223,7 @@ if __name__ == '__main__':
     fmri_ts = fmri_ts[vxl_idx]
     fmri_ts = np.nan_to_num(fmri_ts)
     # load convolved cnn activation data for validation dataset
-    feat1_file = os.path.join(stim_dir, 'feat1_val_trs.npy')
+    feat1_file = os.path.join(feat_dir, 'feat1_train_trs_ds5.npy')
     feat1_ts = np.load(feat1_file, mmap_mode='r')
     # data.shape = (96, 55, 55, 540/7200)
     # sum up all channels
@@ -351,10 +245,16 @@ if __name__ == '__main__':
     #multiple_regression(fmri_ts, feat1_ts, regress_file)
     
     #-- retinotopic mapping
-    retinotopic_mapping(corr_file, mask)
+    #retinotopic_mapping(corr_file, mask)
 
     #-- ridge regression
     #ridge_regression(train_feat, train_fmri, val_feat, val_fmri, outfile)
+
+    # PLS-CCA
+    cca_dir = os.path.join(retino_dir, 'cca_20')
+    if not os.path.exists(cca_dir):
+        os.mkdir(cca_dir, 0755)
+    plscorr(fmri_ts, feat1_ts, 20, cca_dir)
 
     #-- close fmri data
     tf.close()

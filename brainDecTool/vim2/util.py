@@ -105,3 +105,36 @@ def data_swap(nifti_file):
     ndata = np.rollaxis(ndata, 0, 3)
     return ndata
 
+def plot_cca_fweights(feat_weights, out_dir):
+    """Plot features weights derived from CCA."""
+    n_components = feat_weights.shape[3]
+    n_channels = feat_weights.shape[0]
+    maxv = feat_weights.max()
+    minv = feat_weights.min()
+    for f in range(n_components):
+        fig, axs = plt.subplots(10, 10)
+        for c in range(n_channels):
+            tmp = feat_weights[c, ..., f]
+            im = axs[c/10][c%10].imshow(tmp, interpolation='nearest',
+                                        vmin=minv, vmax=maxv)
+        fig.colorbar(im)
+        fig.savefig(os.path.join(out_dir, 'cca_feat_components_%s.png'%(f+1)))
+
+def save_cca_volweights(fmri_weights, mask_file, out_dir):
+    """Save fmri weights derived from CCA as nifti files."""
+    n_components = fmri_weights.shape[1]
+    mask = data_swap(mask_file)
+    vxl_idx = np.nonzero(mask.flatten()==1)[0]
+    for i in range(n_components):
+        tmp = np.zeros_like(mask.flatten(), dtype=np.float64)
+        tmp[vxl_idx] = fmri_weights[:, i]
+        tmp = tmp.reshape(mask.shape)
+        save2nifti(tmp, os.path.join(out_dir, 'cca_component_%s.nii.gz'%(i+1)))
+
+def display_video(dataset):
+    """Display 3D video."""
+    plt.ion()
+    for i in range(dataset.shape[2]):
+        plt.imshow(dataset[:, i])
+        plt.pause(0.05)
+
