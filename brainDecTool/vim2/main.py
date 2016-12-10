@@ -7,6 +7,7 @@ import tables
 from scipy import ndimage
 from scipy.misc import imsave
 from sklearn.cross_decomposition import PLSCanonical
+from scipy.stats import chisqprob
 
 from brainDecTool.util import configParser
 from brainDecTool.pipeline import retinotopy
@@ -191,6 +192,25 @@ def plscorr(fmri_ts, feat_ts, components_num, out_dir):
     vutil.plot_cca_fweights(feat_weight, out_dir)
     vutil.save_cca_volweights(fmri_weight,
             '/home/huanglijie/workingdir/brainDecoding/S1_mask.nii.gz', out_dir)
+    # calculate correlation between original variables and the canonical
+    # components
+    cross_modal_corr(feat_ts.T, feat_c.T, 'feat_cc_corr.npy', block_size=96)
+    #cross_modal_corr(fmri_ts.T, fmri_c.T, 'fmri_cc_corr.npy', block_size=)
+    # Chi-square test
+    rlist = []
+    for i in range(components_num):
+        r = np.corrcoef(feat_c[:, i], fmri_c[:, i])[0, 1]
+        rlist.append(r)
+    print 'Chi-square test ...'
+    r2list = [1-r**2 for r in rlist]
+    m = feat_ts.shape[1]
+    n = fmri_ts.shape[1]
+    p = feat_ts.shape[0]
+    for i in  range(components_num):
+        chi2 = ((m+n+3)*1.0/2-p)*np.log(reduce(lambda x, y: x*y, r2list[i:]))
+        dof = (m-i)*(n-i)
+        print 'Canonical component %s, p value: %s'%(i+1, chisqprob(chi2, dof))
+
 
 
 
