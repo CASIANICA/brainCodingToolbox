@@ -6,8 +6,10 @@ import numpy as np
 import tables
 from scipy import ndimage
 from scipy.misc import imsave
-from sklearn.cross_decomposition import PLSCanonical
 from scipy.stats import chisqprob
+
+#from brainDecTool.math import rcca
+from sklearn.cross_decomposition import PLSCanonical
 
 from brainDecTool.util import configParser
 from brainDecTool.math import parallel_corr2_coef
@@ -176,42 +178,76 @@ def hrf_estimate(tf, feat_ts):
             out[j, :, i] = time_lag_corr(tmp, vxl_data[i, :], 40)
     np.save('hrf_test.npy', out)
 
-def plscorr(fmri_ts, feat_ts, components_num, out_dir):
+def ccapro(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
     """Compute PLS correlation between brain activity and CNN activation."""
-    feat_ts = feat_ts.reshape(-1, feat_ts.shape[3]).T
-    fmri_ts = fmri_ts.T
-    plscca = PLSCanonical(n_components=components_num)
-    plscca.fit(feat_ts, fmri_ts)
-    feat_c, fmri_c = plscca.transform(feat_ts, fmri_ts)
-    np.save(os.path.join(out_dir, 'feat_c.npy'), feat_c)
-    np.save(os.path.join(out_dir, 'fmri_c.npy'), fmri_c)
-    feat_weight = plscca.x_weights_.reshape(96, 11, 11, components_num)
-    fmri_weight = plscca.y_weights_
-    np.save(os.path.join(out_dir, 'feat_weights.npy'), feat_weight)
-    np.save(os.path.join(out_dir, 'fmri_weights.npy'), fmri_weight)
-    vutil.plot_cca_fweights(feat_weight, out_dir)
-    vutil.save_cca_volweights(fmri_weight,
-            '/home/huanglijie/workingdir/brainDecoding/S1_mask.nii.gz', out_dir)
-    # calculate correlation between original variables and the canonical
-    # components
-    parallel_corr2_coef(feat_ts.T, feat_c.T, 
-                        os.path.join(out_dir, 'feat_cc_corr.npy'),
-                        block_size=96)
+    train_feat_ts = train_feat_ts.reshape(-1, train_feat_ts.shape[3]).T
+    val_feat_ts = val_feat_ts.reshape(-1, val_feat_ts.shape[3]).T
+    train_fmri_ts = train_fmri_ts.T
+    val_fmri_ts = val_fmri_ts.T
+
+    #cca = rcca.CCACrossValidate(numCCs=[5, 6, 7, 8, 9, 10, 11, 12, 13],
+    #                            kernelcca=False)
+    #cca.train([train_feat_ts, train_fmri_ts])
+    #cca.validate([val_feat_ts, val_fmri_ts])
+    #cca.compute_ev([val_feat_ts, val_fmri_ts])
+
+    # Iteration loop for different component number
+    for n in range(5, 21):
+        print '--- Components number %s ---' %(n)
+        plsca = PLSCanonical(n_components=n)
+        plsca.fit(train_feat_ts, train_fmri_ts)
+        pred_fmri_ts = plsca.predict(val_feat_ts)
+        # calculate correlation coefficient between truth and prediction
+        tmp_val_fmri = val_fmri_ts - val_fmri_ts.mean(axis=0)
+        tmp_val_fmri /= val_fmri_ts.std(axis=0)
+        tmp_val_fmri = np.nan_to_num(tmp_val_fmri.T)
+        tmp_pred_fmri = pred_fmri_ts - pred_fmri_ts.mean(axis=0)
+        tmp_pred_fmri /= pred_fmri_ts.std(axis=0)
+        tmp_pred_fmri = np.nan_to_num(tmp_pred_fmri.T)
+        r = np.einsum('ij, ij->i', tmp_val_fmri, tmp_pred_fmri)
+        r /= len(r)
+        # get top 20% corrcoef for model evaluation
+        vsample = nt(np.rint(0.2*len(r)))
+        print 'Sample size for evaluation : %s' % (vsample)
+        r.sort()
+        meanr = np.mean(r[-1*vsample:])
+        print 'Mean prediction corrcoef : %s' %(meanr)
+
+    #plscca = PLSCanonical(n_components=components_num)
+    #plscca.fit(feat_ts, fmri_ts)
+    #feat_c, fmri_c = plscca.transform(feat_ts, fmri_ts)
+    #np.save(os.path.join(out_dir, 'feat_c.npy'), feat_c)
+    #np.save(os.path.join(out_dir, 'fmri_c.npy'), fmri_c)
+    #feat_weight = plscca.x_weights_.reshape(96, 11, 11, components_num)
+    #fmri_weight = plscca.y_weights_
+    #np.save(os.path.join(out_dir, 'feat_weights.npy'), feat_weight)
+    #np.save(os.path.join(out_dir, 'fmri_weights.npy'), fmri_weight)
+    #vutil.plot_cca_fweights(feat_weight, out_dir)
+    #vutil.save_cca_volweights(fmri_weight,
+    #        '/home/huanglijie/workingdir/brainDecoding/S1_mask.nii.gz', out_dir)
+    ## calculate correlation between original variables and the canonical
+    ## components
+    #parallel_corr2_coef(feat_ts.T, feat_c.T, 
+    #                    os.path.join(out_dir, 'feat_cc_corr.npy'),
+    #                    block_size=20)
     #parallel_corr2_coef(fmri_ts.T, fmri_c.T, 'fmri_cc_corr.npy', block_size=)
-    # Chi-square test
-    rlist = []
-    for i in range(components_num):
-        r = np.corrcoef(feat_c[:, i], fmri_c[:, i])[0, 1]
-        rlist.append(r)
-    print 'Chi-square test ...'
-    r2list = [1-r**2 for r in rlist]
-    m = feat_ts.shape[1]
-    n = fmri_ts.shape[1]
-    p = feat_ts.shape[0]
-    for i in  range(components_num):
-        chi2 = ((m+n+3)*1.0/2-p)*np.log(reduce(lambda x, y: x*y, r2list[i:]))
-        dof = (m-i)*(n-i)
-        print 'Canonical component %s, p value: %s'%(i+1, chisqprob(chi2, dof))
+    
+    ## Chi-square test -- not suit for small sample size application ... 
+    #rlist = []
+    #for i in range(components_num):
+    #    r = np.corrcoef(feat_c[:, i], fmri_c[:, i])[0, 1]
+    #    rlist.append(r)
+    #print 'Correlation coefficient', rlist
+    #print 'Chi-square test ...'
+    #r2list = [1-r**2 for r in rlist]
+    #print '1-r^2:', r2list
+    #m = feat_ts.shape[1]
+    #n = fmri_ts.shape[1]
+    #p = feat_ts.shape[0]
+    #for i in  range(components_num):
+    #    chi2 = ((m+n+3)*1.0/2-p)*np.log(reduce(lambda x, y: x*y, r2list[i:]))
+    #    dof = (m-i)*(n-i)
+    #    print 'Canonical component %s, p value: %s'%(i+1, chisqprob(chi2, dof))
 
 
 
@@ -235,17 +271,20 @@ if __name__ == '__main__':
 
     #-- calculate cross-modality corrlation 
     # load fmri response from training/validation dataset
-    fmri_ts = tf.get_node('/rt')[:]
+    train_fmri_ts = tf.get_node('/rt')[:]
+    val_fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
     # load brain mask
     mask_file = os.path.join(data_dir, 'S1_mask.nii.gz')
     mask = vutil.data_swap(mask_file).flatten()
     vxl_idx = np.nonzero(mask==1)[0]
-    fmri_ts = fmri_ts[vxl_idx]
-    fmri_ts = np.nan_to_num(fmri_ts)
+    train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
+    val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     # load convolved cnn activation data for validation dataset
-    feat1_file = os.path.join(feat_dir, 'feat1_train_trs_ds5.npy')
-    feat1_ts = np.load(feat1_file, mmap_mode='r')
+    train_feat1_file = os.path.join(feat_dir, 'feat1_train_trs_ds5.npy')
+    train_feat1_ts = np.load(train_feat1_file, mmap_mode='r')
+    val_feat1_file = os.path.join(feat_dir, 'feat1_val_trs_ds5.npy')
+    val_feat1_ts = np.load(val_feat1_file, mmap_mode='r')
     # data.shape = (96, 55, 55, 540/7200)
     # sum up all channels
     # select parts of channels
@@ -271,11 +310,11 @@ if __name__ == '__main__':
     #-- ridge regression
     #ridge_regression(train_feat, train_fmri, val_feat, val_fmri, outfile)
 
-    # PLS-CCA
-    cca_dir = os.path.join(retino_dir, 'cca_20')
+    # CCA
+    cca_dir = os.path.join(retino_dir, 'cca_cv')
     if not os.path.exists(cca_dir):
         os.mkdir(cca_dir, 0755)
-    plscorr(fmri_ts, feat1_ts, 20, cca_dir)
+    ccapro(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts, cca_dir)
 
     #-- close fmri data
     tf.close()
