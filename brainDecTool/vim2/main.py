@@ -207,7 +207,7 @@ def plscorr(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
         r = np.einsum('ij, ij->i', tmp_val_fmri, tmp_pred_fmri)
         r /= len(r)
         # get top 20% corrcoef for model evaluation
-        vsample = nt(np.rint(0.2*len(r)))
+        vsample = int(np.rint(0.2*len(r)))
         print 'Sample size for evaluation : %s' % (vsample)
         r.sort()
         meanr = np.mean(r[-1*vsample:])
