@@ -12,7 +12,7 @@ from scipy.stats import chisqprob
 from sklearn.cross_decomposition import PLSCanonical
 
 from brainDecTool.util import configParser
-from brainDecTool.math import parallel_corr2_coef
+from brainDecTool.math import parallel_corr2_coef, corr2_coef
 from brainDecTool.pipeline import retinotopy
 from brainDecTool.pipeline.base import random_cross_modal_corr
 from brainDecTool.pipeline.base import multiple_regression
@@ -198,14 +198,7 @@ def plscorr(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
         plsca.fit(train_feat_ts, train_fmri_ts)
         pred_fmri_ts = plsca.predict(val_feat_ts)
         # calculate correlation coefficient between truth and prediction
-        tmp_val_fmri = val_fmri_ts - val_fmri_ts.mean(axis=0)
-        tmp_val_fmri /= val_fmri_ts.std(axis=0)
-        tmp_val_fmri = np.nan_to_num(tmp_val_fmri.T)
-        tmp_pred_fmri = pred_fmri_ts - pred_fmri_ts.mean(axis=0)
-        tmp_pred_fmri /= pred_fmri_ts.std(axis=0)
-        tmp_pred_fmri = np.nan_to_num(tmp_pred_fmri.T)
-        r = np.einsum('ij, ij->i', tmp_val_fmri, tmp_pred_fmri)
-        r /= len(r)
+        r = corr2_coef(val_fmri_ts.T, pred_fmri_ts.T, model='pair')
         # get top 20% corrcoef for model evaluation
         vsample = int(np.rint(0.2*len(r)))
         print 'Sample size for evaluation : %s' % (vsample)

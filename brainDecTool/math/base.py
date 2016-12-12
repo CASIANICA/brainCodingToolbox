@@ -5,16 +5,29 @@ import numpy as np
 from skimage.measure import block_reduce
 from joblib import Parallel, delayed
 
-def corr2_coef(A, B):
-    """Row-wise Correlation Coefficient calculation for two 2D arrays."""
-    # Row-wise mean of input arrays & subtract from input arrays themselves
-    A_mA = A - A.mean(1)[:, None]
-    B_mB = B - B.mean(1)[:, None]
-    # Sum of squares across rows
-    ssA = (A_mA**2).sum(1)
-    ssB = (B_mB**2).sum(1)
-    # Finally get corr coef
-    return np.dot(A_mA, B_mB.T)/np.sqrt(np.dot(ssA[:, None], ssB[None]))
+def corr2_coef(A, B, mode='full'):
+    """Row-wise Correlation Coefficient calculation for two 2D arrays.
+    Input 2D array A (m by d), array B (n by d), in `full` model, the function
+    would return a correlation matrix (m by n); in `pair` model, array A and
+    B must have identical shape (m == n), and a correlation array for each
+    pair of vector would be returned.
+
+    """
+    if mode=='full':
+        # Row-wise mean of input arrays & subtract from input arrays themselves
+        A_mA = A - A.mean(1)[:, None]
+        B_mB = B - B.mean(1)[:, None]
+        # Sum of squares across rows
+        ssA = (A_mA**2).sum(1)
+        ssB = (B_mB**2).sum(1)
+        # Finally get corr coef
+        return np.dot(A_mA, B_mB.T)/np.sqrt(np.dot(ssA[:, None], ssB[None]))
+    elif mode=='pair':
+        norm_A = (A - A.mean(1)[:, None]) / A.std(1)[:, None]
+        norm_B = (B - B.mean(1)[:, None]) / B.std(1)[:, None]
+        norm_A = np.nan_to_num(norm_A)
+        norm_B = np.nan_to_num(norm_B)
+        return np.einsum('ij, ij->i', norm_A, norm_B)/A.shape[1]
 
 def parallel_corr2_coef(A, B, filename, block_size=32, n_jobs=8):
     """Compute row-wise correlation coefficient for two 2D arrays in a
