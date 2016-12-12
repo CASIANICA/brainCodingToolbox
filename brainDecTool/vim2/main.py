@@ -178,7 +178,7 @@ def hrf_estimate(tf, feat_ts):
             out[j, :, i] = time_lag_corr(tmp, vxl_data[i, :], 40)
     np.save('hrf_test.npy', out)
 
-def ccapro(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
+def plscorr(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
     """Compute PLS correlation between brain activity and CNN activation."""
     train_feat_ts = train_feat_ts.reshape(-1, train_feat_ts.shape[3]).T
     val_feat_ts = val_feat_ts.reshape(-1, val_feat_ts.shape[3]).T
@@ -310,11 +310,11 @@ if __name__ == '__main__':
     #-- ridge regression
     #ridge_regression(train_feat, train_fmri, val_feat, val_fmri, outfile)
 
-    # CCA
+    # PLS-CCA
     cca_dir = os.path.join(retino_dir, 'cca_cv')
     if not os.path.exists(cca_dir):
         os.mkdir(cca_dir, 0755)
-    ccapro(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts, cca_dir)
+    plscorr(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts, cca_dir)
 
     #-- close fmri data
     tf.close()
