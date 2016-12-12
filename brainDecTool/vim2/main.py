@@ -185,12 +185,6 @@ def plscorr(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
     train_fmri_ts = train_fmri_ts.T
     val_fmri_ts = val_fmri_ts.T
 
-    #cca = rcca.CCACrossValidate(numCCs=[5, 6, 7, 8, 9, 10, 11, 12, 13],
-    #                            kernelcca=False)
-    #cca.train([train_feat_ts, train_fmri_ts])
-    #cca.validate([val_feat_ts, val_fmri_ts])
-    #cca.compute_ev([val_feat_ts, val_fmri_ts])
-
     # Iteration loop for different component number
     for n in range(5, 21):
         print '--- Components number %s ---' %(n)
@@ -241,6 +235,21 @@ def plscorr(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
     #    chi2 = ((m+n+3)*1.0/2-p)*np.log(reduce(lambda x, y: x*y, r2list[i:]))
     #    dof = (m-i)*(n-i)
     #    print 'Canonical component %s, p value: %s'%(i+1, chisqprob(chi2, dof))
+
+
+def reg_cca(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
+    """Conduct CCA between brain activity and CNN activation."""
+    train_feat_ts = train_feat_ts.reshape(-1, train_feat_ts.shape[3]).T
+    val_feat_ts = val_feat_ts.reshape(-1, val_feat_ts.shape[3]).T
+    train_fmri_ts = train_fmri_ts.T
+    val_fmri_ts = val_fmri_ts.T
+
+    # for reduce complexity, a linear kernel is used
+    cca = rcca.CCACrossValidate(numCCs=[5, 6, 7, 8, 9, 10, 11, 12, 13],
+                                kernelcca=True)
+    cca.train([train_feat_ts, train_fmri_ts])
+    cca.validate([val_feat_ts, val_fmri_ts])
+    cca.compute_ev([val_feat_ts, val_fmri_ts])
 
 
 
@@ -303,11 +312,12 @@ if __name__ == '__main__':
     #-- ridge regression
     #ridge_regression(train_feat, train_fmri, val_feat, val_fmri, outfile)
 
-    # PLS-CCA
+    # CCA
     cca_dir = os.path.join(retino_dir, 'cca_cv')
     if not os.path.exists(cca_dir):
         os.mkdir(cca_dir, 0755)
     plscorr(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts, cca_dir)
+    #reg_cca(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts, cca_dir)
 
     #-- close fmri data
     tf.close()
