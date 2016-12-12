@@ -3,6 +3,7 @@
 
 import numpy as np
 from skimage.measure import block_reduce
+from joblib import Parallel, delayed
 
 def corr2_coef(A, B):
     """Row-wise Correlation Coefficient calculation for two 2D arrays."""
@@ -14,6 +15,44 @@ def corr2_coef(A, B):
     ssB = (B_mB**2).sum(1)
     # Finally get corr coef
     return np.dot(A_mA, B_mB.T)/np.sqrt(np.dot(ssA[:, None], ssB[None]))
+
+def parallel_corr2_coef(A, B, filename, block_size=32, n_jobs=8):
+    """Compute row-wise correlation coefficient for two 2D arrays in a
+    parallel computing approach.
+    Array `B` would be divided into several blocks each containing
+    `block_size` rows for one parallel computing iteration.
+    
+    Usage
+    -----
+    cross_modal_corr(A, B, filename, block_size=32, n_jobs=8)
+    
+    Return
+    ------
+    A row-wise correlation matrix saved in `filename`. For example, if
+    the size of `A` is (p, n), and the size of `B` is (q, n), the
+    size of return matrix is (p, q).
+
+    Note
+    ----
+    'block_size' : the number of rows in `B` processed in one iter.
+    """
+    # to reduce memory usage, we compute Pearson's r iteratively
+    A_size = A.shape[0]
+    B_size = B.shape[0]
+    corr_mtx = np.memmap(filename, dtype='float16', mode='w+',
+                         shape=(A_size, B_size))
+    print 'Compute row-wise correlation ...'
+    # parallelize the corr computation
+    Parallel(n_jobs=n_jobs)(delayed(pcorr2_sugar)(A, B, corr_mtx, i,
+                            block_size) for i in range(B_size/block_size))
+    narray = np.array(corr_mtx)
+    np.save(filename, narray)
+
+def pcorr2_sugar(A, B, output, i, block_size):
+    """Sugar function for parallel computing."""
+    print 'Iter %s' %(i)
+    output[:, i*block_size:(i+1)*block_size] = corr2_coef(A,
+                B[i*block_size:(i+1)*block_size, :])
 
 def unit_vector(vector):
     """Return the unit vector of the input."""

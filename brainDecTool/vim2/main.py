@@ -10,8 +10,8 @@ from sklearn.cross_decomposition import PLSCanonical
 from scipy.stats import chisqprob
 
 from brainDecTool.util import configParser
+from brainDecTool.math import parallel_corr2_coef
 from brainDecTool.pipeline import retinotopy
-from brainDecTool.pipeline.base import cross_modal_corr
 from brainDecTool.pipeline.base import random_cross_modal_corr
 from brainDecTool.pipeline.base import multiple_regression
 from brainDecTool.pipeline.base import ridge_regression
@@ -194,8 +194,8 @@ def plscorr(fmri_ts, feat_ts, components_num, out_dir):
             '/home/huanglijie/workingdir/brainDecoding/S1_mask.nii.gz', out_dir)
     # calculate correlation between original variables and the canonical
     # components
-    cross_modal_corr(feat_ts.T, feat_c.T, 'feat_cc_corr.npy', block_size=96)
-    #cross_modal_corr(fmri_ts.T, fmri_c.T, 'fmri_cc_corr.npy', block_size=)
+    parallel_corr2_coef(feat_ts.T, feat_c.T, 'feat_cc_corr.npy', block_size=96)
+    #parallel_corr2_coef(fmri_ts.T, fmri_c.T, 'fmri_cc_corr.npy', block_size=)
     # Chi-square test
     rlist = []
     for i in range(components_num):
@@ -255,9 +255,9 @@ if __name__ == '__main__':
         os.mkdir(retino_dir, 0755)
     #corr_file = os.path.join(retino_dir, 'val_fmri_feat1_corr.npy')
     #feat1_ts = feat1_ts.reshape(3025, 540)
-    #cross_modal_corr(fmri_ts, feat1_ts, corr_file, block_size=96)
+    #parallel_corr2_coef(fmri_ts, feat1_ts, corr_file, block_size=96)
     #rand_corr_file = os.path.join(retino_dir, 'train_fmri_feat1_rand_corr.npy')
-    #random_modal_corr(fmri_ts, feat1_ts, 10, 1000, rand_corr_file)
+    #random_cross_modal_corr(fmri_ts, feat1_ts, 10, 1000, rand_corr_file)
     
     #-- multiple regression voxel ~ channels from each location
     #regress_file = os.path.join(retino_dir, 'val_fmri_feat1_regress.npy')
