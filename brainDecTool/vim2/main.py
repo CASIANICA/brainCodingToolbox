@@ -194,7 +194,9 @@ def plscorr(fmri_ts, feat_ts, components_num, out_dir):
             '/home/huanglijie/workingdir/brainDecoding/S1_mask.nii.gz', out_dir)
     # calculate correlation between original variables and the canonical
     # components
-    parallel_corr2_coef(feat_ts.T, feat_c.T, 'feat_cc_corr.npy', block_size=96)
+    parallel_corr2_coef(feat_ts.T, feat_c.T, 
+                        os.path.join(out_dir, 'feat_cc_corr.npy'),
+                        block_size=96)
     #parallel_corr2_coef(fmri_ts.T, fmri_c.T, 'fmri_cc_corr.npy', block_size=)
     # Chi-square test
     rlist = []
@@ -210,7 +212,6 @@ def plscorr(fmri_ts, feat_ts, components_num, out_dir):
         chi2 = ((m+n+3)*1.0/2-p)*np.log(reduce(lambda x, y: x*y, r2list[i:]))
         dof = (m-i)*(n-i)
         print 'Canonical component %s, p value: %s'%(i+1, chisqprob(chi2, dof))
-
 
 
 
