@@ -8,6 +8,7 @@ from scipy.misc import imsave
 import cv2
 from joblib import Parallel, delayed
 
+import util as vutil
 from brainDecTool.util import configParser
 from brainDecTool.timeseries import hrf
 from brainDecTool.math import down_sample
@@ -241,9 +242,10 @@ if __name__ == '__main__':
     #mat2png(stimulus, 'train')
 
     #-- CNN activation pre-processing
-    #cnnfeat_tr_pro(cnn_dir, feat_dir, dataset='train', layer=1)
+    #cnnfeat_tr_pro(cnn_dir, feat_dir, dataset='train', layer=1, ds_fact=None)
     
     #-- calculate dense optical flow
     #get_optical_flow(stimulus, 'train', feat_dir)
     optical_file = os.path.join(feat_dir, 'train_opticalflow_mag.npy')
     feat_tr_pro(optical_file, feat_dir)
+
