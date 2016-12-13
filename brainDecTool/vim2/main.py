@@ -8,7 +8,7 @@ from scipy import ndimage
 from scipy.misc import imsave
 from scipy.stats import chisqprob
 
-#from brainDecTool.math import rcca
+from brainDecTool.math import rcca
 from sklearn.cross_decomposition import PLSCanonical
 
 from brainDecTool.util import configParser
@@ -316,8 +316,8 @@ if __name__ == '__main__':
     cca_dir = os.path.join(retino_dir, 'cca_cv')
     if not os.path.exists(cca_dir):
         os.mkdir(cca_dir, 0755)
-    plscorr(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts, cca_dir)
-    #reg_cca(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts, cca_dir)
+    #plscorr(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts, cca_dir)
+    reg_cca(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts, cca_dir)
 
     #-- close fmri data
     tf.close()

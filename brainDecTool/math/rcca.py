@@ -1,9 +1,14 @@
+# emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
+# vi: set ft=python sts=4 ts=4 sw=4 et:
+
 import numpy as np
 from scipy.linalg import eigh
 import h5py
 
 class _CCABase(object):
-    def __init__(self, numCV = None, reg = None, regs = None, numCC = None, numCCs = None, kernelcca = True, ktype = None, verbose = False, select = 0.2, cutoff = 1e-15, gausigma = 1.0, degree = 2):
+    def __init__(self, numCV = None, reg = None, regs = None, numCC = None,
+                 numCCs = None, kernelcca = True, ktype = None, verbose = False,
+                 select = 0.2, cutoff = 1e-15, gausigma = 1.0, degree = 2):
         self.numCV = numCV
         self.reg = reg
         self.regs = regs
@@ -190,7 +195,8 @@ def predict(vdata, ws, cutoff = 1e-15):
         corrs.append(cs)
     return preds, corrs
 
-def kcca(data, reg = 0., numCC=None, kernelcca = True, ktype = "linear", gausigma = 1.0, degree = 2):
+def kcca(data, reg = 0., numCC=None, kernelcca = True, ktype = "linear",
+         gausigma = 1.0, degree = 2):
     '''Set up and solve the eigenproblem for the data in kernel and specified reg
     '''
     if kernelcca:
@@ -267,7 +273,8 @@ def _rowcorr(a, b):
         cs[idx] = np.corrcoef(a[idx], b[idx])[0,1]
     return cs
 
-def _make_kernel(d, normalize = True, ktype = "linear", gausigma = 1.0, degree = 2):
+def _make_kernel(d, normalize = True, ktype = "linear", gausigma = 1.0,
+                 degree = 2):
     '''Makes a kernel for data d
       If ktype is "linear", the kernel is a linear inner product
       If ktype is "gaussian", the kernel is a Gaussian kernel with sigma = gausigma
