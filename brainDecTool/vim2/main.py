@@ -245,11 +245,13 @@ def reg_cca(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
     val_fmri_ts = val_fmri_ts.T
 
     # for reduce complexity, a linear kernel is used
-    cca = rcca.CCACrossValidate(numCCs=[5, 6, 7, 8, 9, 10, 11, 12, 13],
+    cca = rcca.CCACrossValidate(numCCs=[7, 8, 9, 10, 11, 12, 13],
                                 kernelcca=True)
     cca.train([train_feat_ts, train_fmri_ts])
-    cca.validate([val_feat_ts, val_fmri_ts])
-    cca.compute_ev([val_feat_ts, val_fmri_ts])
+    #cca.validate([val_feat_ts, val_fmri_ts])
+    #cca.compute_ev([val_feat_ts, val_fmri_ts])
+    print 'Best CC number : %s' %(cca.best_numCC)
+    print 'Best reg : %s' %(cca.best_reg)
 
 
 
