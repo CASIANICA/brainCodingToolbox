@@ -200,27 +200,33 @@ def plscorr(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
     #    meanr = np.mean(r[-1*vsample:])
     #    print 'Mean prediction corrcoef : %s' %(meanr)
 
-    plsca = PLSCanonical(n_components=10)
-    plsca.fit(train_feat_ts, train_fmri_ts)
+    #plsca = PLSCanonical(n_components=10)
+    #plsca.fit(train_feat_ts, train_fmri_ts)
+    mask_file = '/Users/sealhuang/brainDecoding/S1_mask.nii.gz'
     from sklearn.externals import joblib
-    joblib.dump(plsca, os.path.join(out_dir, 'plsca_model.pkl'))
-    #plsca = joblib.load(os.path.join(out_dir, 'plsca_model.pkl'))
+    #joblib.dump(plsca, os.path.join(out_dir, 'plsca_model.pkl'))
+    plsca = joblib.load(os.path.join(out_dir, 'plsca_model.pkl'))
 
-    #feat_c, fmri_c = plscca.transform(feat_ts, fmri_ts)
-    #np.save(os.path.join(out_dir, 'feat_c.npy'), feat_c)
-    #np.save(os.path.join(out_dir, 'fmri_c.npy'), fmri_c)
-    #feat_weight = plscca.x_weights_.reshape(96, 11, 11, components_num)
-    #fmri_weight = plscca.y_weights_
+    # get PLS-CCA weights
+    #feat_cc, fmri_cc = plsca.transform(train_feat_ts, train_fmri_ts)
+    #np.save(os.path.join(out_dir, 'feat_cc.npy'), feat_cc)
+    #np.save(os.path.join(out_dir, 'fmri_cc.npy'), fmri_cc)
+    #feat_weight = plsca.x_weights_.reshape(96, 11, 11, 10)
+    #fmri_weight = plsca.y_weights_
     #np.save(os.path.join(out_dir, 'feat_weights.npy'), feat_weight)
     #np.save(os.path.join(out_dir, 'fmri_weights.npy'), fmri_weight)
-    #vutil.plot_cca_fweights(feat_weight, out_dir)
-    #vutil.save_cca_volweights(fmri_weight,
-    #        '/home/huanglijie/workingdir/brainDecoding/S1_mask.nii.gz', out_dir)
-    ## calculate correlation between original variables and the canonical
-    ## components
-    #parallel_corr2_coef(feat_ts.T, feat_c.T, 
-    #                    os.path.join(out_dir, 'feat_cc_corr.npy'),
-    #                    block_size=20)
+    #vutil.plot_cca_fweights(feat_weight, out_dir, 'feat_weight', abs_flag=False)
+    #vutil.save_cca_volweights(fmri_weight, mask_file, out_dir)
+    
+    # calculate corr between original variables and the CCs
+    feat_cc = np.load(os.path.join(out_dir, 'feat_cc.npy'))
+    parallel_corr2_coef(train_feat_ts.T, feat_cc.T, 
+                        os.path.join(out_dir, 'feat_cc_corr.npy'),
+                        block_size=10, n_jobs=2)
+    feat_cc_corr = np.load(os.path.join(out_dir, 'feat_cc_corr.npy'))
+    feat_cc_corr = feat_cc_corr.reshape(96, 11, 11, 10)
+    vutil.plot_cca_fweights(feat_cc_corr, out_dir, 'feat_cc_corr',
+                            abs_flag=False)
     #parallel_corr2_coef(fmri_ts.T, fmri_c.T, 'fmri_cc_corr.npy', block_size=)
     
     ## Chi-square test -- not suit for small sample size application ... 
