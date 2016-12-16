@@ -185,23 +185,27 @@ def plscorr(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
     train_fmri_ts = train_fmri_ts.T
     val_fmri_ts = val_fmri_ts.T
 
-    # Iteration loop for different component number
-    for n in range(5, 21):
-        print '--- Components number %s ---' %(n)
-        plsca = PLSCanonical(n_components=n)
-        plsca.fit(train_feat_ts, train_fmri_ts)
-        pred_fmri_ts = plsca.predict(val_feat_ts)
-        # calculate correlation coefficient between truth and prediction
-        r = corr2_coef(val_fmri_ts.T, pred_fmri_ts.T, model='pair')
-        # get top 20% corrcoef for model evaluation
-        vsample = int(np.rint(0.2*len(r)))
-        print 'Sample size for evaluation : %s' % (vsample)
-        r.sort()
-        meanr = np.mean(r[-1*vsample:])
-        print 'Mean prediction corrcoef : %s' %(meanr)
+    ## Iteration loop for different component number
+    #for n in range(5, 21):
+    #    print '--- Components number %s ---' %(n)
+    #    plsca = PLSCanonical(n_components=n)
+    #    plsca.fit(train_feat_ts, train_fmri_ts)
+    #    pred_fmri_ts = plsca.predict(val_feat_ts)
+    #    # calculate correlation coefficient between truth and prediction
+    #    r = corr2_coef(val_fmri_ts.T, pred_fmri_ts.T, model='pair')
+    #    # get top 20% corrcoef for model evaluation
+    #    vsample = int(np.rint(0.2*len(r)))
+    #    print 'Sample size for evaluation : %s' % (vsample)
+    #    r.sort()
+    #    meanr = np.mean(r[-1*vsample:])
+    #    print 'Mean prediction corrcoef : %s' %(meanr)
 
-    #plscca = PLSCanonical(n_components=components_num)
-    #plscca.fit(feat_ts, fmri_ts)
+    plsca = PLSCanonical(n_components=10)
+    plsca.fit(train_feat_ts, train_fmri_ts)
+    from sklearn.externals import joblib
+    joblib.dump(plsca, os.path.join(out_dir, 'plsca_model.pkl'))
+    #plsca = joblib.load(os.path.join(out_dir, 'plsca_model.pkl'))
+
     #feat_c, fmri_c = plscca.transform(feat_ts, fmri_ts)
     #np.save(os.path.join(out_dir, 'feat_c.npy'), feat_c)
     #np.save(os.path.join(out_dir, 'fmri_c.npy'), fmri_c)
@@ -256,7 +260,7 @@ def reg_cca(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
     print 'Best CC number : %s' %(cca.best_numCC)
     print 'Best reg : %s' %(cca.best_reg)
     out_file = os.path.join(out_dir, 'CCA_results_%s.hdf5'%(CCnum))
-    cca.save(os.path.join(out_file)
+    cca.save(os.path.join(out_file))
     
     #-- model exploring
     mask_file = r'/home/huanglijie/workingdir/brainDecoding/S1_mask.nii.gz'
