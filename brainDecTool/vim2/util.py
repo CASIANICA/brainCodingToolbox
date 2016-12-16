@@ -105,20 +105,41 @@ def data_swap(nifti_file):
     ndata = np.rollaxis(ndata, 0, 3)
     return ndata
 
-def plot_cca_fweights(feat_weights, out_dir):
+def plot_cca_fweights(data, out_dir, prefix_name, abs_flag=True):
     """Plot features weights derived from CCA."""
-    n_components = feat_weights.shape[3]
-    n_channels = feat_weights.shape[0]
-    maxv = feat_weights.max()
-    minv = feat_weights.min()
+    if len(data.shape)==4:
+        n_components = data.shape[3]
+    elif len(data.shape)==3:
+        n_components = 1
+    n_channels = data.shape[0]
+
+    if abs_flag:
+        maxv = np.abs(data).max()
+        minv = 0
+    else:
+        maxv = data.max()
+        minv = data.min()
     for f in range(n_components):
-        fig, axs = plt.subplots(10, 10)
+        fig, axs = plt.subplots(8, 12)
         for c in range(n_channels):
-            tmp = feat_weights[c, ..., f]
-            im = axs[c/10][c%10].imshow(tmp, interpolation='nearest',
+            if len(data.shape)==3:
+                if abs_flag:
+                    tmp = np.abs(data[c, ...])
+                else:
+                    tmp = data[c, ...]
+            else:
+                if abs_flag:
+                    tmp = np.abs(data[c, ..., f])
+                else:
+                    tmp = data[c, ..., f]
+            im = axs[c/12][c%12].imshow(tmp, interpolation='nearest',
                                         vmin=minv, vmax=maxv)
-        fig.colorbar(im)
-        fig.savefig(os.path.join(out_dir, 'cca_feat_components_%s.png'%(f+1)))
+            axs[c/12][c%12].get_xaxis().set_visible(False)
+            axs[c/12][c%12].get_yaxis().set_visible(False)
+        fig.subplots_adjust(right=0.85)
+        cbar_ax = fig.add_axes([0.88, 0.2, 0.03, 0.6])
+        fig.colorbar(im, cax=cbar_ax)
+        fig.savefig(os.path.join(out_dir, prefix_name+'_%s.png'%(f+1)))
 
 def save_cca_volweights(fmri_weights, mask_file, out_dir):
     """Save fmri weights derived from CCA as nifti files."""
