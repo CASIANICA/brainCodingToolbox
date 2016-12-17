@@ -2,9 +2,11 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 
 import os
+import glob
 import numpy as np
 import nibabel as nib
 import matplotlib.pylab as plt
+import matplotlib.image as mpimg
 
 from brainDecTool.math import corr2_coef
 
@@ -158,4 +160,17 @@ def display_video(dataset):
     for i in range(dataset.shape[2]):
         plt.imshow(dataset[:, i])
         plt.pause(0.05)
+
+def plot_kernerls(in_dir, basename, filename):
+    """Plot several kernel images in one screen."""
+    file_num = len(glob.glob(os.path.join(in_dir, basename+'*')))
+    fig, axs = plt.subplots(8, 12)
+    for n in range(file_num):
+        f = os.path.join(in_dir, basename+str(n)+'.png')
+        img = mpimg.imread(f)
+        im = axs[n/12][n%12].imshow(img)
+        axs[n/12][n%12].get_xaxis().set_visible(False)
+        axs[n/12][n%12].get_yaxis().set_visible(False)
+    fig.savefig(os.path.join(in_dir, filename))
+
 
