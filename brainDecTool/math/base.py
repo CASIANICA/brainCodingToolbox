@@ -64,8 +64,11 @@ def parallel_corr2_coef(A, B, filename, block_size=32, n_jobs=8):
 def pcorr2_sugar(A, B, output, i, block_size):
     """Sugar function for parallel computing."""
     print 'Iter %s' %(i)
-    output[:, i*block_size:(i+1)*block_size] = corr2_coef(A,
-                B[i*block_size:(i+1)*block_size, :])
+    if (i+1)*block_size > B.shape[0]:
+        output[:, i*block_size:] = corr2_coef(A, B[i*block_size:, :])
+    else:
+        output[:, i*block_size:(i+1)*block_size] = corr2_coef(A,
+                    B[i*block_size:(i+1)*block_size, :])
 
 def unit_vector(vector):
     """Return the unit vector of the input."""
