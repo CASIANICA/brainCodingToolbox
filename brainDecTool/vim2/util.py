@@ -173,4 +173,24 @@ def plot_kernerls(in_dir, basename, filename):
         axs[n/12][n%12].get_yaxis().set_visible(False)
     fig.savefig(os.path.join(in_dir, filename))
 
+def fweights_bar(feat_weights):
+    """Bar plots for feature weights derived from CCA.
+    For each feature/2D feature map, top 20% `abs` weights are averaged
+    for evaluation.
+    """
+    cc_num = feat_weights.shape[3]
+    channel_num = feat_weights.shape[0]
+    fig, axs = plt.subplots(cc_num, 1)
+    for i in range(cc_num):
+        tmp = feat_weights[..., i]
+        ws = []
+        for j in range(channel_num):
+            ctmp = np.abs(tmp[j, ...]).flatten()
+            ctmp.sort()
+            m = ctmp[-1*int(ctmp.shape[0]*0.2):].mean()
+            ws.append(m)
+        ind = np.arange(channel_num)
+        axs[i].bar(ind, ws, 0.35)
+    plt.show()
+
 

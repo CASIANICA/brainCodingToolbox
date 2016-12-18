@@ -206,10 +206,10 @@ def plscorr(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
 
     #plsca = PLSCanonical(n_components=10)
     #plsca.fit(train_feat_ts, train_fmri_ts)
-    mask_file = '/Users/sealhuang/brainDecoding/S1_mask.nii.gz'
-    from sklearn.externals import joblib
+    #mask_file = '/Users/sealhuang/brainDecoding/S1_mask.nii.gz'
+    #from sklearn.externals import joblib
     #joblib.dump(plsca, os.path.join(out_dir, 'plsca_model.pkl'))
-    plsca = joblib.load(os.path.join(out_dir, 'plsca_model.pkl'))
+    #plsca = joblib.load(os.path.join(out_dir, 'plsca_model.pkl'))
 
     # prediction score
     #pred_feat_c, pred_fmri_c = plsca.transform(val_feat_ts, val_fmri_ts)
@@ -239,10 +239,11 @@ def plscorr(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
     #parallel_corr2_coef(train_feat_ts.T, feat_cc.T, 
     #                    os.path.join(out_dir, 'feat_cc_corr.npy'),
     #                    block_size=10, n_jobs=1)
-    #feat_cc_corr = np.load(os.path.join(out_dir, 'feat_cc_corr.npy'))
-    #feat_cc_corr = feat_cc_corr.reshape(96, 11, 11, 10)
+    feat_cc_corr = np.load(os.path.join(out_dir, 'feat_cc_corr.npy'))
+    feat_cc_corr = feat_cc_corr.reshape(96, 11, 11, 10)
     #vutil.plot_cca_fweights(feat_cc_corr, out_dir, 'feat_cc_corr',
     #                        abs_flag=False)
+    vutil.fweights_bar(feat_cc_corr)
     #fmri_cc = np.load(os.path.join(out_dir, 'fmri_cc.npy'))
     #parallel_corr2_coef(train_fmri_ts.T, fmri_cc.T,
     #                    os.path.join(out_dir, 'fmri_cc_corr.npy'),
