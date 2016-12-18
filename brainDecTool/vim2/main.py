@@ -22,17 +22,20 @@ import util as vutil
 
 def roi2nifti(fmri_table):
     """Save ROI as a nifti file."""
-    l_v1_roi = fmri_table.get_node('/roi/v1lh')[:]
-    r_v1_roi = fmri_table.get_node('/roi/v1rh')[:]
-    l_v2_roi = fmri_table.get_node('/roi/v2lh')[:]
-    r_v2_roi = fmri_table.get_node('/roi/v2rh')[:]
-    l_v3_roi = fmri_table.get_node('/roi/v3lh')[:]
-    r_v3_roi = fmri_table.get_node('/roi/v3rh')[:]
-    l_v3a_roi = fmri_table.get_node('/roi/v3alh')[:]
-    r_v3a_roi = fmri_table.get_node('/roi/v3arh')[:]
-    # merge ROIs in both hemisphere
-    roi_mask = l_v1_roi + r_v1_roi*2 + l_v2_roi*3 + r_v2_roi*4 + \
-               l_v3_roi*5 + r_v3_roi*6 + l_v3a_roi*7 + r_v3a_roi*8
+    roi_label = {'v1lh': 1, 'v1rh': 2, 'v2lh': 3, 'v2rh': 4,
+                 'v3lh': 5, 'v3rh': 6, 'v3alh': 7, 'v3arh': 8,
+                 'v3blh': 9, 'v3brh': 10, 'v4lh': 11, 'v4rh': 12,
+                 'latocclh': 13, 'latoccrh': 14, 'VOlh': 15, 'VOrh': 16,
+                 'STSrh': 17, 'RSCrh': 18, 'PPAlh': 19, 'PPArh': 20,
+                 'OBJlh': 21, 'OBJrh': 22, 'MTlh': 23, 'MTrh': 24,
+                 'MTplh': 25, 'MTprh': 26, 'IPlh': 27, 'IPrh': 28,
+                 'FFAlh': 29, 'FFArh': 30}
+    roi_list = fmri_table.list_nodes('/roi')
+    roi_shape = roi_list[0].shape
+    roi_mask = np.zeros(roi_shape)
+    roi_list = [r.name for r in roi_list]
+    for r in roi_list:
+        roi_mask += fmri_table.get_node('/roi/%s'%(r))[:] * roi_label[r]
     vutil.save2nifti(roi_mask, 'S1_roi_mask.nii.gz')
 
 def get_roi_mask(fmri_table, nifti=False):
@@ -274,20 +277,20 @@ def reg_cca(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
 
     #-- model training
     # for reduce complexity, a linear kernel is used
-    cca = rcca.CCACrossValidate(numCCs=[7, 8, 9, 10, 11, 12, 13],
-                                kernelcca=True)
+    #cca = rcca.CCACrossValidate(numCCs=[7, 8, 9, 10, 11, 12, 13],
+    #                            kernelcca=True)
     CCnum = 7
-    cca = rcca.CCA(kernelcca=True, reg=0.007743, numCC=CCnum)
-    cca.train([train_feat_ts, train_fmri_ts])
-    cca.validate([val_feat_ts, val_fmri_ts])
-    cca.compute_ev([val_feat_ts, val_fmri_ts])
-    print 'Best CC number : %s' %(cca.best_numCC)
-    print 'Best reg : %s' %(cca.best_reg)
+    #cca = rcca.CCA(kernelcca=True, reg=0.007743, numCC=CCnum)
+    #cca.train([train_feat_ts, train_fmri_ts])
+    #cca.validate([val_feat_ts, val_fmri_ts])
+    #cca.compute_ev([val_feat_ts, val_fmri_ts])
+    #print 'Best CC number : %s' %(cca.best_numCC)
+    #print 'Best reg : %s' %(cca.best_reg)
     out_file = os.path.join(out_dir, 'CCA_results_%s.hdf5'%(CCnum))
-    cca.save(os.path.join(out_file))
+    #cca.save(os.path.join(out_file))
     
     #-- model exploring
-    mask_file = r'/home/huanglijie/workingdir/brainDecoding/S1_mask.nii.gz'
+    mask_file = r'/Users/sealhuang/brainDecoding/S1_mask.nii.gz'
     cca = rcca.CCA()
     cca.load(out_file)
     # model prediction performance
@@ -307,9 +310,18 @@ def reg_cca(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
     feat_weights = cca.ws[0]
     feat_weights = feat_weights.reshape(96, 11, 11, feat_weights.shape[1])
     fmri_weights = cca.ws[1]
-    vutil.plot_cca_fweights(feat_weights, out_dir, 'feat_weight_CC%s'%(CCnum))
+    vutil.plot_cca_fweights(feat_weights, out_dir, 'feat_weight_CC%s'%(CCnum),
+                            abs_flag=False)
     vutil.save_cca_volweights(fmri_weights, mask_file, out_dir)
 
+    feat_cc = cca.comps[0]
+    parallel_corr2_coef(train_feat_ts.T, feat_cc.T, 
+                        os.path.join(out_dir, 'feat_cc_corr.npy'),
+                        block_size=7, n_jobs=1)
+    feat_cc_corr = np.load(os.path.join(out_dir, 'feat_cc_corr.npy'))
+    feat_cc_corr = feat_cc_corr.reshape(96, 11, 11, 7)
+    vutil.plot_cca_fweights(feat_cc_corr, out_dir, 'feat_cc_corr',
+                            abs_flag=False)
 
 if __name__ == '__main__':
     """Main function."""
@@ -371,16 +383,16 @@ if __name__ == '__main__':
     #ridge_regression(train_feat, train_fmri, val_feat, val_fmri, outfile)
 
     #-- PLS-CCA
-    cca_dir = os.path.join(retino_dir, 'plscca')
-    if not os.path.exists(cca_dir):
-        os.mkdir(cca_dir, 0755)
-    plscorr(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts, cca_dir)
-
-    #-- regularized CCA
-    #cca_dir = os.path.join(retino_dir, 'rcca')
+    #cca_dir = os.path.join(retino_dir, 'plscca')
     #if not os.path.exists(cca_dir):
     #    os.mkdir(cca_dir, 0755)
-    #reg_cca(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts, cca_dir)
+    #plscorr(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts, cca_dir)
+
+    #-- regularized CCA
+    cca_dir = os.path.join(retino_dir, 'rcca', 'rcca_cc7')
+    if not os.path.exists(cca_dir):
+        os.mkdir(cca_dir, 0755)
+    reg_cca(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts, cca_dir)
 
     #-- close fmri data
     tf.close()
