@@ -212,16 +212,16 @@ def plscorr(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
     plsca = joblib.load(os.path.join(out_dir, 'plsca_model.pkl'))
 
     # prediction score
-    pred_feat_c, pred_fmri_c = plsca.transform(val_feat_ts, val_fmri_ts)
-    pred_fmri_ts = plsca.predict(val_feat_ts)
-    # calculate correlation coefficient between truth and prediction
-    fmri_pred_r = corr2_coef(val_fmri_ts.T, pred_fmri_ts.T, mode='pair')
-    mask = vutil.data_swap(mask_file)
-    vxl_idx = np.nonzero(mask.flatten()==1)[0]
-    tmp = np.zeros_like(mask.flatten(), dtype=np.float64)
-    tmp[vxl_idx] = fmri_pred_r
-    tmp = tmp.reshape(mask.shape)
-    vutil.save2nifti(tmp, os.path.join(out_dir, 'pred_fmri_r.nii.gz'))
+    #pred_feat_c, pred_fmri_c = plsca.transform(val_feat_ts, val_fmri_ts)
+    #pred_fmri_ts = plsca.predict(val_feat_ts)
+    ## calculate correlation coefficient between truth and prediction
+    #fmri_pred_r = corr2_coef(val_fmri_ts.T, pred_fmri_ts.T, mode='pair')
+    #mask = vutil.data_swap(mask_file)
+    #vxl_idx = np.nonzero(mask.flatten()==1)[0]
+    #tmp = np.zeros_like(mask.flatten(), dtype=np.float64)
+    #tmp[vxl_idx] = fmri_pred_r
+    #tmp = tmp.reshape(mask.shape)
+    #vutil.save2nifti(tmp, os.path.join(out_dir, 'pred_fmri_r.nii.gz'))
     
     # get PLS-CCA weights
     #feat_cc, fmri_cc = plsca.transform(train_feat_ts, train_fmri_ts)
@@ -383,16 +383,16 @@ if __name__ == '__main__':
     #ridge_regression(train_feat, train_fmri, val_feat, val_fmri, outfile)
 
     #-- PLS-CCA
-    #cca_dir = os.path.join(retino_dir, 'plscca')
-    #if not os.path.exists(cca_dir):
-    #    os.mkdir(cca_dir, 0755)
-    #plscorr(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts, cca_dir)
-
-    #-- regularized CCA
-    cca_dir = os.path.join(retino_dir, 'rcca', 'rcca_cc7')
+    cca_dir = os.path.join(retino_dir, 'plscca')
     if not os.path.exists(cca_dir):
         os.mkdir(cca_dir, 0755)
-    reg_cca(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts, cca_dir)
+    plscorr(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts, cca_dir)
+
+    #-- regularized CCA
+    #cca_dir = os.path.join(retino_dir, 'rcca', 'rcca_cc7')
+    #if not os.path.exists(cca_dir):
+    #    os.mkdir(cca_dir, 0755)
+    #reg_cca(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts, cca_dir)
 
     #-- close fmri data
     tf.close()
