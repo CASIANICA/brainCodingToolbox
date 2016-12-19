@@ -351,30 +351,30 @@ if __name__ == '__main__':
     #-- calculate cross-modality corrlation 
     # load fmri response from training/validation dataset
     #train_fmri_ts = tf.get_node('/rt')[:]
-    val_fmri_ts = tf.get_node('/rv')[:]
+    #val_fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
     # load brain mask
-    mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
-    mask = vutil.data_swap(mask_file).flatten()
-    vxl_idx = np.nonzero(mask==1)[0]
+    #mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
+    #mask = vutil.data_swap(mask_file).flatten()
+    #vxl_idx = np.nonzero(mask==1)[0]
     #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
-    val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
+    #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     # load convolved cnn activation data for validation dataset
     #train_feat1_file = os.path.join(feat_dir, 'feat1_train_trs_ds5.npy')
     #train_feat1_ts = np.load(train_feat1_file, mmap_mode='r')
-    val_feat1_file = os.path.join(feat_dir, 'feat1_val_trs.npy')
-    val_feat1_ts = np.load(val_feat1_file, mmap_mode='r')
+    #val_feat1_file = os.path.join(feat_dir, 'feat1_val_trs.npy')
+    #val_feat1_ts = np.load(val_feat1_file, mmap_mode='r')
     # data.shape = (96, 55, 55, 540/7200)
     # sum up all channels
     # select parts of channels
     #feat1_ts = feat1_ts[0:48, :]
     #feat1_ts = feat1_ts.sum(axis=0)
-    retino_dir = os.path.join(subj_dir, 'retinotopic')
-    if not os.path.exists(retino_dir):
-        os.mkdir(retino_dir, 0755)
-    corr_file = os.path.join(retino_dir, 'val_feat1_corr.npy')
-    val_feat1_ts = val_feat1_ts.reshape(290400, 540)
-    parallel_corr2_coef(val_fmri_ts, val_feat1_ts, corr_file, block_size=96)
+    #retino_dir = os.path.join(subj_dir, 'retinotopic')
+    #if not os.path.exists(retino_dir):
+    #    os.mkdir(retino_dir, 0755)
+    #corr_file = os.path.join(retino_dir, 'val_feat1_corr.npy')
+    #val_feat1_ts = val_feat1_ts.reshape(290400, 540)
+    #parallel_corr2_coef(val_fmri_ts, val_feat1_ts, corr_file, block_size=96)
     #rand_corr_file = os.path.join(retino_dir, 'train_fmri_feat1_rand_corr.npy')
     #random_cross_modal_corr(fmri_ts, feat1_ts, 10, 1000, rand_corr_file)
     
