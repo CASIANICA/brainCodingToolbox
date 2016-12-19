@@ -20,7 +20,7 @@ from brainDecTool.pipeline.base import ridge_regression
 import util as vutil
 
 
-def roi2nifti(fmri_table):
+def roi2nifti(fmri_table, filename):
     """Save ROI as a nifti file."""
     roi_label = {'v1lh': 1, 'v1rh': 2, 'v2lh': 3, 'v2rh': 4,
                  'v3lh': 5, 'v3rh': 6, 'v3alh': 7, 'v3arh': 8,
@@ -36,7 +36,7 @@ def roi2nifti(fmri_table):
     roi_list = [r.name for r in roi_list]
     for r in roi_list:
         roi_mask += fmri_table.get_node('/roi/%s'%(r))[:] * roi_label[r]
-    vutil.save2nifti(roi_mask, 'S1_roi_mask.nii.gz')
+    vutil.save2nifti(roi_mask, filename)
 
 def get_roi_mask(fmri_table, nifti=False):
     """Save ROIs as a mask."""
@@ -50,9 +50,9 @@ def get_roi_mask(fmri_table, nifti=False):
     else:
         return mask.flatten()
 
-def gen_mean_vol(fmri_table):
+def gen_mean_vol(fmri_table, dataset, filename):
     """Make a mean response map as a reference volume."""
-    data = fmri_table.get_node('/rt')[:]
+    data = fmri_table.get_node(dataset)[:]
     # replace nan to zero
     data = np.nan_to_num(data)
     mean_data = np.mean(data, axis=1)
@@ -62,7 +62,7 @@ def gen_mean_vol(fmri_table):
         c = vutil.idx2coord(i)
         vol[c[0], c[1], c[2]] = mean_data[i]
     
-    vutil.save2nifti(vol, 'S1_mean_rt.nii.gz')
+    vutil.save2nifti(vol, filename)
 
 def retinotopic_mapping(corr_file, mask=None):
     """Make the retinotopic mapping using activation map from CNN."""
@@ -328,47 +328,53 @@ if __name__ == '__main__':
     """Main function."""
     # config parser
     cf = configParser.Config('config')
-    data_dir = cf.get('base', 'path')
-    feat_dir = os.path.join(data_dir, 'sfeatures')
+    root_dir = cf.get('base', 'path')
+    feat_dir = os.path.join(root_dir, 'sfeatures')
+    db_dir = os.path.join(root_dir, 'subjects')
 
+    # subj config
+    subj_id = 1
+    subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
+    
     #-- load fmri data
-    tf = tables.open_file(os.path.join(data_dir, 'VoxelResponses_subject1.mat'))
+    fmri_file = os.path.join(subj_dir, 'VoxelResponses_subject%s.mat'%(subj_id))
+    tf = tables.open_file(fmri_file)
     #tf.list_nodes
-    #-- mat to nii
-    #roi2nifti(tf)
-    #gen_mean_vol(tf)
-    #-- to be used
-    #roi = tf.get_node('/roi/v1lh')[:].flatten()
-    #v1lh_idx = np.nonzero(roi==1)[0]
-    #v1lh_resp = data[v1lh_idx]
+    #-- roi mat to nii
+    #roi_file = os.path.join(subj_dir, 'S%s_roi_mask.nii.gz'%(subj_id))
+    #roi2nifti(tf, roi_file)
+    #-- get mean fmri responses
+    #dataset = 'rt'
+    #mean_file = os.path.join(subj_dir, 'S%s_mean_%s.nii.gz'%(subj_id, dataset))
+    #gen_mean_vol(tf, dataset, mean_file)
 
     #-- calculate cross-modality corrlation 
     # load fmri response from training/validation dataset
-    train_fmri_ts = tf.get_node('/rt')[:]
+    #train_fmri_ts = tf.get_node('/rt')[:]
     val_fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
     # load brain mask
-    mask_file = os.path.join(data_dir, 'S1_mask.nii.gz')
+    mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
     mask = vutil.data_swap(mask_file).flatten()
     vxl_idx = np.nonzero(mask==1)[0]
-    train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
+    #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
     val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     # load convolved cnn activation data for validation dataset
-    train_feat1_file = os.path.join(feat_dir, 'feat1_train_trs_ds5.npy')
-    train_feat1_ts = np.load(train_feat1_file, mmap_mode='r')
-    val_feat1_file = os.path.join(feat_dir, 'feat1_val_trs_ds5.npy')
+    #train_feat1_file = os.path.join(feat_dir, 'feat1_train_trs_ds5.npy')
+    #train_feat1_ts = np.load(train_feat1_file, mmap_mode='r')
+    val_feat1_file = os.path.join(feat_dir, 'feat1_val_trs.npy')
     val_feat1_ts = np.load(val_feat1_file, mmap_mode='r')
     # data.shape = (96, 55, 55, 540/7200)
     # sum up all channels
     # select parts of channels
     #feat1_ts = feat1_ts[0:48, :]
     #feat1_ts = feat1_ts.sum(axis=0)
-    retino_dir = os.path.join(data_dir, 'retinotopic')
+    retino_dir = os.path.join(subj_dir, 'retinotopic')
     if not os.path.exists(retino_dir):
         os.mkdir(retino_dir, 0755)
-    #corr_file = os.path.join(retino_dir, 'val_fmri_feat1_corr.npy')
-    #feat1_ts = feat1_ts.reshape(3025, 540)
-    #parallel_corr2_coef(fmri_ts, feat1_ts, corr_file, block_size=96)
+    corr_file = os.path.join(retino_dir, 'val_feat1_corr.npy')
+    val_feat1_ts = val_feat1_ts.reshape(290400, 540)
+    parallel_corr2_coef(val_fmri_ts, val_feat1_ts, corr_file, block_size=96)
     #rand_corr_file = os.path.join(retino_dir, 'train_fmri_feat1_rand_corr.npy')
     #random_cross_modal_corr(fmri_ts, feat1_ts, 10, 1000, rand_corr_file)
     
@@ -384,10 +390,10 @@ if __name__ == '__main__':
     #ridge_regression(train_feat, train_fmri, val_feat, val_fmri, outfile)
 
     #-- PLS-CCA
-    cca_dir = os.path.join(retino_dir, 'plscca')
-    if not os.path.exists(cca_dir):
-        os.mkdir(cca_dir, 0755)
-    plscorr(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts, cca_dir)
+    #cca_dir = os.path.join(retino_dir, 'plscca')
+    #if not os.path.exists(cca_dir):
+    #    os.mkdir(cca_dir, 0755)
+    #plscorr(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts, cca_dir)
 
     #-- regularized CCA
     #cca_dir = os.path.join(retino_dir, 'rcca', 'rcca_cc7')
