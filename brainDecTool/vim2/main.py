@@ -26,10 +26,16 @@ def roi2nifti(fmri_table, filename):
                  'v3lh': 5, 'v3rh': 6, 'v3alh': 7, 'v3arh': 8,
                  'v3blh': 9, 'v3brh': 10, 'v4lh': 11, 'v4rh': 12,
                  'latocclh': 13, 'latoccrh': 14, 'VOlh': 15, 'VOrh': 16,
-                 'STSrh': 17, 'RSCrh': 18, 'PPAlh': 19, 'PPArh': 20,
-                 'OBJlh': 21, 'OBJrh': 22, 'MTlh': 23, 'MTrh': 24,
-                 'MTplh': 25, 'MTprh': 26, 'IPlh': 27, 'IPrh': 28,
-                 'FFAlh': 29, 'FFArh': 30}
+                 'STSlh': 17, 'STSrh': 18, 'RSClh': 19, 'RSCrh': 20,
+                 'PPAlh': 21, 'PPArh': 22, 'OBJlh': 23, 'OBJrh': 24,
+                 'MTlh': 25, 'MTrh': 26, 'MTplh': 27, 'MTprh': 28,
+                 'IPlh': 29, 'IPrh': 30, 'FFAlh': 31, 'FFArh': 32,
+                 'EBAlh': 33, 'EBArh': 34, 'OFAlh': 35, 'OFArh': 36,
+                 'v7alh': 37, 'v7arh': 38, 'v7blh': 39, 'v7brh': 40,
+                 'v7clh': 41, 'v7crh': 42, 'v7lh': 43, 'v7rh': 44,
+                 'IPS1lh': 45, 'IPS1rh': 46, 'IPS2lh': 47, 'IPS2rh': 48,
+                 'IPS3lh': 49, 'IPS3rh': 50, 'IPS4lh': 51, 'IPS4rh': 52,
+                 'MSTlh': 53, 'MSTrh': 54, 'TOSlh': 55, 'TOSrh': 56}
     roi_list = fmri_table.list_nodes('/roi')
     roi_shape = roi_list[0].shape
     roi_mask = np.zeros(roi_shape)
@@ -52,7 +58,7 @@ def get_roi_mask(fmri_table, nifti=False):
 
 def gen_mean_vol(fmri_table, dataset, filename):
     """Make a mean response map as a reference volume."""
-    data = fmri_table.get_node(dataset)[:]
+    data = fmri_table.get_node('/'+dataset)[:]
     # replace nan to zero
     data = np.nan_to_num(data)
     mean_data = np.mean(data, axis=1)
