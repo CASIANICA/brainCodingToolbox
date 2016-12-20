@@ -20,26 +20,36 @@ from brainDecTool.pipeline.base import ridge_regression
 import util as vutil
 
 
-def roi2nifti(fmri_table, filename):
-    """Save ROI as a nifti file."""
-    roi_label = {'v1lh': 1, 'v1rh': 2, 'v2lh': 3, 'v2rh': 4,
-                 'v3lh': 5, 'v3rh': 6, 'v3alh': 7, 'v3arh': 8,
-                 'v3blh': 9, 'v3brh': 10, 'v4lh': 11, 'v4rh': 12,
-                 'latocclh': 13, 'latoccrh': 14, 'VOlh': 15, 'VOrh': 16,
-                 'STSlh': 17, 'STSrh': 18, 'RSClh': 19, 'RSCrh': 20,
-                 'PPAlh': 21, 'PPArh': 22, 'OBJlh': 23, 'OBJrh': 24,
-                 'MTlh': 25, 'MTrh': 26, 'MTplh': 27, 'MTprh': 28,
-                 'IPlh': 29, 'IPrh': 30, 'FFAlh': 31, 'FFArh': 32,
-                 'EBAlh': 33, 'EBArh': 34, 'OFAlh': 35, 'OFArh': 36,
-                 'v7alh': 37, 'v7arh': 38, 'v7blh': 39, 'v7brh': 40,
-                 'v7clh': 41, 'v7crh': 42, 'v7lh': 43, 'v7rh': 44,
-                 'IPS1lh': 45, 'IPS1rh': 46, 'IPS2lh': 47, 'IPS2rh': 48,
-                 'IPS3lh': 49, 'IPS3rh': 50, 'IPS4lh': 51, 'IPS4rh': 52,
-                 'MSTlh': 53, 'MSTrh': 54, 'TOSlh': 55, 'TOSrh': 56}
+def roi2nifti(fmri_table, filename, mode='full'):
+    """Save ROI as a nifti file.
+    `mode`: 'full' for whole ROIs mask creation.
+            'small' for mask creation for alignment.
+    """
+    if mode=='full':
+        roi_label = {'v1lh': 1, 'v1rh': 2, 'v2lh': 3, 'v2rh': 4,
+                     'v3lh': 5, 'v3rh': 6, 'v3alh': 7, 'v3arh': 8,
+                     'v3blh': 9, 'v3brh': 10, 'v4lh': 11, 'v4rh': 12,
+                     'latocclh': 13, 'latoccrh': 14, 'VOlh': 15, 'VOrh': 16,
+                    'STSlh': 17, 'STSrh': 18, 'RSClh': 19, 'RSCrh': 20,
+                    'PPAlh': 21, 'PPArh': 22, 'OBJlh': 23, 'OBJrh': 24,
+                    'MTlh': 25, 'MTrh': 26, 'MTplh': 27, 'MTprh': 28,
+                    'IPlh': 29, 'IPrh': 30, 'FFAlh': 31, 'FFArh': 32,
+                    'EBAlh': 33, 'EBArh': 34, 'OFAlh': 35, 'OFArh': 36,
+                    'v7alh': 37, 'v7arh': 38, 'v7blh': 39, 'v7brh': 40,
+                    'v7clh': 41, 'v7crh': 42, 'v7lh': 43, 'v7rh': 44,
+                    'IPS1lh': 45, 'IPS1rh': 46, 'IPS2lh': 47, 'IPS2rh': 48,
+                    'IPS3lh': 49, 'IPS3rh': 50, 'IPS4lh': 51, 'IPS4rh': 52,
+                    'MSTlh': 53, 'MSTrh': 54, 'TOSlh': 55, 'TOSrh': 56}
+    else:
+        roi_label = {'v1lh': 1, 'v1rh': 2, 'v2lh': 3, 'v2rh': 4,
+                     'v3lh': 5, 'v3rh': 6, 'v3alh': 7, 'v3arh': 8,
+                     'v3blh': 9, 'v3brh': 10, 'v4lh': 11, 'v4rh': 12,
+                    'MTlh': 13, 'MTrh': 14, 'MTplh': 15, 'MTprh': 16}
+
     roi_list = fmri_table.list_nodes('/roi')
     roi_shape = roi_list[0].shape
     roi_mask = np.zeros(roi_shape)
-    roi_list = [r.name for r in roi_list]
+    roi_list = [r.name for r in roi_list if r.name in roi_label]
     for r in roi_list:
         roi_mask += fmri_table.get_node('/roi/%s'%(r))[:] * roi_label[r]
     vutil.save2nifti(roi_mask, filename)
@@ -339,7 +349,7 @@ if __name__ == '__main__':
     db_dir = os.path.join(root_dir, 'subjects')
 
     # subj config
-    subj_id = 1
+    subj_id = 3
     subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
     
     #-- load fmri data
@@ -347,8 +357,8 @@ if __name__ == '__main__':
     tf = tables.open_file(fmri_file)
     #tf.list_nodes
     #-- roi mat to nii
-    #roi_file = os.path.join(subj_dir, 'S%s_roi_mask.nii.gz'%(subj_id))
-    #roi2nifti(tf, roi_file)
+    roi_file = os.path.join(subj_dir, 'S%s_small_roi.nii.gz'%(subj_id))
+    roi2nifti(tf, roi_file)
     #-- get mean fmri responses
     #dataset = 'rt'
     #mean_file = os.path.join(subj_dir, 'S%s_mean_%s.nii.gz'%(subj_id, dataset))
