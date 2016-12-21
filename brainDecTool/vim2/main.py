@@ -212,7 +212,7 @@ def plscorr(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
     #    pred_feat_c, pred_fmri_c = plsca.transform(val_feat_ts, val_fmri_ts)
     #    pred_fmri_ts = plsca.predict(val_feat_ts) 
     #    # calculate correlation coefficient between truth and prediction
-    #    r = corr2_coef(val_fmri_ts.T, pred_fmri_ts.T, model='pair')
+    #    r = corr2_coef(val_fmri_ts.T, pred_fmri_ts.T, mode='pair')
     #    # get top 20% corrcoef for model evaluation
     #    vsample = int(np.rint(0.2*len(r)))
     #    print 'Sample size for evaluation : %s' % (vsample)
