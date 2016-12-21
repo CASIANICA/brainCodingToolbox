@@ -358,7 +358,7 @@ if __name__ == '__main__':
     #tf.list_nodes
     #-- roi mat to nii
     roi_file = os.path.join(subj_dir, 'S%s_small_roi.nii.gz'%(subj_id))
-    roi2nifti(tf, roi_file)
+    roi2nifti(tf, roi_file, mode='small')
     #-- get mean fmri responses
     #dataset = 'rt'
     #mean_file = os.path.join(subj_dir, 'S%s_mean_%s.nii.gz'%(subj_id, dataset))
