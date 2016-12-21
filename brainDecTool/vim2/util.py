@@ -62,6 +62,24 @@ def save2nifti(data, filename):
     img = nib.Nifti1Image(ndata, aff)
     nib.save(img, filename)
 
+def mask2nifti(data, filename):
+    """Save 3D mask derived from pycortex as nifti file.
+    Original data shape is (18, 64, 64), and the resulting data shape is
+    (64, 64, 18) which orientation is SRP."""
+    # roll axis
+    data = data.astype('<f8')
+    ndata = np.rollaxis(data, 0, 3)
+    ndata = np.rollaxis(ndata, 0, 2)
+    ndata = ndata[:, ::-1, :]
+    # generate affine matrix
+    aff = np.zeros((4, 4))
+    aff[0, 1] = 2
+    aff[1, 2] = -2.5
+    aff[2, 0] = 2
+    aff[3, 3] = 1
+    img = nib.Nifti1Image(ndata, aff)
+    nib.save(img, filename)
+
 def plot_prf(prf_file):
     """Plot pRF."""
     prf_data = np.load(prf_file)
