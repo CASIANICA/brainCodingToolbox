@@ -377,31 +377,31 @@ if __name__ == '__main__':
     train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
     val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     # load convolved cnn activation data for validation dataset
-    train_feat1_file = os.path.join(feat_dir, 'feat1_train_trs_ds5.npy')
-    train_feat1_ts = np.load(train_feat1_file, mmap_mode='r')
-    val_feat1_file = os.path.join(feat_dir, 'feat1_val_trs_ds5.npy')
-    val_feat1_ts = np.load(val_feat1_file, mmap_mode='r')
+    train_feat_file = os.path.join(feat_dir, 'feat1_train_trs_ds5.npy')
+    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    val_feat_file = os.path.join(feat_dir, 'feat1_val_trs_ds5.npy')
+    val_feat_ts = np.load(val_feat_file, mmap_mode='r')
     # data.shape = (96, 55, 55, 540/7200)
     
     #-- retinotopic mapping
     # sum up all channels
     # select parts of channels
-    #feat1_ts = feat1_ts[0:48, :]
-    #feat1_ts = feat1_ts.sum(axis=0)
+    #feat_ts = feat_ts[0:48, :]
+    #feat_ts = feat_ts.sum(axis=0)
     #retino_dir = os.path.join(subj_dir, 'retinotopic')
     #if not os.path.exists(retino_dir):
     #    os.mkdir(retino_dir, 0755)
     #corr_file = os.path.join(retino_dir, 'val_feat1_corr.npy')
-    #val_feat1_ts = val_feat1_ts.reshape(290400, 540)
-    #parallel_corr2_coef(val_fmri_ts, val_feat1_ts, corr_file, block_size=96)
+    #val_feat_ts = val_feat_ts.reshape(290400, 540)
+    #parallel_corr2_coef(val_fmri_ts, val_feat_ts, corr_file, block_size=96)
     #rand_corr_file = os.path.join(retino_dir, 'train_fmri_feat1_rand_corr.npy')
-    #random_cross_modal_corr(fmri_ts, feat1_ts, 10, 1000, rand_corr_file)
+    #random_cross_modal_corr(fmri_ts, feat_ts, 10, 1000, rand_corr_file)
     #retinotopic_mapping(corr_file, mask)
     
     #-- multiple regression voxel ~ channels from each location
     #regress_file = os.path.join(retino_dir, 'val_fmri_feat1_regress.npy')
     #roi_mask = get_roi_mask(tf)
-    #multiple_regression(fmri_ts, feat1_ts, regress_file)
+    #multiple_regression(fmri_ts, feat_ts, regress_file)
 
     #-- ridge regression
     #ridge_regression(train_feat, train_fmri, val_feat, val_fmri, outfile)
@@ -413,14 +413,14 @@ if __name__ == '__main__':
     cca_dir = os.path.join(pls_dir, 'an_layer1')
     if not os.path.exists(cca_dir):
         os.mkdir(cca_dir, 0755)
-    plscorr(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts,
+    plscorr(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
             cca_dir, mask_file)
 
     #-- regularized CCA
     #cca_dir = os.path.join(retino_dir, 'rcca', 'rcca_cc7')
     #if not os.path.exists(cca_dir):
     #    os.mkdir(cca_dir, 0755)
-    #reg_cca(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts, cca_dir)
+    #reg_cca(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, cca_dir)
 
     #-- close fmri data
     tf.close()
