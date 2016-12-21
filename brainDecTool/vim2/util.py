@@ -161,7 +161,8 @@ def plot_cca_fweights(data, out_dir, prefix_name, abs_flag=True):
         fig.colorbar(im, cax=cbar_ax)
         fig.savefig(os.path.join(out_dir, prefix_name+'_%s.png'%(f+1)))
 
-def save_cca_volweights(fmri_weights, mask_file, out_dir):
+def save_cca_volweights(fmri_weights, mask_file, out_dir,
+                        prefix_name='cca_component'):
     """Save fmri weights derived from CCA as nifti files."""
     n_components = fmri_weights.shape[1]
     mask = data_swap(mask_file)
@@ -170,7 +171,7 @@ def save_cca_volweights(fmri_weights, mask_file, out_dir):
         tmp = np.zeros_like(mask.flatten(), dtype=np.float64)
         tmp[vxl_idx] = fmri_weights[:, i]
         tmp = tmp.reshape(mask.shape)
-        save2nifti(tmp, os.path.join(out_dir, 'cca_component_%s.nii.gz'%(i+1)))
+        save2nifti(tmp, os.path.join(out_dir, prefix_name+'_%s.nii.gz'%(i+1)))
 
 def display_video(dataset):
     """Display 3D video."""

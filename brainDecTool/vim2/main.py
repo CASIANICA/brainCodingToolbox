@@ -265,7 +265,8 @@ def plscorr(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
     #                    os.path.join(out_dir, 'fmri_cc_corr.npy'),
     #                    block_size=10, n_jobs=1)
     #fmri_cc_corr = np.load(os.path.join(out_dir, 'fmri_cc_corr.npy'))
-    #vutil.save_cca_volweights(fmri_cc_corr, mask_file, out_dir)
+    #vutil.save_cca_volweights(fmri_cc_corr, mask_file, out_dir,
+    #                          prefix_name='fmri_cc_corr')
 
     ## Chi-square test -- not suit for small sample size application ... 
     #rlist = []
@@ -381,32 +382,35 @@ if __name__ == '__main__':
     val_feat1_file = os.path.join(feat_dir, 'feat1_val_trs_ds5.npy')
     val_feat1_ts = np.load(val_feat1_file, mmap_mode='r')
     # data.shape = (96, 55, 55, 540/7200)
+    
+    #-- retinotopic mapping
     # sum up all channels
     # select parts of channels
     #feat1_ts = feat1_ts[0:48, :]
     #feat1_ts = feat1_ts.sum(axis=0)
-    retino_dir = os.path.join(subj_dir, 'retinotopic')
-    if not os.path.exists(retino_dir):
-        os.mkdir(retino_dir, 0755)
+    #retino_dir = os.path.join(subj_dir, 'retinotopic')
+    #if not os.path.exists(retino_dir):
+    #    os.mkdir(retino_dir, 0755)
     #corr_file = os.path.join(retino_dir, 'val_feat1_corr.npy')
     #val_feat1_ts = val_feat1_ts.reshape(290400, 540)
     #parallel_corr2_coef(val_fmri_ts, val_feat1_ts, corr_file, block_size=96)
     #rand_corr_file = os.path.join(retino_dir, 'train_fmri_feat1_rand_corr.npy')
     #random_cross_modal_corr(fmri_ts, feat1_ts, 10, 1000, rand_corr_file)
+    #retinotopic_mapping(corr_file, mask)
     
     #-- multiple regression voxel ~ channels from each location
     #regress_file = os.path.join(retino_dir, 'val_fmri_feat1_regress.npy')
     #roi_mask = get_roi_mask(tf)
     #multiple_regression(fmri_ts, feat1_ts, regress_file)
-    
-    #-- retinotopic mapping
-    #retinotopic_mapping(corr_file, mask)
 
     #-- ridge regression
     #ridge_regression(train_feat, train_fmri, val_feat, val_fmri, outfile)
 
     #-- PLS-CCA
-    cca_dir = os.path.join(retino_dir, 'plscca')
+    pls_dir = os.path.join(subj_dir, 'plscca')
+    if not os.path.exists(pls_dir):
+        os.mkdir(retino_dir, 0755)
+    cca_dir = os.path.join(pls_dir, 'an_layer1')
     if not os.path.exists(cca_dir):
         os.mkdir(cca_dir, 0755)
     plscorr(train_fmri_ts, train_feat1_ts, val_fmri_ts, val_feat1_ts,
