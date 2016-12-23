@@ -20,66 +20,6 @@ from brainDecTool.pipeline.base import ridge_regression
 import util as vutil
 
 
-def roi2nifti(fmri_table, filename, mode='full'):
-    """Save ROI as a nifti file.
-    `mode`: 'full' for whole ROIs mask creation.
-            'small' for mask creation for alignment.
-    """
-    if mode=='full':
-        roi_label = {'v1lh': 1, 'v1rh': 2, 'v2lh': 3, 'v2rh': 4,
-                     'v3lh': 5, 'v3rh': 6, 'v3alh': 7, 'v3arh': 8,
-                     'v3blh': 9, 'v3brh': 10, 'v4lh': 11, 'v4rh': 12,
-                     'latocclh': 13, 'latoccrh': 14, 'VOlh': 15, 'VOrh': 16,
-                    'STSlh': 17, 'STSrh': 18, 'RSClh': 19, 'RSCrh': 20,
-                    'PPAlh': 21, 'PPArh': 22, 'OBJlh': 23, 'OBJrh': 24,
-                    'MTlh': 25, 'MTrh': 26, 'MTplh': 27, 'MTprh': 28,
-                    'IPlh': 29, 'IPrh': 30, 'FFAlh': 31, 'FFArh': 32,
-                    'EBAlh': 33, 'EBArh': 34, 'OFAlh': 35, 'OFArh': 36,
-                    'v7alh': 37, 'v7arh': 38, 'v7blh': 39, 'v7brh': 40,
-                    'v7clh': 41, 'v7crh': 42, 'v7lh': 43, 'v7rh': 44,
-                    'IPS1lh': 45, 'IPS1rh': 46, 'IPS2lh': 47, 'IPS2rh': 48,
-                    'IPS3lh': 49, 'IPS3rh': 50, 'IPS4lh': 51, 'IPS4rh': 52,
-                    'MSTlh': 53, 'MSTrh': 54, 'TOSlh': 55, 'TOSrh': 56}
-    else:
-        roi_label = {'v1lh': 1, 'v1rh': 2, 'v2lh': 3, 'v2rh': 4,
-                     'v3lh': 5, 'v3rh': 6, 'v3alh': 7, 'v3arh': 8,
-                     'v3blh': 9, 'v3brh': 10, 'v4lh': 11, 'v4rh': 12,
-                    'MTlh': 13, 'MTrh': 14, 'MTplh': 15, 'MTprh': 16}
-
-    roi_list = fmri_table.list_nodes('/roi')
-    roi_shape = roi_list[0].shape
-    roi_mask = np.zeros(roi_shape)
-    roi_list = [r.name for r in roi_list if r.name in roi_label]
-    for r in roi_list:
-        roi_mask += fmri_table.get_node('/roi/%s'%(r))[:] * roi_label[r]
-    vutil.save2nifti(roi_mask, filename)
-
-def get_roi_mask(fmri_table, nifti=False):
-    """Save ROIs as a mask."""
-    roi_list = fmri_table.list_nodes('/roi')
-    roi_shape = roi_list[0].shape
-    mask = np.zeros(roi_shape)
-    for r in roi_list:
-        mask += fmri_table.get_node('/roi/%s'%(r.name))[:]
-    if nifti:
-        vutil.save2nifti(mask, 'all_roi_mask.nii.gz')
-    else:
-        return mask.flatten()
-
-def gen_mean_vol(fmri_table, dataset, filename):
-    """Make a mean response map as a reference volume."""
-    data = fmri_table.get_node('/'+dataset)[:]
-    # replace nan to zero
-    data = np.nan_to_num(data)
-    mean_data = np.mean(data, axis=1)
-    vol = np.zeros((18, 64, 64))
-    
-    for i in range(data.shape[0]):
-        c = vutil.idx2coord(i)
-        vol[c[0], c[1], c[2]] = mean_data[i]
-    
-    vutil.save2nifti(vol, filename)
-
 def retinotopic_mapping(corr_file, mask=None):
     """Make the retinotopic mapping using activation map from CNN."""
     data_dir = os.path.dirname(corr_file)
@@ -206,66 +146,65 @@ def plscorr(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
     val_fmri_ts = val_fmri_ts.T
 
     # Iteration loop for different component number
-    for n in range(5, 15):
-        print '--- Components number %s ---' %(n)
-        plsca = PLSCanonical(n_components=n)
-        plsca.fit(train_feat_ts, train_fmri_ts)
-        pred_feat_c, pred_fmri_c = plsca.transform(val_feat_ts, val_fmri_ts)
-        pred_fmri_ts = plsca.predict(val_feat_ts) 
-        # calculate correlation coefficient between truth and prediction
-        r = corr2_coef(val_fmri_ts.T, pred_fmri_ts.T, mode='pair')
-        # get top 20% corrcoef for model evaluation
-        vsample = int(np.rint(0.2*len(r)))
-        print 'Sample size for evaluation : %s' % (vsample)
-        r.sort()
-        meanr = np.mean(r[-1*vsample:])
-        print 'Mean prediction corrcoef : %s' %(meanr)
+    #for n in range(5, 15):
+    #    print '--- Components number %s ---' %(n)
+    #    plsca = PLSCanonical(n_components=n)
+    #    plsca.fit(train_feat_ts, train_fmri_ts)
+    #    pred_feat_c, pred_fmri_c = plsca.transform(val_feat_ts, val_fmri_ts)
+    #    pred_fmri_ts = plsca.predict(val_feat_ts) 
+    #    # calculate correlation coefficient between truth and prediction
+    #    r = corr2_coef(val_fmri_ts.T, pred_fmri_ts.T, mode='pair')
+    #    # get top 20% corrcoef for model evaluation
+    #    vsample = int(np.rint(0.2*len(r)))
+    #    print 'Sample size for evaluation : %s' % (vsample)
+    #    r.sort()
+    #    meanr = np.mean(r[-1*vsample:])
+    #    print 'Mean prediction corrcoef : %s' %(meanr)
 
-    #plsca = PLSCanonical(n_components=10)
-    #plsca.fit(train_feat_ts, train_fmri_ts)
-    #from sklearn.externals import joblib
-    #joblib.dump(plsca, os.path.join(out_dir, 'plsca_model.pkl'))
-    #plsca = joblib.load(os.path.join(out_dir, 'plsca_model.pkl'))
+    plsca = PLSCanonical(n_components=10)
+    plsca.fit(train_feat_ts, train_fmri_ts)
+    from sklearn.externals import joblib
+    joblib.dump(plsca, os.path.join(out_dir, 'plsca_model.pkl'))
+    plsca = joblib.load(os.path.join(out_dir, 'plsca_model.pkl'))
 
-    # prediction score
-    #pred_fmri_ts = plsca.predict(val_feat_ts)
     # calculate correlation coefficient between truth and prediction
-    #fmri_pred_r = corr2_coef(val_fmri_ts.T, pred_fmri_ts.T, mode='pair')
-    #mask = vutil.data_swap(mask_file)
-    #vxl_idx = np.nonzero(mask.flatten()==1)[0]
-    #tmp = np.zeros_like(mask.flatten(), dtype=np.float64)
-    #tmp[vxl_idx] = fmri_pred_r
-    #tmp = tmp.reshape(mask.shape)
-    #vutil.save2nifti(tmp, os.path.join(out_dir, 'pred_fmri_r.nii.gz'))
+    pred_fmri_ts = plsca.predict(val_feat_ts)
+    fmri_pred_r = corr2_coef(val_fmri_ts.T, pred_fmri_ts.T, mode='pair')
+    mask = vutil.data_swap(mask_file)
+    vxl_idx = np.nonzero(mask.flatten()==1)[0]
+    tmp = np.zeros_like(mask.flatten(), dtype=np.float64)
+    tmp[vxl_idx] = fmri_pred_r
+    tmp = tmp.reshape(mask.shape)
+    vutil.save2nifti(tmp, os.path.join(out_dir, 'pred_fmri_r.nii.gz'))
     
     # get PLS-CCA weights
-    #feat_cc, fmri_cc = plsca.transform(train_feat_ts, train_fmri_ts)
-    #np.save(os.path.join(out_dir, 'feat_cc.npy'), feat_cc)
-    #np.save(os.path.join(out_dir, 'fmri_cc.npy'), fmri_cc)
-    #feat_weight = plsca.x_weights_.reshape(96, 11, 11, 10)
-    #fmri_weight = plsca.y_weights_
-    #np.save(os.path.join(out_dir, 'feat_weights.npy'), feat_weight)
-    #np.save(os.path.join(out_dir, 'fmri_weights.npy'), fmri_weight)
-    #vutil.plot_cca_fweights(feat_weight, out_dir, 'feat_weight', abs_flag=False)
-    #vutil.save_cca_volweights(fmri_weight, mask_file, out_dir)
+    feat_cc, fmri_cc = plsca.transform(train_feat_ts, train_fmri_ts)
+    np.save(os.path.join(out_dir, 'feat_cc.npy'), feat_cc)
+    np.save(os.path.join(out_dir, 'fmri_cc.npy'), fmri_cc)
+    feat_weight = plsca.x_weights_.reshape(96, 11, 11, 10)
+    fmri_weight = plsca.y_weights_
+    np.save(os.path.join(out_dir, 'feat_weights.npy'), feat_weight)
+    np.save(os.path.join(out_dir, 'fmri_weights.npy'), fmri_weight)
+    vutil.plot_cca_fweights(feat_weight, out_dir, 'feat_weight', abs_flag=False)
+    vutil.save_cca_volweights(fmri_weight, mask_file, out_dir)
     
     # calculate corr between original variables and the CCs
-    #feat_cc = np.load(os.path.join(out_dir, 'feat_cc.npy'))
-    #parallel_corr2_coef(train_feat_ts.T, feat_cc.T, 
-    #                    os.path.join(out_dir, 'feat_cc_corr.npy'),
-    #                    block_size=10, n_jobs=1)
-    #feat_cc_corr = np.load(os.path.join(out_dir, 'feat_cc_corr.npy'))
-    #feat_cc_corr = feat_cc_corr.reshape(96, 11, 11, 10)
-    #vutil.plot_cca_fweights(feat_cc_corr, out_dir, 'feat_cc_corr',
-    #                        abs_flag=False)
+    feat_cc = np.load(os.path.join(out_dir, 'feat_cc.npy'))
+    parallel_corr2_coef(train_feat_ts.T, feat_cc.T, 
+                        os.path.join(out_dir, 'feat_cc_corr.npy'),
+                        block_size=10, n_jobs=1)
+    feat_cc_corr = np.load(os.path.join(out_dir, 'feat_cc_corr.npy'))
+    feat_cc_corr = feat_cc_corr.reshape(96, 11, 11, 10)
+    vutil.plot_cca_fweights(feat_cc_corr, out_dir, 'feat_cc_corr',
+                            abs_flag=False)
     #vutil.fweights_bar(feat_cc_corr)
-    #fmri_cc = np.load(os.path.join(out_dir, 'fmri_cc.npy'))
-    #parallel_corr2_coef(train_fmri_ts.T, fmri_cc.T,
-    #                    os.path.join(out_dir, 'fmri_cc_corr.npy'),
-    #                    block_size=10, n_jobs=1)
-    #fmri_cc_corr = np.load(os.path.join(out_dir, 'fmri_cc_corr.npy'))
-    #vutil.save_cca_volweights(fmri_cc_corr, mask_file, out_dir,
-    #                          prefix_name='fmri_cc_corr')
+    fmri_cc = np.load(os.path.join(out_dir, 'fmri_cc.npy'))
+    parallel_corr2_coef(train_fmri_ts.T, fmri_cc.T,
+                        os.path.join(out_dir, 'fmri_cc_corr.npy'),
+                        block_size=10, n_jobs=1)
+    fmri_cc_corr = np.load(os.path.join(out_dir, 'fmri_cc_corr.npy'))
+    vutil.save_cca_volweights(fmri_cc_corr, mask_file, out_dir,
+                              prefix_name='fmri_cc_corr')
 
     ## Chi-square test -- not suit for small sample size application ... 
     #rlist = []
@@ -349,20 +288,20 @@ if __name__ == '__main__':
     db_dir = os.path.join(root_dir, 'subjects')
 
     # subj config
-    subj_id = 3
+    subj_id = 1
     subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
     
     #-- load fmri data
-    fmri_file = os.path.join(subj_dir, 'VoxelResponses_subject%s.mat'%(subj_id))
+    fmri_file = os.path.join(subj_dir, 'VoxelResponses.mat')
     tf = tables.open_file(fmri_file)
     #tf.list_nodes
     #-- roi mat to nii
     #roi_file = os.path.join(subj_dir, 'S%s_small_roi.nii.gz'%(subj_id))
-    #roi2nifti(tf, roi_file, mode='small')
+    #vutil.roi2nifti(tf, roi_file, mode='small')
     #-- get mean fmri responses
     #dataset = 'rt'
     #mean_file = os.path.join(subj_dir, 'S%s_mean_%s.nii.gz'%(subj_id, dataset))
-    #gen_mean_vol(tf, dataset, mean_file)
+    #vutil.gen_mean_vol(tf, dataset, mean_file)
 
     #-- load fmri response from training/validation dataset
     train_fmri_ts = tf.get_node('/rt')[:]
@@ -381,14 +320,14 @@ if __name__ == '__main__':
     val_feat_ts = np.load(val_feat_file, mmap_mode='r')
     # data.shape = (96, 55, 55, 540/7200)
     # load optical flow data: mag and ang
-    train_mag_file = os.path.join(feat_dir,'train_opticalflow_mag_trs_ds12.npy')
-    train_mag_ts = np.load(train_mag_file, mmap_mode='r')
-    val_mag_file = os.path.join(feat_dir, 'val_opticalflow_mag_trs_ds12.npy')
-    val_mag_ts = np.load(val_mag_file, mmap_mode='r')
-    train_ang_file = os.path.join(feat_dir,'train_opticalflow_ang_trs_ds12.npy')
-    train_ang_ts = np.load(train_ang_file, mmap_mode='r')
-    val_ang_file = os.path.join(feat_dir, 'val_opticalflow_ang_trs_ds12.npy')
-    val_ang_ts = np.load(val_ang_file, mmap_mode='r')
+    #train_mag_file = os.path.join(feat_dir,'train_opticalflow_mag_trs_ds12.npy')
+    #train_mag_ts = np.load(train_mag_file, mmap_mode='r')
+    #val_mag_file = os.path.join(feat_dir, 'val_opticalflow_mag_trs_ds12.npy')
+    #val_mag_ts = np.load(val_mag_file, mmap_mode='r')
+    #train_ang_file = os.path.join(feat_dir,'train_opticalflow_ang_trs_ds12.npy')
+    #train_ang_ts = np.load(train_ang_file, mmap_mode='r')
+    #val_ang_file = os.path.join(feat_dir, 'val_opticalflow_ang_trs_ds12.npy')
+    #val_ang_ts = np.load(val_ang_file, mmap_mode='r')
     # data.shape = (11, 11, 540/7200)
     
     #-- calculate cross-modality corrlation 
@@ -423,13 +362,15 @@ if __name__ == '__main__':
     if not os.path.exists(cca_dir):
         os.mkdir(cca_dir, 0755)
     # combine layer1 features and optical flow features together
-    train_feat_stack = np.vstack((train_feat_ts,
-                                  np.expand_dims(train_mag_ts, axis=0),
-                                  np.expand_dims(train_ang_ts, axis=0)))
-    val_feat_stack = np.vstack((val_feat_ts,
-                                np.expand_dims(val_mag_ts, axis=0),
-                                np.expand_dims(val_ang_ts, axis=0)))
-    plscorr(train_fmri_ts, train_feat_stack, val_fmri_ts, val_feat_stack,
+    #train_feat_stack = np.vstack((train_feat_ts,
+    #                              np.expand_dims(train_mag_ts, axis=0),
+    #                              np.expand_dims(train_ang_ts, axis=0)))
+    #val_feat_stack = np.vstack((val_feat_ts,
+    #                            np.expand_dims(val_mag_ts, axis=0),
+    #                            np.expand_dims(val_ang_ts, axis=0)))
+    #plscorr(train_fmri_ts, train_feat_stack, val_fmri_ts, val_feat_stack,
+    #        cca_dir, mask_file)
+    plscorr(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
             cca_dir, mask_file)
 
     #-- regularized CCA
