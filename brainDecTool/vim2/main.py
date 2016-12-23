@@ -339,7 +339,7 @@ if __name__ == '__main__':
     #-- PLS-CCA
     pls_dir = os.path.join(subj_dir, 'plscca')
     if not os.path.exists(pls_dir):
-        os.mkdir(retino_dir, 0755)
+        os.mkdir(pls_dir, 0755)
     cca_dir = os.path.join(pls_dir, 'layer1')
     if not os.path.exists(cca_dir):
         os.mkdir(cca_dir, 0755)
