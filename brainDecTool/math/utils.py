@@ -107,6 +107,27 @@ def mult_diag(d, mtx, left=True):
     else:
         return d*mtx
 
+def cca_chi_test():
+    """Chi-square test for CCA.
+    Note: not suit for small sample size application,
+    """
+    pass
+    #rlist = []
+    #for i in range(components_num):
+    #    r = np.corrcoef(feat_c[:, i], fmri_c[:, i])[0, 1]
+    #    rlist.append(r)
+    #print 'Correlation coefficient', rlist
+    #print 'Chi-square test ...'
+    #r2list = [1-r**2 for r in rlist]
+    #print '1-r^2:', r2list
+    #m = feat_ts.shape[1]
+    #n = fmri_ts.shape[1]
+    #p = feat_ts.shape[0]
+    #for i in  range(components_num):
+    #    chi2 = ((m+n+3)*1.0/2-p)*np.log(reduce(lambda x, y: x*y, r2list[i:]))
+    #    dof = (m-i)*(n-i)
+    #    print 'Canonical component %s, p : %s'%(i+1, chisqprob(chi2, dof))
+
 import time
 import logging
 def counter(iterable, countevery=100, total=None, logger=logging.getLogger("counter")):

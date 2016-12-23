@@ -206,24 +206,6 @@ def plscorr(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
     vutil.save_cca_volweights(fmri_cc_corr, mask_file, out_dir,
                               prefix_name='fmri_cc_corr')
 
-    ## Chi-square test -- not suit for small sample size application ... 
-    #rlist = []
-    #for i in range(components_num):
-    #    r = np.corrcoef(feat_c[:, i], fmri_c[:, i])[0, 1]
-    #    rlist.append(r)
-    #print 'Correlation coefficient', rlist
-    #print 'Chi-square test ...'
-    #r2list = [1-r**2 for r in rlist]
-    #print '1-r^2:', r2list
-    #m = feat_ts.shape[1]
-    #n = fmri_ts.shape[1]
-    #p = feat_ts.shape[0]
-    #for i in  range(components_num):
-    #    chi2 = ((m+n+3)*1.0/2-p)*np.log(reduce(lambda x, y: x*y, r2list[i:]))
-    #    dof = (m-i)*(n-i)
-    #    print 'Canonical component %s, p value: %s'%(i+1, chisqprob(chi2, dof))
-
-
 def reg_cca(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
     """Conduct CCA between brain activity and CNN activation."""
     train_feat_ts = train_feat_ts.reshape(-1, train_feat_ts.shape[3]).T
@@ -358,7 +340,7 @@ if __name__ == '__main__':
     pls_dir = os.path.join(subj_dir, 'plscca')
     if not os.path.exists(pls_dir):
         os.mkdir(retino_dir, 0755)
-    cca_dir = os.path.join(pls_dir, 'an_layer1_opticalflow')
+    cca_dir = os.path.join(pls_dir, 'layer1')
     if not os.path.exists(cca_dir):
         os.mkdir(cca_dir, 0755)
     # combine layer1 features and optical flow features together
