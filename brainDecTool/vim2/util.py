@@ -197,20 +197,26 @@ def fweights_bar(feat_weights):
     For each feature/2D feature map, top 20% `abs` weights are averaged
     for evaluation.
     """
-    cc_num = feat_weights.shape[3]
-    channel_num = feat_weights.shape[0]
+    avg_weights = fweights_top_mean(feat_weights, 0.2)
+    cc_num = avg_weights.shape[0]
     fig, axs = plt.subplots(cc_num, 1)
     for i in range(cc_num):
+        ind = np.arange(channel_num)
+        axs[i].bar(ind, avg_weights[i], 0.35)
+    plt.show()
+
+def fweights_top_mean(feat_weights, top_ratio):
+    """Derive average of top `top_ratio` weights from each channels."""
+    cc_num = feat_weights.shape[3]
+    channel_num = feat_weights.shape[0]
+    avg_weights = np.zeros((cc_num, channel_num))
+    for i in range(cc_num):
         tmp = feat_weights[..., i]
-        ws = []
         for j in range(channel_num):
             ctmp = np.abs(tmp[j, ...]).flatten()
             ctmp.sort()
-            m = ctmp[-1*int(ctmp.shape[0]*0.2):].mean()
-            ws.append(m)
-        ind = np.arange(channel_num)
-        axs[i].bar(ind, ws, 0.35)
-    plt.show()
+            avg_weights[i, j] = ctmp[-1*int(ctmp.shape[0]*top_ratio):].mean()
+    return avg_weights
 
 def roi2nifti(fmri_table, filename, mode='full'):
     """Save ROI as a nifti file.

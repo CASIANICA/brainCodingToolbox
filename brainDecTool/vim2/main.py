@@ -6,7 +6,6 @@ import numpy as np
 import tables
 from scipy import ndimage
 from scipy.misc import imsave
-from scipy.stats import chisqprob
 
 from brainDecTool.math import rcca
 from sklearn.cross_decomposition import PLSCanonical
@@ -17,7 +16,7 @@ from brainDecTool.pipeline import retinotopy
 from brainDecTool.pipeline.base import random_cross_modal_corr
 from brainDecTool.pipeline.base import multiple_regression
 from brainDecTool.pipeline.base import ridge_regression
-import util as vutil
+from brainDecTool.vim2 import util as vutil
 
 
 def retinotopic_mapping(corr_file, mask=None):
@@ -205,6 +204,37 @@ def plscorr(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
     fmri_cc_corr = np.load(os.path.join(out_dir, 'fmri_cc_corr.npy'))
     vutil.save_cca_volweights(fmri_cc_corr, mask_file, out_dir,
                               prefix_name='fmri_cc_corr')
+
+def inter_subj_cc_sim(subj1_id, subj2_id, subj_dir):
+    """Compute inter-subjects CCs similarity."""
+    subj1_dir = os.path.join(subj_dir, 'vS%s'%(subj1_id))
+    subj2_dir = os.path.join(subj_dir, 'vS%s'%(subj2_id))
+    #-- inter-channel similarity
+    feat_weights_file1 = os.path.join(subj1_dir, 'plscca',
+                                      'layer1', 'feat_weights.npy')
+    feat_weights_file2 = os.path.join(subj2_dir, 'plscca',
+                                      'layer1', 'feat_weights.npy')
+    feat_cc_corr1 = np.load(feat_cc_corr_file1).reshape(96, 121, 10)
+    feat_cc_corr2 = np.load(feat_cc_corr_file2).reshape(96, 121, 10)
+    sim_mtx = np.zeros((960, 960))
+    for i in  range(10):
+        data1 = feat_cc_corr1[..., i]
+        for j in range(10):
+            data2 = feat_cc_corr2[..., j]
+            tmp = corr2_coef(data1, data2)
+            sim_mtx[i*96:(i+1)*96, j*96:(j+1)*96] = np.abs(tmp)
+    np.save('feat_cc_weights_sim_subj_%s_%s.npy'%(subj1_id, subj2_id), sim_mtx)
+    #-- inter-CC similarity
+    #feat_cc_corr_file1 = os.path.join(subj1_dir, 'plscca',
+    #                                  'layer1', 'feat_cc_corr.npy')
+    #feat_cc_corr_file2 = os.path.join(subj2_dir, 'plscca',
+    #                                  'layer1', 'feat_cc_corr.npy')
+    #feat_cc_corr1 = np.load(feat_cc_corr_file1).reshape(96, 11, 11, 10)
+    #feat_cc_corr2 = np.load(feat_cc_corr_file2).reshape(96, 11, 11, 10)
+    #avg_weights1 = vutil.fweights_top_mean(feat_cc_corr1, 0.2)
+    #avg_weights2 = vutil.fweights_top_mean(feat_cc_corr2, 0.2)
+    #sim_mtx = corr2_coef(avg_weights1, avg_weights2)
+    #np.save('feat_cc_sim_subj_%s_%s.npy'%(subj1_id, subj2_id), sim_mtx)
 
 def reg_cca(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
     """Conduct CCA between brain activity and CNN activation."""

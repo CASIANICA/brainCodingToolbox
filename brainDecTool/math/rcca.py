@@ -3,6 +3,7 @@
 
 import numpy as np
 from scipy.linalg import eigh
+from scipy.stats import chisqprob
 import h5py
 
 class _CCABase(object):
@@ -252,6 +253,29 @@ def recon(data, comp, corronly=False, kernelcca = True):
         return corrs
     else:
         return corrs, ws, ccomp
+
+def cca_chi_test(X_cc, Y_cc, X_size, Y_size):
+    """Chi-square test for CCA.
+    X_cc : Canonical components of X
+    Y_cc : Canonical components of Y
+    X_size : number of variants in X
+    Y_size : number of variants in Y
+    Note: not suit for small sample size application.
+    """
+    components_num = X_cc.shape[1]
+    p = X_cc.shape[0]
+    rlist = []
+    for i in range(components_num):
+        r = np.corrcoef(X_cc[:, i], Y_cc[:, i])[0, 1]
+        rlist.append(r)
+    print 'Correlation coefficient', rlist
+    print 'Chi-square test ...'
+    r2list = [1-r**2 for r in rlist]
+    print '1-r^2:', r2list
+    for i in  range(components_num):
+        c = ((X_size+Y_size+3)*1.0/2-p)*np.log(reduce(lambda x, y: x*y, r2list[i:]))
+        dof = (X_size-i)*(Y_size-i)
+        print 'Canonical component %s, p : %s'%(i+1, chisqprob(c, dof))
 
 def _zscore(d): return (d-d.mean(0))/d.std(0)
 def _demean(d): return d-d.mean(0)
