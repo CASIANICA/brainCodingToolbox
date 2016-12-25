@@ -2,9 +2,12 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 
 import numpy as np
-#import scipy.stats
-import random
-import sys
+
+def zero_one_norm(mat):
+    """Normalize each column of input 2D array into zero-one range."""
+    col_min = mat.min(axis=0)
+    col_max = mat.max(axis=0)
+    return (mat - col_min)/(col_max - col_min)
 
 def zscore(mat, return_unzvals=False):
     """Z-scores the rows of [mat] by subtracting off the mean and dividing

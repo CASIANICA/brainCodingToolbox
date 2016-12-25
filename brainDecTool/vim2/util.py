@@ -125,33 +125,20 @@ def data_swap(nifti_file):
     ndata = np.rollaxis(ndata, 0, 3)
     return ndata
 
-def plot_cca_fweights(data, out_dir, prefix_name, abs_flag=True):
+def plot_cca_fweights(data, out_dir, prefix_name):
     """Plot features weights derived from CCA."""
-    if len(data.shape)==4:
-        n_components = data.shape[3]
-    elif len(data.shape)==3:
-        n_components = 1
+    if len(data.shape)==3:
+        data = np.expand_dims(data, axis=3)
+    n_components = data.shape[3]
     n_channels = data.shape[0]
 
-    if abs_flag:
-        maxv = np.abs(data).max()
-        minv = 0
-    else:
-        maxv = data.max()
-        minv = data.min()
     for f in range(n_components):
         fig, axs = plt.subplots(8, 12)
+        cdata = data[..., f]
+        maxv = cdata.max()
+        minv = cdata.min()
         for c in range(n_channels):
-            if len(data.shape)==3:
-                if abs_flag:
-                    tmp = np.abs(data[c, ...])
-                else:
-                    tmp = data[c, ...]
-            else:
-                if abs_flag:
-                    tmp = np.abs(data[c, ..., f])
-                else:
-                    tmp = data[c, ..., f]
+            tmp = cdata[c, ...]        
             im = axs[c/12][c%12].imshow(tmp, interpolation='nearest',
                                         vmin=minv, vmax=maxv)
             axs[c/12][c%12].get_xaxis().set_visible(False)

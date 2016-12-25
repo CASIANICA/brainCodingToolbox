@@ -12,6 +12,7 @@ from sklearn.cross_decomposition import PLSCanonical
 
 from brainDecTool.util import configParser
 from brainDecTool.math import parallel_corr2_coef, corr2_coef
+from brainDecTool.math.norm import zero_one_norm
 from brainDecTool.pipeline import retinotopy
 from brainDecTool.pipeline.base import random_cross_modal_corr
 from brainDecTool.pipeline.base import multiple_regression
@@ -136,8 +137,8 @@ def hrf_estimate(tf, feat_ts):
             out[j, :, i] = time_lag_corr(tmp, vxl_data[i, :], 40)
     np.save('hrf_test.npy', out)
 
-def plscorr(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
-            out_dir, mask_file):
+def plscorr_eval(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
+                 out_dir, mask_file):
     """Compute PLS correlation between brain activity and CNN activation."""
     train_feat_ts = train_feat_ts.reshape(-1, train_feat_ts.shape[3]).T
     val_feat_ts = val_feat_ts.reshape(-1, val_feat_ts.shape[3]).T
@@ -159,7 +160,8 @@ def plscorr(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
     #    r.sort()
     #    meanr = np.mean(r[-1*vsample:])
     #    print 'Mean prediction corrcoef : %s' %(meanr)
-
+    
+    # model generation based on optimized CC number
     plsca = PLSCanonical(n_components=10)
     plsca.fit(train_feat_ts, train_fmri_ts)
     from sklearn.externals import joblib
@@ -184,26 +186,33 @@ def plscorr(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
     fmri_weight = plsca.y_weights_
     np.save(os.path.join(out_dir, 'feat_weights.npy'), feat_weight)
     np.save(os.path.join(out_dir, 'fmri_weights.npy'), fmri_weight)
-    vutil.plot_cca_fweights(feat_weight, out_dir, 'feat_weight', abs_flag=False)
-    vutil.save_cca_volweights(fmri_weight, mask_file, out_dir)
-    
-    # calculate corr between original variables and the CCs
-    feat_cc = np.load(os.path.join(out_dir, 'feat_cc.npy'))
-    parallel_corr2_coef(train_feat_ts.T, feat_cc.T, 
-                        os.path.join(out_dir, 'feat_cc_corr.npy'),
-                        block_size=10, n_jobs=1)
-    feat_cc_corr = np.load(os.path.join(out_dir, 'feat_cc_corr.npy'))
-    feat_cc_corr = feat_cc_corr.reshape(96, 11, 11, 10)
-    vutil.plot_cca_fweights(feat_cc_corr, out_dir, 'feat_cc_corr',
-                            abs_flag=False)
-    #vutil.fweights_bar(feat_cc_corr)
-    fmri_cc = np.load(os.path.join(out_dir, 'fmri_cc.npy'))
-    parallel_corr2_coef(train_fmri_ts.T, fmri_cc.T,
-                        os.path.join(out_dir, 'fmri_cc_corr.npy'),
-                        block_size=10, n_jobs=1)
-    fmri_cc_corr = np.load(os.path.join(out_dir, 'fmri_cc_corr.npy'))
-    vutil.save_cca_volweights(fmri_cc_corr, mask_file, out_dir,
-                              prefix_name='fmri_cc_corr')
+
+def plscorr_viz(cca_dir):
+    """CCA weights visualization."""
+    # plot feature weights (normalized)
+    feat_weights = np.load(os.path.join(cca_dir, 'feat_weights.npy'))
+    norm_feat_weights = zero_one_norm(feat_weights)
+    np.save(os.path.join(cca_dir, 'norm_feat_weights.npy'), norm_feat_weights)
+    vutil.plot_cca_fweights(norm_feat_weights, cca_dir, 'norm_feat_weight')
+    #fmri_weights = np.load(os.path.join(cca_dir, 'fmri_weights.npy'))
+    #vutil.save_cca_volweights(fmri_weight, mask_file, out_dir)
+
+    ## calculate corr between original variables and the CCs
+    #feat_cc = np.load(os.path.join(out_dir, 'feat_cc.npy'))
+    #parallel_corr2_coef(train_feat_ts.T, feat_cc.T, 
+    #                    os.path.join(out_dir, 'feat_cc_corr.npy'),
+    #                    block_size=10, n_jobs=1)
+    #feat_cc_corr = np.load(os.path.join(out_dir, 'feat_cc_corr.npy'))
+    #feat_cc_corr = feat_cc_corr.reshape(96, 11, 11, 10)
+    #vutil.plot_cca_fweights(feat_cc_corr, out_dir, 'feat_cc_corr')
+    ##vutil.fweights_bar(feat_cc_corr)
+    #fmri_cc = np.load(os.path.join(out_dir, 'fmri_cc.npy'))
+    #parallel_corr2_coef(train_fmri_ts.T, fmri_cc.T,
+    #                    os.path.join(out_dir, 'fmri_cc_corr.npy'),
+    #                    block_size=10, n_jobs=1)
+    #fmri_cc_corr = np.load(os.path.join(out_dir, 'fmri_cc_corr.npy'))
+    #vutil.save_cca_volweights(fmri_cc_corr, mask_file, out_dir,
+    #                          prefix_name='fmri_cc_corr')
 
 def inter_subj_cc_sim(subj1_id, subj2_id, subj_dir):
     """Compute inter-subjects CCs similarity."""
@@ -264,8 +273,7 @@ def reg_cca(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
     # model prediction performance
     fmri_pred_r = cca.corrs[1]
     feat_pred_r = cca.corrs[0].reshape(96, 11, 11)
-    vutil.plot_cca_fweights(feat_pred_r, out_dir,
-                            'pred_feat_r_CC%s'%(CCnum), abs_flag=False)
+    vutil.plot_cca_fweights(feat_pred_r, out_dir, 'pred_feat_r_CC%s'%(CCnum))
     mask = vutil.data_swap(mask_file)
     vxl_idx = np.nonzero(mask.flatten()==1)[0]
     tmp = np.zeros_like(mask.flatten(), dtype=np.float64)
@@ -278,8 +286,7 @@ def reg_cca(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
     feat_weights = cca.ws[0]
     feat_weights = feat_weights.reshape(96, 11, 11, feat_weights.shape[1])
     fmri_weights = cca.ws[1]
-    vutil.plot_cca_fweights(feat_weights, out_dir, 'feat_weight_CC%s'%(CCnum),
-                            abs_flag=False)
+    vutil.plot_cca_fweights(feat_weights, out_dir, 'feat_weight_CC%s'%(CCnum))
     vutil.save_cca_volweights(fmri_weights, mask_file, out_dir)
 
     feat_cc = cca.comps[0]
@@ -288,8 +295,7 @@ def reg_cca(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
                         block_size=7, n_jobs=1)
     feat_cc_corr = np.load(os.path.join(out_dir, 'feat_cc_corr.npy'))
     feat_cc_corr = feat_cc_corr.reshape(96, 11, 11, 7)
-    vutil.plot_cca_fweights(feat_cc_corr, out_dir, 'feat_cc_corr',
-                            abs_flag=False)
+    vutil.plot_cca_fweights(feat_cc_corr, out_dir, 'feat_cc_corr')
 
 if __name__ == '__main__':
     """Main function."""
@@ -304,8 +310,8 @@ if __name__ == '__main__':
     subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
     
     #-- load fmri data
-    fmri_file = os.path.join(subj_dir, 'VoxelResponses.mat')
-    tf = tables.open_file(fmri_file)
+    #fmri_file = os.path.join(subj_dir, 'VoxelResponses.mat')
+    #tf = tables.open_file(fmri_file)
     #tf.list_nodes
     #-- roi mat to nii
     #roi_file = os.path.join(subj_dir, 'S%s_small_roi.nii.gz'%(subj_id))
@@ -316,20 +322,20 @@ if __name__ == '__main__':
     #vutil.gen_mean_vol(tf, dataset, mean_file)
 
     #-- load fmri response from training/validation dataset
-    train_fmri_ts = tf.get_node('/rt')[:]
-    val_fmri_ts = tf.get_node('/rv')[:]
+    #train_fmri_ts = tf.get_node('/rt')[:]
+    #val_fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
     # load brain mask
-    mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
-    mask = vutil.data_swap(mask_file).flatten()
-    vxl_idx = np.nonzero(mask==1)[0]
-    train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
-    val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
+    #mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
+    #mask = vutil.data_swap(mask_file).flatten()
+    #vxl_idx = np.nonzero(mask==1)[0]
+    #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
+    #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     # load convolved cnn activation data for validation dataset
-    train_feat_file = os.path.join(feat_dir, 'feat1_train_trs_ds5.npy')
-    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
-    val_feat_file = os.path.join(feat_dir, 'feat1_val_trs_ds5.npy')
-    val_feat_ts = np.load(val_feat_file, mmap_mode='r')
+    #train_feat_file = os.path.join(feat_dir, 'feat1_train_trs_ds5.npy')
+    #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    #val_feat_file = os.path.join(feat_dir, 'feat1_val_trs_ds5.npy')
+    #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
     # data.shape = (96, 55, 55, 540/7200)
     # load optical flow data: mag and ang
     #train_mag_file = os.path.join(feat_dir,'train_opticalflow_mag_trs_ds12.npy')
@@ -380,10 +386,12 @@ if __name__ == '__main__':
     #val_feat_stack = np.vstack((val_feat_ts,
     #                            np.expand_dims(val_mag_ts, axis=0),
     #                            np.expand_dims(val_ang_ts, axis=0)))
-    #plscorr(train_fmri_ts, train_feat_stack, val_fmri_ts, val_feat_stack,
-    #        cca_dir, mask_file)
-    plscorr(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
-            cca_dir, mask_file)
+    #plscorr_eval(train_fmri_ts, train_feat_stack, val_fmri_ts, val_feat_stack,
+    #             cca_dir, mask_file)
+    #plscorr_eval(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
+    #             cca_dir, mask_file)
+    plscorr_viz(cca_dir)
+    #inter_subj_cc_sim(1, 2, db_dir)
 
     #-- regularized CCA
     #cca_dir = os.path.join(retino_dir, 'rcca', 'rcca_cc7')
@@ -392,5 +400,5 @@ if __name__ == '__main__':
     #reg_cca(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, cca_dir)
 
     #-- close fmri data
-    tf.close()
+    #tf.close()
 
