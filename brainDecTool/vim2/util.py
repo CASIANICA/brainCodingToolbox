@@ -174,7 +174,9 @@ def plot_kernerls(in_dir, basename, filename):
     for n in range(file_num):
         f = os.path.join(in_dir, basename+str(n)+'.png')
         img = mpimg.imread(f)
-        im = axs[n/12][n%12].imshow(img)
+        # normalize image into zero-one range
+        nimg = (img - img.min()) / (img.max() - img.min())
+        im = axs[n/12][n%12].imshow(nimg)
         axs[n/12][n%12].get_xaxis().set_visible(False)
         axs[n/12][n%12].get_yaxis().set_visible(False)
     fig.savefig(os.path.join(in_dir, filename))
