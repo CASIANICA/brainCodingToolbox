@@ -18,3 +18,17 @@ def biGammaHRF(times):
     # Scale max to 0.6
     return values / np.max(values) * 0.6
 
+def vistaBiGammaHRF(times):
+    """Return values for HRF at given times. Unit of time: second.
+    This HRF is derived from VISTA software.
+    """
+    d1 = 5.4
+    alpha1 = 5.98
+    beta1 = 0.9
+    c = 0.35
+    d2 = 10.8
+    alpha2 = 11.97
+    beta2 = 0.9
+    g = lambda t: ((t/d1)**alpha1)*np.exp((d1-t)/beta1)-c*((t/d2)**alpha2)*np.exp((d2-t)/beta2)
+    return np.array([g(i) for i in times])
+

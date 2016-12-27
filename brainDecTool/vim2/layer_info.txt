@@ -1,0 +1,12 @@
+layer      shape            ds-factor        size
+conv1 : [96, 55, 55]            5            11616
+conv2 : [256, 27, 27]           3            20736
+conv3 : [384, 13, 13]           2            18816
+conv4 : [384, 13, 13]           2            18816
+conv5 : [256, 13, 13]           2            12544
+pool5 : [256, 6, 6]
+
+significant level for correlation between fmri and layer1:
+one-tail p < 0.05: z > 0.019257
+two-tail p < 0.05: z > 0.022827 or z < -0.02327
+
