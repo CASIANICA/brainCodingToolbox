@@ -3,11 +3,22 @@
 
 import numpy as np
 
-def zero_one_norm(mat):
-    """Normalize each column of input 2D array into zero-one range."""
+def zero_one_norm(mat, two_side=False):
+    """Normalize each column of input 2D array into zero-one range.
+    For `two_side` mode, the positive and negative data would be normalized
+    separatively, the max value would be the max(mat.max(), -1*mat.min()).
+    the midpoint is zero.
+
+    """
     col_min = mat.min(axis=0)
     col_max = mat.max(axis=0)
-    return (mat - col_min)/(col_max - col_min)
+    if two_side:
+        maxv = np.array([max(i) for i in zip(-1*col_min, col_max)])
+        sign_mat = np.sign(mat)
+        return np.abs(mat) / maxv * sign_mat
+
+    else:
+        return (mat - col_min)/(col_max - col_min)
 
 def zscore(mat, return_unzvals=False):
     """Z-scores the rows of [mat] by subtracting off the mean and dividing

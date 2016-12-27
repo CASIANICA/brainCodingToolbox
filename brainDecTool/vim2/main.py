@@ -187,15 +187,21 @@ def plscorr_eval(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
     np.save(os.path.join(out_dir, 'feat_weights.npy'), feat_weight)
     np.save(os.path.join(out_dir, 'fmri_weights.npy'), fmri_weight)
 
-def plscorr_viz(cca_dir):
+def plscorr_viz(cca_dir, mask_file):
     """CCA weights visualization."""
     # plot feature weights (normalized)
     feat_weights = np.load(os.path.join(cca_dir, 'feat_weights.npy'))
-    norm_feat_weights = zero_one_norm(feat_weights)
+    feat_weights = feat_weights.reshape(-1, 10)
+    norm_feat_weights = zero_one_norm(feat_weights, two_side=True)
+    norm_feat_weights = norm_feat_weights.reshape(96, 11, 11, 10)
     np.save(os.path.join(cca_dir, 'norm_feat_weights.npy'), norm_feat_weights)
-    vutil.plot_cca_fweights(norm_feat_weights, cca_dir, 'norm_feat_weight')
-    #fmri_weights = np.load(os.path.join(cca_dir, 'fmri_weights.npy'))
-    #vutil.save_cca_volweights(fmri_weight, mask_file, out_dir)
+    vutil.plot_cca_fweights(norm_feat_weights, cca_dir, 'norm2_feat_weight',
+                            two_side=True)
+    # plot fmri weights (normalized)
+    fmri_weights = np.load(os.path.join(cca_dir, 'fmri_weights.npy'))
+    norm_fmri_weights = zero_one_norm(fmri_weights, two_side=True)
+    vutil.save_cca_volweights(norm_fmri_weights, mask_file, cca_dir,
+                              'norm2_cca_weights', out_png=True, two_side=True)
 
     ## calculate corr between original variables and the CCs
     #feat_cc = np.load(os.path.join(out_dir, 'feat_cc.npy'))
@@ -287,7 +293,7 @@ def reg_cca(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
     feat_weights = feat_weights.reshape(96, 11, 11, feat_weights.shape[1])
     fmri_weights = cca.ws[1]
     vutil.plot_cca_fweights(feat_weights, out_dir, 'feat_weight_CC%s'%(CCnum))
-    vutil.save_cca_volweights(fmri_weights, mask_file, out_dir)
+    vutil.save_cca_volweights(fmri_weights, mask_file, out_dir, 'cca_component')
 
     feat_cc = cca.comps[0]
     parallel_corr2_coef(train_feat_ts.T, feat_cc.T, 
@@ -390,7 +396,8 @@ if __name__ == '__main__':
     #             cca_dir, mask_file)
     #plscorr_eval(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
     #             cca_dir, mask_file)
-    plscorr_viz(cca_dir)
+    mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
+    plscorr_viz(cca_dir, mask_file)
     #inter_subj_cc_sim(1, 2, db_dir)
 
     #-- regularized CCA

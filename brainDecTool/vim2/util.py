@@ -125,7 +125,7 @@ def data_swap(nifti_file):
     ndata = np.rollaxis(ndata, 0, 3)
     return ndata
 
-def plot_cca_fweights(data, out_dir, prefix_name):
+def plot_cca_fweights(data, out_dir, prefix_name, two_side=False):
     """Plot features weights derived from CCA."""
     if len(data.shape)==3:
         data = np.expand_dims(data, axis=3)
@@ -135,8 +135,12 @@ def plot_cca_fweights(data, out_dir, prefix_name):
     for f in range(n_components):
         fig, axs = plt.subplots(8, 12)
         cdata = data[..., f]
-        maxv = cdata.max()
-        minv = cdata.min()
+        if two_side:
+            maxv = max(cdata.max(), -1*cdata.min())
+            minv = -1 * maxv
+        else:
+            maxv = cdata.max()
+            minv = cdata.min()
         for c in range(n_channels):
             tmp = cdata[c, ...]        
             im = axs[c/12][c%12].imshow(tmp, interpolation='nearest',
@@ -148,8 +152,8 @@ def plot_cca_fweights(data, out_dir, prefix_name):
         fig.colorbar(im, cax=cbar_ax)
         fig.savefig(os.path.join(out_dir, prefix_name+'_%s.png'%(f+1)))
 
-def save_cca_volweights(fmri_weights, mask_file, out_dir,
-                        prefix_name='cca_component'):
+def save_cca_volweights(fmri_weights, mask_file, out_dir, prefix_name,
+                        out_png=True, two_side=False):
     """Save fmri weights derived from CCA as nifti files."""
     n_components = fmri_weights.shape[1]
     mask = data_swap(mask_file)
@@ -158,7 +162,24 @@ def save_cca_volweights(fmri_weights, mask_file, out_dir,
         tmp = np.zeros_like(mask.flatten(), dtype=np.float64)
         tmp[vxl_idx] = fmri_weights[:, i]
         tmp = tmp.reshape(mask.shape)
-        save2nifti(tmp, os.path.join(out_dir, prefix_name+'_%s.nii.gz'%(i+1)))
+        nii_file = os.path.join(out_dir, prefix_name+'%s.nii.gz'%(i+1))
+        save2nifti(tmp, nii_file)
+        if out_png:
+            import cortex
+            from matplotlib import cm
+            subj_id = out_dir.split('/')[-3]
+            if two_side:
+                img = cortex.quickflat.make_figure(cortex.Volume(nii_file,
+                                    subj_id, 'func2anat', cmap=cm.bwr,
+                                    vmin=-1., vmax=1.),
+                                with_curvature=True)
+            else:
+                img = cortex.quickflat.make_figure(cortex.Volume(nii_file,
+                                        subj_id, 'func2anat', cmap=cm.hot,
+                                        vmin=0., vmax=1.),
+                                with_curvature=True)
+            png_file = os.path.join(out_dir, prefix_name+'%s.png'%(i+1))
+            img.savefig(png_file, dpi=200)
 
 def display_video(dataset):
     """Display 3D video."""
