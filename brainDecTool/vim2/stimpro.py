@@ -7,22 +7,28 @@ import tables
 from scipy.misc import imsave
 import cv2
 from joblib import Parallel, delayed
+from skimage.color import rgb2gray
+from skimage.measure import compare_ssim
 
-import util as vutil
+from brainDecTool.vim2 import util as vutil
 from brainDecTool.util import configParser
 from brainDecTool.timeseries import hrf
 from brainDecTool.math import down_sample
 
 
+def img_recon(orig_img):
+    """Sugar function for image restore."""
+    img_shape = orig_img.shape
+    img = np.zeros((img_shape[1], img_shape[2], 3), dtype=np.uint8)
+    img[..., 0] = orig_img[0, ...]
+    img[..., 1] = orig_img[1, ...]
+    img[..., 2] = orig_img[2, ...]
+    return np.transpose(img, (1, 0, 2))
+
 def mat2png(stimulus, prefix_name):
     """Comvert stimulus from mat to png format."""
     for i in range(stimulus.shape[0]):
-        x = stimulus[i, :]
-        new_x = np.zeros((x.shape[1], x.shape[2], 3), dtype=np.uint8)
-        new_x[..., 0] = x[0, ...]
-        new_x[..., 1] = x[1, ...]
-        new_x[..., 2] = x[2, ...]
-        new_x = np.transpose(new_x, (1, 0, 2))
+        x = img_recon(stimulus[i, :])
         file_name = prefix_name + '_' + str(i+1) + '.png'
         imsave(file_name, new_x)
 
@@ -33,17 +39,9 @@ def get_optical_flow(stimulus, prefix_name, out_dir):
     ang = np.zeros((img_h, img_w, stimulus.shape[0]), dtype=np.float32)
     for i in range(1, stimulus.shape[0]):
         if i==1:
-            pim = np.zeros((img_w, img_h, 3), dtype=np.uint8)
-            pim[..., 0] = stimulus[0, 0, ...]
-            pim[..., 1] = stimulus[0, 1, ...]
-            pim[..., 2] = stimulus[0, 2, ...]
-            pim = np.transpose(pim, (1, 0, 2))
+            pim = img_recon(stimulus[0, ...])
             prvs = cv2.cvtColor(pim, cv2.COLOR_BGR2GRAY)
-        nim = np.zeros((img_w, img_h, 3), dtype=np.uint8)
-        nim[..., 0] = stimulus[i, 0, ...]
-        nim[..., 1] = stimulus[i, 1, ...]
-        nim[..., 2] = stimulus[i, 2, ...]
-        nim = np.transpose(nim, (1, 0, 2))
+        nim = img_recon(stimulus[i, ...])
         next = cv2.cvtColor(nim, cv2.COLOR_BGR2GRAY)
         flow = cv2.calcOpticalFlowFarneback(prvs, next, 0.5, 3, 15,
                                             3, 5, 1.2, 0)
@@ -223,6 +221,36 @@ def feat_tr_pro(in_file, out_dir, ds_fact=None):
     print 'Save TR data into file ', out_file
     np.save(out_file, dconvolved3d)
 
+def get_stim_seq(stimulus, output_filename):
+    """Get stimulus sequence by compute structural similarity between
+    adjacent frames.
+    """
+    fps = 15 
+    stim_len = stimulus.shape[0]
+    stim_seq = np.zeros((stim_len,))
+
+    img_w, img_h = stimulus.shape[2], stimulus.shape[3]
+    for i in range(1, stim_len):
+        pim = img_recon(stimulus[i-1, ...])
+        nim = img_recon(stimulus[i, ...]) 
+        pim = rgb2gray(pim)
+        nim = rgb2gray(nim)
+        stim_seq[i] = compare_ssim(pim, nim, multichannel=False)
+    
+    # convolved with HRF
+    time_unit = 1.0 / fps
+    # HRF config
+    hrf_times = np.arange(0, 35, time_unit)
+    hrf_signal = hrf.biGammaHRF(hrf_times)
+    convolved_seq = np.convolve(stim_seq, hrf_signal)
+    # remove time points after the end of the scanning run
+    n_to_remove = len(hrf_times) - 1
+    convolved_seq = convolved_seq[:-n_to_remove]
+    # temporal down-sample
+    vol_times = np.arange(0, stim_len, fps)
+    dseq = convolved_seq[vol_times]
+    np.save(output_filename, dseq)
+    
 
 if __name__ == '__main__':
     """Main function."""
@@ -233,11 +261,14 @@ if __name__ == '__main__':
     feat_dir = os.path.join(data_dir, 'sfeatures')
 
     #-- load original stimulus data
-    #tf = tables.open_file(os.path.join(data_dir, 'Stimuli.mat'))
-    ##tf.listNodes
-    #stimulus = tf.get_node('/st')[:]
-    #tf.close()
-    
+    tf = tables.open_file(os.path.join(data_dir, 'Stimuli.mat'))
+    #tf.listNodes
+    stimulus = tf.get_node('/st')[:]
+    tf.close()
+
+    #-- get stimulus sequence
+    get_stim_seq(stimulus, 'conv_gray_stim_train_design.npy')
+
     #-- convert mat to png
     #mat2png(stimulus, 'train')
 
@@ -246,6 +277,6 @@ if __name__ == '__main__':
     
     #-- calculate dense optical flow
     #get_optical_flow(stimulus, 'train', feat_dir)
-    optical_file = os.path.join(feat_dir, 'train_opticalflow_mag.npy')
-    feat_tr_pro(optical_file, feat_dir)
+    #optical_file = os.path.join(feat_dir, 'train_opticalflow_mag.npy')
+    #feat_tr_pro(optical_file, feat_dir)
 

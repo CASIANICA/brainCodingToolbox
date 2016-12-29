@@ -152,6 +152,30 @@ def plot_cca_fweights(data, out_dir, prefix_name, two_side=False):
         fig.colorbar(im, cax=cbar_ax)
         fig.savefig(os.path.join(out_dir, prefix_name+'_%s.png'%(f+1)))
 
+def plot_avg_weights_pattern(feat_weights, top_channels_num=None):
+    """Plot average features weights derived from CCA."""
+    if len(feat_weights.shape)==3:
+        feat_weights = np.expand_dims(feat_weights, axis=3)
+    n_components = feat_weights.shape[3]
+    n_channels = feat_weights.shape[0]
+    if top_channels_num and top_channels_num <= n_channels:
+        avg_weights = feat_weights[:top_channels_num, ...].mean(axis=0)
+    else:
+        avg_weights = feat_weights.mean(axis=0)
+    maxv = avg_weights.max()
+    minv = avg_weights.min()
+    fig, axs = plt.subplots(2, 5)
+    for f in range(n_components):
+        cdata = avg_weights[..., f]
+        im = axs[f/5][f%5].imshow(cdata, interpolation='nearest',
+                                  vmin=minv, vmax=maxv)
+        axs[f/5][f%5].get_xaxis().set_visible(False)
+        axs[f/5][f%5].get_yaxis().set_visible(False)
+    fig.subplots_adjust(right=0.85)
+    cbar_ax = fig.add_axes([0.88, 0.2, 0.03, 0.6])
+    fig.colorbar(im, cax=cbar_ax)
+    fig.show()
+
 def save_cca_volweights(fmri_weights, mask_file, out_dir, prefix_name,
                         out_png=True, two_side=False):
     """Save fmri weights derived from CCA as nifti files."""
@@ -287,4 +311,16 @@ def gen_mean_vol(fmri_table, dataset, filename):
         vol[c[0], c[1], c[2]] = mean_data[i]
     
     save2nifti(vol, filename)
+
+def spatial_sim_seq(fmri_data):
+    """Calculate spatial similarity between adjacent time points.
+    fmri_data : A 2D array, each row represents a voxel's time course. 
+    """
+    length = fmri_data.shape[1]
+    ssim_seq = np.zeros((length, ))
+    for i in range(1, length):
+        pdata = fmri_data[:, i-1]
+        ndata = fmri_data[:, i]
+        ssim_seq[i] = np.corrcoef(pdata, ndata)[0, 1]
+    return ssim_seq
 
