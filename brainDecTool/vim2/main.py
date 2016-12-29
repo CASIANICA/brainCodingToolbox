@@ -203,6 +203,16 @@ def plscorr_viz(cca_dir, mask_file):
     vutil.save_cca_volweights(norm_fmri_weights, mask_file, cca_dir,
                               'norm2_cca_weights', out_png=True, two_side=True)
 
+    # show stimuli images corresponding to the largest fMRI activity
+    fmri_cc = np.load(os.path.join(cca_dir, 'fmri_cc.npy'))
+    for i in range(1, fmri_cc.shape[1]):
+        print '------- CC #%s -------'%(i)
+        tmp = fmri_cc[:, i].copy()
+        print 'Negative side : index of top 10 images'
+        print tmp.argsort()[:10]
+        print 'Positive side : index of top 10 images'
+        print tmp.argsort()[-10:]
+
     ## calculate corr between original variables and the CCs
     #feat_cc = np.load(os.path.join(out_dir, 'feat_cc.npy'))
     #parallel_corr2_coef(train_feat_ts.T, feat_cc.T, 
