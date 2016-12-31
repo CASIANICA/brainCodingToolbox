@@ -1,0 +1,23 @@
+# emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
+# vi: set ft=python sts=4 ts=4 sw=4 et:
+
+import numpy as np
+
+def get_pls_components(x_scores, x_loadings):
+    """Get Canonical Components from original data `X`, based on estimated
+    scores `x_scores` and loadings `x_loadings`.
+    """
+    n = x_scores.shape[0]
+    p = x_loadings.shape[0]
+    n_components = x_scores.shape[1]
+    ccs = np.zeros((n, p, n_components))
+    # get CCs
+    for i in range(n_components):
+        score = x_scores[:, i]
+        score = score.reshape(-1, 1)
+        loading = x_loadings[:, i]
+        loading = loading.reshape(-1, 1)
+        xk = np.dot(score, loading.T)
+        ccs[..., i] = xk
+    return xk
+
