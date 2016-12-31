@@ -12,6 +12,7 @@ from sklearn.cross_decomposition import PLSCanonical
 
 from brainDecTool.util import configParser
 from brainDecTool.math import parallel_corr2_coef, corr2_coef
+from brainDecTool.math import get_pls_components
 from brainDecTool.math.norm import zero_one_norm
 from brainDecTool.pipeline import retinotopy
 from brainDecTool.pipeline.base import random_cross_modal_corr
@@ -186,6 +187,8 @@ def plscorr_eval(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
     fmri_weight = plsca.y_weights_
     np.save(os.path.join(out_dir, 'feat_weights.npy'), feat_weight)
     np.save(os.path.join(out_dir, 'fmri_weights.npy'), fmri_weight)
+    fmri_orig_ccs = get_pls_components(plsca.y_scores_, plsca.y_loadings_)
+    np.save(os.path.join(out_dir, 'fmri_orig_ccs.npy'), fmri_orig_ccs)
 
 def plscorr_viz(cca_dir, mask_file):
     """CCA weights visualization."""
