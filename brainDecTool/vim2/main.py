@@ -138,6 +138,18 @@ def hrf_estimate(tf, feat_ts):
             out[j, :, i] = time_lag_corr(tmp, vxl_data[i, :], 40)
     np.save('hrf_test.npy', out)
 
+def pls_y_pred_x(plsca, Y):
+    """Predict X based on Y using a trained PLS CCA model `plsca`.
+    """
+    coef_ = np.dot(plsca.y_rotations_, plsca.x_loadings_.T)
+    coef_ = (1./plsca.y_std_.reshape((plsca.y_weights_.shape[0], 1)) * coef_ *
+            plsca.x_std_)
+    # Normalize
+    Yk = Y - plsca.y_mean_
+    Yk /= plsca.y_std_
+    Xpred = np.dot(Y, coef_)
+    return Xpred + plsca.x_mean_
+
 def plscorr_eval(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
                  out_dir, mask_file):
     """Compute PLS correlation between brain activity and CNN activation."""
