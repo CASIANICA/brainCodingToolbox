@@ -30,7 +30,7 @@ def mat2png(stimulus, prefix_name):
     for i in range(stimulus.shape[0]):
         x = img_recon(stimulus[i, :])
         file_name = prefix_name + '_' + str(i+1) + '.png'
-        imsave(file_name, new_x)
+        imsave(file_name, x)
 
 def get_optical_flow(stimulus, prefix_name, out_dir):
     """Calculate dense optical flow from stimuli sequence."""
@@ -261,7 +261,7 @@ if __name__ == '__main__':
     feat_dir = os.path.join(data_dir, 'sfeatures')
 
     #-- load original stimulus data
-    tf = tables.open_file(os.path.join(data_dir, 'Stimuli.mat'))
+    tf = tables.open_file(os.path.join(data_dir, 'stim_img', 'Stimuli.mat'))
     #tf.listNodes
     stimulus = tf.get_node('/st')[:]
     tf.close()
