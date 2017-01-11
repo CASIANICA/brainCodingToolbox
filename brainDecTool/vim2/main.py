@@ -175,7 +175,8 @@ def plscorr_eval(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
     #    print 'Mean prediction corrcoef : %s' %(meanr)
     
     # model generation based on optimized CC number
-    plsca = PLSCanonical(n_components=10)
+    cc_num = 10
+    plsca = PLSCanonical(n_components=cc_num)
     plsca.fit(train_feat_ts, train_fmri_ts)
     from sklearn.externals import joblib
     joblib.dump(plsca, os.path.join(out_dir, 'plsca_model.pkl'))
@@ -191,15 +192,15 @@ def plscorr_eval(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
     tmp = tmp.reshape(mask.shape)
     vutil.save2nifti(tmp, os.path.join(out_dir, 'pred_fmri_r.nii.gz'))
     pred_feat_ts = pls_y_pred_x(plsca, val_fmri_ts)
-    pred_feat_ts = pred_feat_ts.reshape(96, 14, 14, pred_feat_ts.shape[1])
+    pred_feat_ts = pred_feat_ts.T.reshape(96, 14, 14, 540)
     np.save(os.path.join(out_dir, 'pred_feat.npy'), pred_feat_ts)
 
     # get PLS-CCA weights
     feat_cc, fmri_cc = plsca.transform(train_feat_ts, train_fmri_ts)
     np.save(os.path.join(out_dir, 'feat_cc.npy'), feat_cc)
     np.save(os.path.join(out_dir, 'fmri_cc.npy'), fmri_cc)
-    feat_weight = plsca.x_weights_.reshape(96, 14, 14, 10)
-    #feat_weight = plsca.x_weights_.reshape(96, 11, 11, 10)
+    feat_weight = plsca.x_weights_.reshape(96, 14, 14, cc_num)
+    #feat_weight = plsca.x_weights_.reshape(96, 11, 11, cc_num)
     fmri_weight = plsca.y_weights_
     np.save(os.path.join(out_dir, 'feat_weights.npy'), feat_weight)
     np.save(os.path.join(out_dir, 'fmri_weights.npy'), fmri_weight)
