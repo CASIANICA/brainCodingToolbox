@@ -47,8 +47,12 @@ def mat2feat(stimulus, layer):
     print 'stimulus size :', stimulus.shape
 
     stim_len = stimulus.shape[0]
-    unit = stim_len / 10
-    for i in range(10):
+    if phrase=='train':
+        part = 10
+    else:
+        part = 1
+    unit = stim_len / part
+    for i in range(part):
         # resize to 227 x 227
         input_ = np.zeros((unit, 227, 227, 3), dtype=np.float32)
         print 'input size :', input_.shape
@@ -78,16 +82,17 @@ def mat2feat(stimulus, layer):
         caffenet = caffe.Net(os.path.join(caffenet_dir, 'deploy.prototxt'),
                 os.path.join(caffenet_dir,'bvlc_reference_caffenet.caffemodel'),
                 caffe.TEST)
-        out_size = caffenet.blobs[layer].data.shape
-        feat = np.zeros((input_.shape[0], out_size[1], out_size[2], out_size[3]),
-                        dtype=np.float32)
+        feat = np.zeros((input_.shape[0], 96, 27, 27), dtype=np.float32)
         batch_unit = input_.shape[0] / 10
         for j in range(batch_unit):
             batch_input = input_[(j*10):(j+1)*10]
             caffenet.forward(data=batch_input)
             feat[(j*10):(j+1)*10] = np.copy(caffenet.blobs[layer].data)
         del caffenet
-        np.save('%s_feat_p%s.npy'%(layer, i), feat)
+        if phrase=='val':
+            np.save('%s_sti_%s.npy'%(layer, phrase), feat)
+        else:
+            np.save('%s_sti_%s_%s.npy'%(layer, phrase, i), feat)
 
 def get_optical_flow(stimulus, prefix_name, out_dir):
     """Calculate dense optical flow from stimuli sequence."""
@@ -324,7 +329,7 @@ if __name__ == '__main__':
     tf.close()
 
     #-- convert mat to cnn features
-    mat2feat(stimulus, 'pool1')
+    mat2feat(stimulus, 'norm1', 'train')
 
     #-- get stimulus sequence
     get_stim_seq(stimulus, 'conv_gray_stim_train_design.npy')
