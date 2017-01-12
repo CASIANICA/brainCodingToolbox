@@ -12,6 +12,7 @@ import numpy as np
 import os
 import scipy.misc
 import scipy.io
+from scipy import signal
 from scipy.ndimage import zoom
 
 print(caffe.__file__)
@@ -120,6 +121,9 @@ if __name__ == '__main__':
     # up-sample to 27x27
     feat = zoom(feat, (1, 2, 2, 1), order=1)
     feat = feat[:, :27, :27, :]
+    # deconvolve signals
+    feat = feat.reshape(-1, feat.shape[3])
+
     # reorder data shape
     feat = feat.transpose((3, 0, 1, 2))
     test_feat = feat[:10, ...]
