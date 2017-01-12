@@ -109,8 +109,7 @@ def recon(feat):
     recon = np.transpose(recon, (0, 2, 3, 1))
     print recon.shape
     recon = normalize(recon, out_range=(0., 1.), in_range=(-120, 120))
-    # save results to a file
-    np.save('recon_img.npy', recon)
+    return recon
 
 if __name__ == '__main__':
     """Main function."""
@@ -123,6 +122,8 @@ if __name__ == '__main__':
     # reorder data shape
     feat = feat.transpose((3, 0, 1, 2))
     test_feat = feat[:10, ...]
-    recon(test_feat)
+    recon = recon(test_feat)
+    # save results to a file
+    np.save('recon_img.npy', recon)
 
 
