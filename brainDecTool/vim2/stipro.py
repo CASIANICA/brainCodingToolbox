@@ -130,13 +130,14 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None):
 
     """
     # layer size
-    layer_size = {1: [96, 55, 55],
-                  2: [256, 27, 27],
-                  3: [384, 13, 13],
-                  4: [384, 13, 13],
-                  5: [256, 13, 13]}
+    layer_size = {'feat1': [96, 55, 55],
+                  'norm1': [96, 27, 27],
+                  'feat2': [256, 27, 27],
+                  'feat3': [384, 13, 13],
+                  'feat4': [384, 13, 13],
+                  'feat5': [256, 13, 13]}
     # load stimulus time courses
-    prefix_name = 'feat%s_sti_%s' % (layer, dataset)
+    prefix_name = '%s_sti_%s' % (layer, dataset)
     feat_ptr = []
     if dataset=='train':
         time_count = 0
@@ -172,7 +173,7 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None):
  
     # data array for storing time series after convolution and down-sampling
     # to save memory, a memmap is used temporally
-    out_file_name = 'feat%s_%s_trs%s.npy'%(layer, dataset, ds_mark)
+    out_file_name = '%s_%s_trs%s.npy'%(layer, dataset, ds_mark)
     out_file = os.path.join(out_dir, out_file_name)
     print 'Save TR data into file ', out_file
     feat = np.memmap(out_file, dtype='float64', mode='w+', shape=out_s)

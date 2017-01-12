@@ -12,6 +12,7 @@ import numpy as np
 import os
 import scipy.misc
 import scipy.io
+from scipy.ndimage import zoom
 
 print(caffe.__file__)
 
@@ -117,7 +118,7 @@ if __name__ == '__main__':
     feat_file = os.path.join(root_dir, 'vS1_pred_feat1.npy')
     feat = np.load(feat_file)
     # up-sample to 27x27
-    feat = feat.repeat(2, axis=1).repeat(2, axis=2)
+    feat = zoom(feat, (1, 2, 2, 1), order=1)
     feat = feat[:, :27, :27, :]
     # reorder data shape
     feat = feat.transpose((3, 0, 1, 2))
