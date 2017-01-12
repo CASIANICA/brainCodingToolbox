@@ -32,7 +32,7 @@ def mat2png(stimulus, prefix_name):
         file_name = prefix_name + '_' + str(i+1) + '.png'
         imsave(file_name, x)
 
-def mat2feat(stimulus, layer):
+def mat2feat(stimulus, layer, phrase):
     """Get features of `layer` derived from CNN."""
     # import modules
     import sys
