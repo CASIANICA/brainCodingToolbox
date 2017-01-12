@@ -82,12 +82,15 @@ def mat2feat(stimulus, layer):
         caffenet = caffe.Net(os.path.join(caffenet_dir, 'deploy.prototxt'),
                 os.path.join(caffenet_dir,'bvlc_reference_caffenet.caffemodel'),
                 caffe.TEST)
-        feat = np.zeros((input_.shape[0], 96, 27, 27), dtype=np.float32)
+        feat_s = caffenet.blobs[layer].data.shape
+        feat = np.zeros((input_.shape[0], feat_s[1]*feat_s[2]*feat_s[3]),
+                        dtype=np.float32)
         batch_unit = input_.shape[0] / 10
         for j in range(batch_unit):
             batch_input = input_[(j*10):(j+1)*10]
             caffenet.forward(data=batch_input)
-            feat[(j*10):(j+1)*10] = np.copy(caffenet.blobs[layer].data)
+            tmp = np.copy(caffenet.blobs[layer].data)
+            feat[(j*10):(j+1)*10] = tmp.reshape(10, -1)
         del caffenet
         if phrase=='val':
             np.save('%s_sti_%s.npy'%(layer, phrase), feat)
