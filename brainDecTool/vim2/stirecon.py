@@ -128,7 +128,7 @@ if __name__ == '__main__':
     hrf_times = np.arange(0, 35, 1)
     hrf_signal = hrf.biGammaHRF(hrf_times)
     feat = feat.reshape(-1, feat.shape[3]).T
-    deconv, z = np.apply_along_axis(signal.deconvolve, 0, feat, hrf_signal[1:])
+    deconv, _ = np.apply_along_axis(signal.deconvolve, 0, feat, hrf_signal[1:])
     deconv = np.concatenate(deconv).reshape(deconv.shape[0],deconv[0].shape[0])
     deconv = deconv.reshape(96, 27, 27, -1)
     # reorder data shape
