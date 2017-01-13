@@ -15,6 +15,8 @@ import scipy.io
 from scipy import signal
 from scipy.ndimage import zoom
 
+from brainDecTool.timeseries import hrf
+
 print(caffe.__file__)
 
 def normalize(img, out_range=(0., 1.), in_range=None):
@@ -122,13 +124,17 @@ if __name__ == '__main__':
     feat = zoom(feat, (1, 2, 2, 1), order=1)
     feat = feat[:, :27, :27, :]
     # deconvolve signals
-    feat = feat.reshape(-1, feat.shape[3])
-
+    time_unit = 1.0
+    hrf_times = np.arange(0, 35, 1)
+    hrf_signal = hrf.biGammaHRF(hrf_times)
+    feat = feat.reshape(-1, feat.shape[3]).T
+    deconv, z = np.apply_along_axis(signal.deconvolve, 0, feat, hrf_signal)
+    deconv = np.caoncatenate(deconv).reshape(deconv.shape[0],deconv[0].shape[0])
+    deconv = deconv.reshape(96, 27, 27, -1)
     # reorder data shape
     feat = feat.transpose((3, 0, 1, 2))
     test_feat = feat[:10, ...]
     recon = recon(test_feat)
     # save results to a file
     np.save('recon_img.npy', recon)
-
 
