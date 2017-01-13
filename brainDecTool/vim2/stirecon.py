@@ -129,11 +129,11 @@ if __name__ == '__main__':
     hrf_signal = hrf.biGammaHRF(hrf_times)
     feat = feat.reshape(-1, feat.shape[3]).T
     deconv, z = np.apply_along_axis(signal.deconvolve, 0, feat, hrf_signal[1:])
-    deconv = np.caoncatenate(deconv).reshape(deconv.shape[0],deconv[0].shape[0])
+    deconv = np.concatenate(deconv).reshape(deconv.shape[0],deconv[0].shape[0])
     deconv = deconv.reshape(96, 27, 27, -1)
     # reorder data shape
-    feat = feat.transpose((3, 0, 1, 2))
-    test_feat = feat[:10, ...]
+    deconv = deconv.transpose((3, 0, 1, 2))
+    test_feat = deconv[:10, ...]
     recon = recon(test_feat)
     # save results to a file
     np.save('recon_img.npy', recon)
