@@ -231,6 +231,44 @@ def stim_pro(feat_ptr, output, orig_size, fps, fact, i):
         dconvolved3d = down_sample(dconvolved3d, (fact, fact, 1))
     output[channel_idx, ...] = dconvolved3d
 
+def stim_pro_no_hrf(feat_ptr, output, orig_size, fps, fact, i):
+    """Sugar function for parallel computing."""
+    print i
+    # scanning parameter
+    TR = 1
+    # shifting the data by 4s to compensate for hemodynamic delays
+    delay_time = 4
+    # movie fps
+    #fps = 15
+
+    # procssing
+    bsize = orig_size[1]*orig_size[2]
+    for p in range(len(feat_ptr)):
+        if not p:
+            ts = feat_ptr[p][:, i*bsize:(i+1)*bsize]
+        else:
+            ts = np.concatenate([ts, feat_ptr[p][:, i*bsize:(i+1)*bsize]],
+                                axis=0)
+    ts = ts.T
+    #print ts.shape
+    # log-transform
+    ts = np.log(ts+1)
+    # temporal down-sample
+    dts = down_sample(ts, (1, fps))
+    # shift time series
+    ndts = np.zeros_like(dts)
+    ndts[:, delay_time:] = dts[:, :(-1*delay_time)]
+    # reshape to 3D
+    ndts = ndts.reshape(orig_size[1], orig_size[2], ts.shape[1]/fps)
+    # get start index
+    idx = i*bsize
+    channel_idx, row, col = vutil.node2feature(idx, orig_size)
+
+    # spatial down-sample
+    if fact:
+        ndts = down_sample(ndts, (fact, fact, 1))
+    output[channel_idx, ...] = ndts
+
 def feat_tr_pro(in_file, out_dir, ds_fact=None):
     """Get TRs from input 3D dataset (the third dim is time).
     
