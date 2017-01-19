@@ -124,13 +124,15 @@ if __name__ == '__main__':
     feat = zoom(feat, (1, 2, 2, 1), order=1)
     feat = feat[:, :27, :27, :]
     # deconvolve signals
-    time_unit = 1.0
-    hrf_times = np.arange(0, 35, 1)
-    hrf_signal = hrf.biGammaHRF(hrf_times)
-    feat = feat.reshape(-1, feat.shape[3]).T
-    deconv, _ = np.apply_along_axis(signal.deconvolve, 0, feat, hrf_signal[1:])
-    deconv = np.concatenate(deconv).reshape(deconv.shape[0],deconv[0].shape[0])
-    deconv = deconv.reshape(96, 27, 27, -1)
+    #time_unit = 1.0
+    #hrf_times = np.arange(0, 35, 1)
+    #hrf_signal = hrf.biGammaHRF(hrf_times)
+    #feat = feat.reshape(-1, feat.shape[3]).T
+    #deconv, _ = np.apply_along_axis(signal.deconvolve, 0, feat, hrf_signal[1:])
+    #deconv = np.concatenate(deconv).reshape(deconv.shape[0],deconv[0].shape[0])
+    #deconv = deconv.reshape(96, 27, 27, -1)
+    # inverse log transform
+    feat = np.exp(feat) - 1
     # reorder data shape
     deconv = deconv.transpose((3, 0, 1, 2))
     test_feat = deconv[:10, ...]
