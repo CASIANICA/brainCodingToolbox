@@ -134,8 +134,9 @@ if __name__ == '__main__':
     # inverse log transform
     feat = np.exp(feat) - 1
     # reorder data shape
-    deconv = deconv.transpose((3, 0, 1, 2))
-    test_feat = deconv[:10, ...]
+    feat = feat.transpose((3, 0, 1, 2))
+    #deconv = deconv.transpose((3, 0, 1, 2))
+    test_feat = feat[:10, ...]
     recon = recon(test_feat)
     # save results to a file
     np.save('recon_img.npy', recon)
