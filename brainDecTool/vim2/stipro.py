@@ -130,18 +130,20 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None):
 
     """
     # layer size
-    layer_size = {'feat1': [96, 55, 55],
+    layer_size = {'conv1': [96, 55, 55],
                   'norm1': [96, 27, 27],
-                  'feat2': [256, 27, 27],
-                  'feat3': [384, 13, 13],
-                  'feat4': [384, 13, 13],
-                  'feat5': [256, 13, 13]}
+                  'conv2': [256, 27, 27],
+                  'norm2': [256, 13, 13],
+                  'conv3': [384, 13, 13],
+                  'conv4': [384, 13, 13],
+                  'conv5': [256, 13, 13],
+                  'pool5': []}
     # load stimulus time courses
     prefix_name = '%s_sti_%s' % (layer, dataset)
     feat_ptr = []
     if dataset=='train':
         time_count = 0
-        for i in range(12):
+        for i in range(10):
             tmp = np.load(os.path.join(feat_dir, 'stimulus_'+dataset,
                                        prefix_name+'_'+str(i+1)+'.npy'),
                           mmap_mode='r')
@@ -367,11 +369,13 @@ if __name__ == '__main__':
     #-- load original stimulus data
     tf = tables.open_file(os.path.join(data_dir, 'stim_img', 'Stimuli.mat'))
     #tf.listNodes
-    stimulus = tf.get_node('/st')[:]
+    data_type = 'train'
+    data_dic = {'train': '/st', 'val': '/sv'}
+    stimulus = tf.get_node(data_dic[data_type])[:]
     tf.close()
 
     #-- convert mat to cnn features
-    mat2feat(stimulus, 'norm1', 'train')
+    mat2feat(stimulus, 'norm1', data_type)
 
     #-- get stimulus sequence
     get_stim_seq(stimulus, 'conv_gray_stim_train_design.npy')
