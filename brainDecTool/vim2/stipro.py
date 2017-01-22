@@ -180,15 +180,15 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None):
     feat = np.memmap(out_file, dtype='float64', mode='w+', shape=out_s)
 
     # convolution and down-sampling in a parallel approach
-    Parallel(n_jobs=10)(delayed(stim_pro_no_hrf)(feat_ptr, feat, s, fps,
-                                                 ds_fact, i)
+    Parallel(n_jobs=10)(delayed(stim_pro)(feat_ptr, feat, s, fps,
+                                          ds_fact, i, using_hrf=True)
                         for i in range(ts_shape[1]/(s[1]*s[2])))
 
     # save memmap object as a numpy.array
     narray = np.array(feat)
     np.save(out_file, narray)
 
-def stim_pro(feat_ptr, output, orig_size, fps, fact, i):
+def stim_pro(feat_ptr, output, orig_size, fps, fact, i, using_hrf=True):
     """Sugar function for parallel computing."""
     print i
     # scanning parameter
@@ -213,53 +213,22 @@ def stim_pro(feat_ptr, output, orig_size, fps, fact, i):
     #print ts.shape
     # log-transform
     ts = np.log(ts+1)
-    # convolved with HRF
-    convolved = np.apply_along_axis(np.convolve, 1, ts, hrf_signal)
-    # remove time points after the end of the scanning run
-    n_to_remove = len(hrf_times) - 1
-    convolved = convolved[:, :-n_to_remove]
-    # temporal down-sample
-    vol_times = np.arange(0, ts.shape[1], fps)
-    dconvolved = convolved[:, vol_times]
-    # reshape to 3D
-    dconvolved3d = dconvolved.reshape(orig_size[1], orig_size[2],
-                                      len(vol_times))
-    # get start index
-    idx = i*bsize
-    channel_idx, row, col = vutil.node2feature(idx, orig_size)
+    if using_hrf:
+        # convolved with HRF
+        convolved = np.apply_along_axis(np.convolve, 1, ts, hrf_signal)
+        # remove time points after the end of the scanning run
+        n_to_remove = len(hrf_times) - 1
+        convolved = convolved[:, :-n_to_remove]
+        # temporal down-sample
+        vol_times = np.arange(0, ts.shape[1], fps)
+        ndts = convolved[:, vol_times]
+    else:
+        # temporal down-sample
+        dts = down_sample(ts, (1, fps))
+        # shift time series
+        ndts = np.zeros_like(dts)
+        ndts[:, delay_time:] = dts[:, :(-1*delay_time)]
 
-    # spatial down-sample
-    if fact:
-        dconvolved3d = down_sample(dconvolved3d, (fact, fact, 1))
-    output[channel_idx, ...] = dconvolved3d
-
-def stim_pro_no_hrf(feat_ptr, output, orig_size, fps, fact, i):
-    """Sugar function for parallel computing."""
-    print i
-    # scanning parameter
-    TR = 1
-    # shifting the data by 4s to compensate for hemodynamic delays
-    delay_time = 4
-    # movie fps
-    #fps = 15
-
-    # procssing
-    bsize = orig_size[1]*orig_size[2]
-    for p in range(len(feat_ptr)):
-        if not p:
-            ts = feat_ptr[p][:, i*bsize:(i+1)*bsize]
-        else:
-            ts = np.concatenate([ts, feat_ptr[p][:, i*bsize:(i+1)*bsize]],
-                                axis=0)
-    ts = ts.T
-    #print ts.shape
-    # log-transform
-    ts = np.log(ts+1)
-    # temporal down-sample
-    dts = down_sample(ts, (1, fps))
-    # shift time series
-    ndts = np.zeros_like(dts)
-    ndts[:, delay_time:] = dts[:, :(-1*delay_time)]
     # reshape to 3D
     ndts = ndts.reshape(orig_size[1], orig_size[2], ts.shape[1]/fps)
     # get start index
