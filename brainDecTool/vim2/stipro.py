@@ -137,7 +137,7 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None):
                   'conv3': [384, 13, 13],
                   'conv4': [384, 13, 13],
                   'conv5': [256, 13, 13],
-                  'pool5': []}
+                  'pool5': [256, 6, 6]}
     # load stimulus time courses
     prefix_name = '%s_sti_%s' % (layer, dataset)
     feat_ptr = []
