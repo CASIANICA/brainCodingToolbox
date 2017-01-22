@@ -410,7 +410,8 @@ if __name__ == '__main__':
     if not os.path.exists(ridge_dir):
         os.mkdir(ridge_dir, 0755)
     ridge_file = os.path.join(ridge_dir, 'conv1_pixel_wise.npy')
-    ridge_regression(train_feat, train_fmri, val_feat, val_fmri, ridge_file)
+    ridge_regression(train_feat_ts, train_fmri_ts,
+                     val_feat_ts, val_fmri_ts, ridge_file)
 
     #-- PLS-CCA
     #pls_dir = os.path.join(subj_dir, 'plscca')
