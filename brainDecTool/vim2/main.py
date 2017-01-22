@@ -346,8 +346,8 @@ if __name__ == '__main__':
     subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
     
     #-- load fmri data
-    #fmri_file = os.path.join(subj_dir, 'VoxelResponses.mat')
-    #tf = tables.open_file(fmri_file)
+    fmri_file = os.path.join(subj_dir, 'VoxelResponses.mat')
+    tf = tables.open_file(fmri_file)
     #tf.list_nodes
     #-- roi mat to nii
     #roi_file = os.path.join(subj_dir, 'S%s_small_roi.nii.gz'%(subj_id))
@@ -358,20 +358,20 @@ if __name__ == '__main__':
     #vutil.gen_mean_vol(tf, dataset, mean_file)
 
     #-- load fmri response from training/validation dataset
-    #train_fmri_ts = tf.get_node('/rt')[:]
-    #val_fmri_ts = tf.get_node('/rv')[:]
+    train_fmri_ts = tf.get_node('/rt')[:]
+    val_fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
     # load brain mask
-    #mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
-    #mask = vutil.data_swap(mask_file).flatten()
-    #vxl_idx = np.nonzero(mask==1)[0]
-    #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
-    #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
+    mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
+    mask = vutil.data_swap(mask_file).flatten()
+    vxl_idx = np.nonzero(mask==1)[0]
+    train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
+    val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     # load convolved cnn activation data for validation dataset
-    #train_feat_file = os.path.join(feat_dir, 'feat1_train_trs_ds5.npy')
-    #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
-    #val_feat_file = os.path.join(feat_dir, 'feat1_val_trs_ds5.npy')
-    #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
+    train_feat_file = os.path.join(feat_dir, 'conv1_train_trs_ds5.npy')
+    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    val_feat_file = os.path.join(feat_dir, 'conv1_val_trs_ds5.npy')
+    val_feat_ts = np.load(val_feat_file, mmap_mode='r')
     # data.shape = (96, 55, 55, 540/7200)
     # load optical flow data: mag and ang
     #train_mag_file = os.path.join(feat_dir,'train_opticalflow_mag_trs_ds12.npy')
@@ -406,15 +406,19 @@ if __name__ == '__main__':
     #multiple_regression(fmri_ts, feat_ts, regress_file)
 
     #-- ridge regression
-    #ridge_regression(train_feat, train_fmri, val_feat, val_fmri, outfile)
+    ridge_dir = os.path.join(subj_dir, 'ridge')
+    if not os.path.exists(ridge_dir):
+        os.mkdir(ridge_dir, 0755)
+    ridge_file = os.path.join(ridge_dir, 'conv1_pixel_wise.npy')
+    ridge_regression(train_feat, train_fmri, val_feat, val_fmri, ridge_file)
 
     #-- PLS-CCA
-    pls_dir = os.path.join(subj_dir, 'plscca')
-    if not os.path.exists(pls_dir):
-        os.mkdir(pls_dir, 0755)
-    cca_dir = os.path.join(pls_dir, 'layer1')
-    if not os.path.exists(cca_dir):
-        os.mkdir(cca_dir, 0755)
+    #pls_dir = os.path.join(subj_dir, 'plscca')
+    #if not os.path.exists(pls_dir):
+    #    os.mkdir(pls_dir, 0755)
+    #cca_dir = os.path.join(pls_dir, 'layer1')
+    #if not os.path.exists(cca_dir):
+    #    os.mkdir(cca_dir, 0755)
     # combine layer1 features and optical flow features together
     #train_feat_stack = np.vstack((train_feat_ts,
     #                              np.expand_dims(train_mag_ts, axis=0),
@@ -426,8 +430,8 @@ if __name__ == '__main__':
     #             cca_dir, mask_file)
     #plscorr_eval(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
     #             cca_dir, mask_file)
-    mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
-    plscorr_viz(cca_dir, mask_file)
+    #mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
+    #plscorr_viz(cca_dir, mask_file)
     #inter_subj_cc_sim(1, 2, db_dir)
 
     #-- regularized CCA
