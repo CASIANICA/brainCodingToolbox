@@ -56,16 +56,28 @@ def ridge_regression(train_feat, train_fmri, val_feat, val_fmri, outfile):
     """
     pixel_size = (train_feat.shape[1], train_feat.shape[2])
     voxel_size = train_fmri.shape[0]
-    ridge_corr_mtx = np.zeros((pixel_size[0]*pixel_size[1], voxel_size))
-    for row in range(pixel_size[0]):
-        for col in range(pixel_size[1]):
-            print 'row %s - col %s' % (row, col)
-            tfeat = train_feat[:, row, col, :]
-            m = np.mean(tfeat)
-            s = np.std(tfeat)
-            tfeat = (tfeat-m) / (1e-10+s)
-            vfeat = (val_feat[:, row, col, :]-m) / (1e-10+s)
-            wt, corr, valphas, bscores, valinds = ridge.bootstrap_ridge(tfeat.T, train_fmri.T, vfeat.T, val_fmri.T, alphas=np.logspace(-2, 2, 20), nboots=5, chunklen=100, nchunks=10, single_alpha=True)
-            ridge_corr_mtx[row*pixel_size[0]+col] = corr
-    np.save(outfile, ridge_corr_mtx)
+    ridge_corr_mtx = np.memmap(outfile, dtype='float64', mode='w+',
+                               shape=(pixel_size[0]*pixel_size[1], voxel_size))
+    #ridge_corr_mtx = np.zeros((pixel_size[0]*pixel_size[1], voxel_size))
+    print 'Compute Ridge regreesion for each pixel ...'
+    Parallel(n_jobs=3)(delayed(ridge_sugar)(train_feat, train_fmri, val_feat,
+                                            val_fmri, ridge_corr_mtx, v)
+                                            for v in [(i, j)
+                                                for i in range(pixel_size[0])
+                                                for j in range(pixel_size[1])])
+    narray = np.array(ridge_corr_mtx)
+    np.save(outfile, narray)
+
+def ridge_sugar(train_feat, train_fmri, val_feat, val_fmri, out_mtx, idx):
+    """Sugar function for ridge regression."""
+    pixel_size = (train_feat.shape[1], train_feat.shape[2])
+    row, col = idx[0], idx[1]
+    print 'row %s - col %s' % (row, col)
+    tfeat = train_feat[:, row, col, :]
+    m = np.mean(tfeat)
+    s = np.std(tfeat)
+    tfeat = (tfeat-m) / (1e-10+s)
+    vfeat = (val_feat[:, row, col, :]-m) / (1e-10+s)
+    wt, corr, valphas, bscores, valinds = ridge.bootstrap_ridge(tfeat.T, train_fmri.T, vfeat.T, val_fmri.T, alphas=np.logspace(-2, 2, 20), nboots=5, chunklen=100, nchunks=10, single_alpha=True)
+    out_mtx[row*pixel_size[0]+col] = corr
 
