@@ -137,22 +137,21 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None):
                   'conv3': [384, 13, 13],
                   'conv4': [384, 13, 13],
                   'conv5': [256, 13, 13],
-                  'pool5': []}
+                  'pool5': [256, 6, 6]}
     # load stimulus time courses
     prefix_name = '%s_sti_%s' % (layer, dataset)
     feat_ptr = []
     if dataset=='train':
         time_count = 0
         for i in range(10):
-            tmp = np.load(os.path.join(feat_dir, 'stimulus_'+dataset,
-                                       prefix_name+'_'+str(i+1)+'.npy'),
+            tmp = np.load(os.path.join(feat_dir, dataset,
+                                       prefix_name+'_'+str(i)+'.npy'),
                           mmap_mode='r')
             time_count += tmp.shape[0]
             feat_ptr.append(tmp)
         ts_shape = (time_count, feat_ptr[0].shape[1])
     else:
-        feat_ts = np.load(os.path.join(feat_dir, 'stimulus_'+dataset,
-                                       prefix_name+'.npy'),
+        feat_ts = np.load(os.path.join(feat_dir, dataset, prefix_name+'.npy'),
                           mmap_mode='r')
         feat_ptr.append(feat_ts)
         ts_shape = feat_ts.shape
@@ -181,7 +180,8 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None):
     feat = np.memmap(out_file, dtype='float64', mode='w+', shape=out_s)
 
     # convolution and down-sampling in a parallel approach
-    Parallel(n_jobs=10)(delayed(stim_pro)(feat_ptr, feat, s, fps, ds_fact, i)
+    Parallel(n_jobs=10)(delayed(stim_pro_no_hrf)(feat_ptr, feat, s, fps,
+                                                 ds_fact, i)
                         for i in range(ts_shape[1]/(s[1]*s[2])))
 
     # save memmap object as a numpy.array
@@ -363,28 +363,28 @@ if __name__ == '__main__':
     # config parser
     cf = configParser.Config('config')
     data_dir = cf.get('base', 'path')
-    cnn_dir = os.path.join(data_dir, 'stimulus')
+    stim_dir = os.path.join(data_dir, 'stimulus')
     feat_dir = os.path.join(data_dir, 'sfeatures')
 
     #-- load original stimulus data
-    tf = tables.open_file(os.path.join(data_dir, 'stim_img', 'Stimuli.mat'))
-    #tf.listNodes
-    data_type = 'train'
-    data_dic = {'train': '/st', 'val': '/sv'}
-    stimulus = tf.get_node(data_dic[data_type])[:]
-    tf.close()
+    #tf = tables.open_file(os.path.join(stim_dir, 'Stimuli.mat'))
+    #data_type = 'train'
+    #data_dic = {'train': '/st', 'val': '/sv'}
+    #stimulus = tf.get_node(data_dic[data_type])[:]
+    #tf.close()
 
     #-- convert mat to cnn features
-    mat2feat(stimulus, 'norm1', data_type)
+    #mat2feat(stimulus, 'norm1', data_type)
 
     #-- get stimulus sequence
-    get_stim_seq(stimulus, 'conv_gray_stim_train_design.npy')
+    #get_stim_seq(stimulus, 'conv_gray_stim_train_design.npy')
 
     #-- convert mat to png
     #mat2png(stimulus, 'train')
 
     #-- CNN activation pre-processing
-    #cnnfeat_tr_pro(cnn_dir, feat_dir, dataset='train', layer=1, ds_fact=None)
+    cnnfeat_tr_pro(stim_dir, feat_dir, dataset='train',
+                   layer='conv1', ds_fact=None)
     
     #-- calculate dense optical flow
     #get_optical_flow(stimulus, 'train', feat_dir)
