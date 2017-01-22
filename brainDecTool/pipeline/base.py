@@ -56,7 +56,7 @@ def ridge_regression(train_feat, train_fmri, val_feat, val_fmri, outfile):
     """
     pixel_size = (train_feat.shape[1], train_feat.shape[2])
     voxel_size = train_fmri.shape[0]
-    ridge_corr_mtx = np.zeros(pixel_size[0]*pixel_size[1], voxel_size)
+    ridge_corr_mtx = np.zeros((pixel_size[0]*pixel_size[1], voxel_size))
     for row in range(pixel_size[0]):
         for col in range(pixel_size[1]):
             print 'row %s - col %s' % (row, col)
