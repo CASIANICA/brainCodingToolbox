@@ -368,20 +368,20 @@ if __name__ == '__main__':
     train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
     val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     # load convolved cnn activation data for validation dataset
-    train_feat_file = os.path.join(feat_dir, 'conv1_train_trs_ds5.npy')
+    train_feat_file = os.path.join(feat_dir, 'conv1_train_trs.npy')
     train_feat_ts = np.load(train_feat_file, mmap_mode='r')
-    val_feat_file = os.path.join(feat_dir, 'conv1_val_trs_ds5.npy')
+    val_feat_file = os.path.join(feat_dir, 'conv1_val_trs.npy')
     val_feat_ts = np.load(val_feat_file, mmap_mode='r')
     # data.shape = (96, 55, 55, 540/7200)
     # load optical flow data: mag and ang
-    #train_mag_file = os.path.join(feat_dir,'train_opticalflow_mag_trs_ds12.npy')
-    #train_mag_ts = np.load(train_mag_file, mmap_mode='r')
-    #val_mag_file = os.path.join(feat_dir, 'val_opticalflow_mag_trs_ds12.npy')
-    #val_mag_ts = np.load(val_mag_file, mmap_mode='r')
-    #train_ang_file = os.path.join(feat_dir,'train_opticalflow_ang_trs_ds12.npy')
-    #train_ang_ts = np.load(train_ang_file, mmap_mode='r')
-    #val_ang_file = os.path.join(feat_dir, 'val_opticalflow_ang_trs_ds12.npy')
-    #val_ang_ts = np.load(val_ang_file, mmap_mode='r')
+    tr_mag_file = os.path.join(feat_dir, 'train_opticalflow_mag_trs_55_55.npy')
+    tr_mag_ts = np.load(tr_mag_file, mmap_mode='r')
+    val_mag_file = os.path.join(feat_dir, 'val_opticalflow_mag_trs_55_55.npy')
+    val_mag_ts = np.load(val_mag_file, mmap_mode='r')
+    tr_ang_file = os.path.join(feat_dir, 'train_opticalflow_ang_trs_55_55.npy')
+    tr_ang_ts = np.load(tr_ang_file, mmap_mode='r')
+    val_ang_file = os.path.join(feat_dir, 'val_opticalflow_ang_trs_55_55.npy')
+    val_ang_ts = np.load(val_ang_file, mmap_mode='r')
     # data.shape = (11, 11, 540/7200)
     
     #-- calculate cross-modality corrlation 
@@ -405,11 +405,28 @@ if __name__ == '__main__':
     #roi_mask = get_roi_mask(tf)
     #multiple_regression(fmri_ts, feat_ts, regress_file)
 
+    #-- feature stack
+    print 'Feature stack ...'
+    train_feat_stack = np.vstack((train_feat_ts,
+                                  np.expand_dims(tr_mag_ts, axis=0),
+                                  np.expand_dims(tr_ang_ts, axis=0)))
+    val_feat_stack = np.vstack((val_feat_ts,
+                                np.expand_dims(val_mag_ts, axis=0),
+                                np.expand_dims(val_ang_ts, axis=0)))
+    tmp_train_file = os.path.join(feat_dir, 'train_conv1_optic_trs.npy')
+    np.save(tmp_train_file, train_feat_stack)
+    tmp_val_file = os.path.join(feat_dir, 'val_conv1_optic_trs.npy')
+    np.save(tmp_val_file, val_feat_stack)
+    del train_feat_ts, val_feat_ts, tr_mag_ts, tr_ang_ts, val_mag_ts, val_ang_ts, train_feat_stack, val_feat_stack
+    train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
+    val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
+
     #-- ridge regression
     ridge_dir = os.path.join(subj_dir, 'ridge')
     if not os.path.exists(ridge_dir):
         os.mkdir(ridge_dir, 0755)
-    ridge_file = os.path.join(ridge_dir, 'conv1_pixel_wise.npy')
+    #ridge_file = os.path.join(ridge_dir, 'conv1_pixel_wise.npy')
+    ridge_file = os.path.join(ridge_dir, 'conv1_optoical_pixel_wise_ridge.npy')
     ridge_regression(train_feat_ts, train_fmri_ts,
                      val_feat_ts, val_fmri_ts, ridge_file)
 
@@ -421,12 +438,6 @@ if __name__ == '__main__':
     #if not os.path.exists(cca_dir):
     #    os.mkdir(cca_dir, 0755)
     # combine layer1 features and optical flow features together
-    #train_feat_stack = np.vstack((train_feat_ts,
-    #                              np.expand_dims(train_mag_ts, axis=0),
-    #                              np.expand_dims(train_ang_ts, axis=0)))
-    #val_feat_stack = np.vstack((val_feat_ts,
-    #                            np.expand_dims(val_mag_ts, axis=0),
-    #                            np.expand_dims(val_ang_ts, axis=0)))
     #plscorr_eval(train_fmri_ts, train_feat_stack, val_fmri_ts, val_feat_stack,
     #             cca_dir, mask_file)
     #plscorr_eval(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,

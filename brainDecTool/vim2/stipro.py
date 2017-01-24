@@ -9,6 +9,7 @@ import cv2
 from joblib import Parallel, delayed
 from skimage.color import rgb2gray
 from skimage.measure import compare_ssim
+from skimage.transform import resize
 
 from brainDecTool.vim2 import util as vutil
 from brainDecTool.util import configParser
@@ -240,14 +241,14 @@ def stim_pro(feat_ptr, output, orig_size, fps, fact, i, using_hrf=True):
         ndts = down_sample(ndts, (fact, fact, 1))
     output[channel_idx, ...] = ndts
 
-def feat_tr_pro(in_file, out_dir, ds_fact=None):
+def feat_tr_pro(in_file, out_dir, out_dim=None):
     """Get TRs from input 3D dataset (the third dim is time).
     
     Input
     -----
     in_file : absolute path of input file
     out_dir : output directory
-    ds_fact : spatial down-sample factor
+    out_dim : spatial resolution of output, a tuple of (row, col)
 
     """
     # load stimulus time courses
@@ -281,9 +282,10 @@ def feat_tr_pro(in_file, out_dir, ds_fact=None):
     dconvolved3d = dconvolved.reshape(ts_shape[0], ts_shape[1], len(vol_times))
 
     # spatial down-sample
-    if ds_fact:
-        ds_mark = '_ds%s' %(ds_fact)
-        dconvolved3d = down_sample(dconvolved3d, (ds_fact, ds_fact, 1))
+    if out_dim:
+        ds_mark = '_%s_%s' %(out_dim[0], out_dim[1])
+        dconvolved3d = resize(dconvolved3d, out_dim, order=1)
+        #dconvolved3d = down_sample(dconvolved3d, (ds_fact, ds_fact, 1))
     else:
         ds_mark = ''
     print 'Output data shape : ', dconvolved3d.shape
@@ -358,5 +360,5 @@ if __name__ == '__main__':
     #-- calculate dense optical flow
     #get_optical_flow(stimulus, 'train', feat_dir)
     #optical_file = os.path.join(feat_dir, 'train_opticalflow_mag.npy')
-    #feat_tr_pro(optical_file, feat_dir)
+    #feat_tr_pro(optical_file, feat_dir, out_dim=None)
 

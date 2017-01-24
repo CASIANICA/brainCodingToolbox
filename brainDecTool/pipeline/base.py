@@ -60,7 +60,7 @@ def ridge_regression(train_feat, train_fmri, val_feat, val_fmri, outfile):
                                shape=(pixel_size[0]*pixel_size[1], voxel_size))
     #ridge_corr_mtx = np.zeros((pixel_size[0]*pixel_size[1], voxel_size))
     print 'Compute Ridge regreesion for each pixel ...'
-    Parallel(n_jobs=3)(delayed(ridge_sugar)(train_feat, train_fmri, val_feat,
+    Parallel(n_jobs=4)(delayed(ridge_sugar)(train_feat, train_fmri, val_feat,
                                             val_fmri, ridge_corr_mtx, v)
                                             for v in [(i, j)
                                                 for i in range(pixel_size[0])
