@@ -346,7 +346,7 @@ def roi_info(data, fmri_table, mask_idx, out_dir):
         os.system('mkdir %s'%(roi_dir))
         for idx in roi_ptr:
             tmp = data[:, idx]
-            if np.nonzero(np.sum(tmp)):
+            if np.sum(tmp):
                 tmp = tmp.reshape(55, 55)
                 vutil.save_imshow(tmp, os.path.join(roi_dir, '%s.png'%(idx)))
 
@@ -448,6 +448,7 @@ if __name__ == '__main__':
     ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts, val_fmri_ts,
                      ridge_dir, ridge_prefix)
     # roi_stats
+    #ridge_file = os.path.join(ridge_dir, 'conv1_optical_pixel_wise_ridge.npy')
     #ridge_mtx = np.load(ridge_file)
     #roi_info(ridge_mtx, tf, vxl_idx, ridge_dir)
 
