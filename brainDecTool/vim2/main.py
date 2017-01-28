@@ -333,6 +333,24 @@ def reg_cca(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
     feat_cc_corr = feat_cc_corr.reshape(96, 11, 11, 7)
     vutil.plot_cca_fweights(feat_cc_corr, out_dir, 'feat_cc_corr')
 
+def roi_info(data, fmri_table, mask_idx, out_dir):
+    """Get ROI info."""
+    roi_list = ['v1lh', 'v1rh', 'v2lh', 'v2rh', 'v3lh', 'v3rh',
+                'v3alh', 'v3arh', 'v3blh', 'v3brh', 'v4lh', 'v4rh']
+    for roi in roi_list:
+        roi_mask = fmri_table.get_node('/roi/%s'%(roi))[:].flatten()
+        roi_idx = np.nonzero(roi_mask==1)[0]
+        roi_ptr = np.array([np.where(mask_idx==roi_idx[i])[0][0]
+                            for i in range(len(roi_idx))])
+        roi_dir = os.path.join(out_dir, roi)
+        os.system('mkdir %s'%(roi_dir))
+        for idx in roi_ptr:
+            tmp = data[:, idx]
+            if np.nonzero(np.sum(tmp)):
+                tmp = tmp.reshape(55, 55)
+                vutil.save_imshow(tmp, os.path.join(roi_dir, '%s.png'%(idx)))
+
+
 if __name__ == '__main__':
     """Main function."""
     # config parser
@@ -358,30 +376,30 @@ if __name__ == '__main__':
     #vutil.gen_mean_vol(tf, dataset, mean_file)
 
     #-- load fmri response from training/validation dataset
-    train_fmri_ts = tf.get_node('/rt')[:]
-    val_fmri_ts = tf.get_node('/rv')[:]
+    #train_fmri_ts = tf.get_node('/rt')[:]
+    #val_fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
     # load brain mask
     mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
     mask = vutil.data_swap(mask_file).flatten()
     vxl_idx = np.nonzero(mask==1)[0]
-    train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
-    val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
+    #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
+    #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     # load convolved cnn activation data for validation dataset
-    train_feat_file = os.path.join(feat_dir, 'conv1_train_trs.npy')
-    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
-    val_feat_file = os.path.join(feat_dir, 'conv1_val_trs.npy')
-    val_feat_ts = np.load(val_feat_file, mmap_mode='r')
+    #train_feat_file = os.path.join(feat_dir, 'conv1_train_trs.npy')
+    #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    #val_feat_file = os.path.join(feat_dir, 'conv1_val_trs.npy')
+    #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
     # data.shape = (96, 55, 55, 540/7200)
     # load optical flow data: mag and ang
-    tr_mag_file = os.path.join(feat_dir, 'train_opticalflow_mag_trs_55_55.npy')
-    tr_mag_ts = np.load(tr_mag_file, mmap_mode='r')
-    val_mag_file = os.path.join(feat_dir, 'val_opticalflow_mag_trs_55_55.npy')
-    val_mag_ts = np.load(val_mag_file, mmap_mode='r')
-    tr_ang_file = os.path.join(feat_dir, 'train_opticalflow_ang_trs_55_55.npy')
-    tr_ang_ts = np.load(tr_ang_file, mmap_mode='r')
-    val_ang_file = os.path.join(feat_dir, 'val_opticalflow_ang_trs_55_55.npy')
-    val_ang_ts = np.load(val_ang_file, mmap_mode='r')
+    #tr_mag_file = os.path.join(feat_dir, 'train_opticalflow_mag_trs_55_55.npy')
+    #tr_mag_ts = np.load(tr_mag_file, mmap_mode='r')
+    #val_mag_file = os.path.join(feat_dir, 'val_opticalflow_mag_trs_55_55.npy')
+    #val_mag_ts = np.load(val_mag_file, mmap_mode='r')
+    #tr_ang_file = os.path.join(feat_dir, 'train_opticalflow_ang_trs_55_55.npy')
+    #tr_ang_ts = np.load(tr_ang_file, mmap_mode='r')
+    #val_ang_file = os.path.join(feat_dir, 'val_opticalflow_ang_trs_55_55.npy')
+    #val_ang_ts = np.load(val_ang_file, mmap_mode='r')
     # data.shape = (11, 11, 540/7200)
     
     #-- calculate cross-modality corrlation 
@@ -406,29 +424,32 @@ if __name__ == '__main__':
     #multiple_regression(fmri_ts, feat_ts, regress_file)
 
     #-- feature stack
-    print 'Feature stack ...'
-    train_feat_stack = np.vstack((train_feat_ts,
-                                  np.expand_dims(tr_mag_ts, axis=0),
-                                  np.expand_dims(tr_ang_ts, axis=0)))
-    val_feat_stack = np.vstack((val_feat_ts,
-                                np.expand_dims(val_mag_ts, axis=0),
-                                np.expand_dims(val_ang_ts, axis=0)))
-    tmp_train_file = os.path.join(feat_dir, 'train_conv1_optic_trs.npy')
-    np.save(tmp_train_file, train_feat_stack)
-    tmp_val_file = os.path.join(feat_dir, 'val_conv1_optic_trs.npy')
-    np.save(tmp_val_file, val_feat_stack)
-    del train_feat_ts, val_feat_ts, tr_mag_ts, tr_ang_ts, val_mag_ts, val_ang_ts, train_feat_stack, val_feat_stack
-    train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
-    val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
+    #print 'Feature stack ...'
+    #train_feat_stack = np.vstack((train_feat_ts,
+    #                              np.expand_dims(tr_mag_ts, axis=0),
+    #                              np.expand_dims(tr_ang_ts, axis=0)))
+    #val_feat_stack = np.vstack((val_feat_ts,
+    #                            np.expand_dims(val_mag_ts, axis=0),
+    #                            np.expand_dims(val_ang_ts, axis=0)))
+    #tmp_train_file = os.path.join(feat_dir, 'train_conv1_optic_trs.npy')
+    #np.save(tmp_train_file, train_feat_stack)
+    #tmp_val_file = os.path.join(feat_dir, 'val_conv1_optic_trs.npy')
+    #np.save(tmp_val_file, val_feat_stack)
+    #del train_feat_ts, val_feat_ts, tr_mag_ts, tr_ang_ts, val_mag_ts, val_ang_ts, train_feat_stack, val_feat_stack
+    #train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
+    #val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
 
     #-- ridge regression
     ridge_dir = os.path.join(subj_dir, 'ridge')
     if not os.path.exists(ridge_dir):
         os.mkdir(ridge_dir, 0755)
-    #ridge_file = os.path.join(ridge_dir, 'conv1_pixel_wise.npy')
-    ridge_file = os.path.join(ridge_dir, 'conv1_optoical_pixel_wise_ridge.npy')
-    ridge_regression(train_feat_ts, train_fmri_ts,
-                     val_feat_ts, val_fmri_ts, ridge_file)
+    ridge_file = os.path.join(ridge_dir, 'conv1_pixel_wise_ridge.npy')
+    #ridge_file = os.path.join(ridge_dir, 'conv1_optoical_pixel_wise_ridge.npy')
+    #ridge_regression(train_feat_ts, train_fmri_ts,
+    #                 val_feat_ts, val_fmri_ts, ridge_file)
+    # roi_stats
+    ridge_mtx = np.load(ridge_file)
+    roi_info(ridge_mtx, tf, vxl_idx, ridge_dir)
 
     #-- PLS-CCA
     #pls_dir = os.path.join(subj_dir, 'plscca')
@@ -453,5 +474,5 @@ if __name__ == '__main__':
     #reg_cca(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, cca_dir)
 
     #-- close fmri data
-    #tf.close()
+    tf.close()
 
