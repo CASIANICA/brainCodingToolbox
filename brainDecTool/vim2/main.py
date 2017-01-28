@@ -435,7 +435,8 @@ if __name__ == '__main__':
     #np.save(tmp_train_file, train_feat_stack)
     #tmp_val_file = os.path.join(feat_dir, 'val_conv1_optic_trs.npy')
     #np.save(tmp_val_file, val_feat_stack)
-    #del train_feat_ts, val_feat_ts, tr_mag_ts, tr_ang_ts, val_mag_ts, val_ang_ts, train_feat_stack, val_feat_stack
+    #del train_feat_ts, val_feat_ts, tr_mag_ts, tr_ang_ts, val_mag_ts
+    #del val_ang_ts, train_feat_stack, val_feat_stack
     #train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
     #val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
 
