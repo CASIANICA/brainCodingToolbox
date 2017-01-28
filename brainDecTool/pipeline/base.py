@@ -50,25 +50,33 @@ def mrf(in_fmri, in_feat, out, idx):
             x = in_feat[:, i, j, :].T
             out[idx, i, j] = ols_fit(y, x)
 
-def ridge_regression(train_feat, train_fmri, val_feat, val_fmri, outfile):
+def ridge_regression(train_feat, train_fmri, val_feat, val_fmri,
+                     out_dir, prefix):
     """Calculate ridge regression between features from one pixel location and
     the fmri responses from all voxels.
     """
+    feat_size = train_feat.shape[0]
     pixel_size = (train_feat.shape[1], train_feat.shape[2])
     voxel_size = train_fmri.shape[0]
-    ridge_corr_mtx = np.memmap(outfile, dtype='float64', mode='w+',
-                               shape=(pixel_size[0]*pixel_size[1], voxel_size))
-    #ridge_corr_mtx = np.zeros((pixel_size[0]*pixel_size[1], voxel_size))
+    corr_file = os.path.join(out_dir, prefix+'_corr.npy')
+    wt_file = os.path.join(out_dir, prefix+'_weights.npy')
+    corr_mtx = np.memmap(corr_file, dtype='float16', mode='w+',
+                         shape=(pixel_size[0]*pixel_size[1], voxel_size))
+    wt_mtx = np.memmap(wt_file, dtype='float16', mode='w+',
+                    shape=(pixel_size[0]*pixel_size[1], voxel_size, feat_size))
     print 'Compute Ridge regreesion for each pixel ...'
     Parallel(n_jobs=4)(delayed(ridge_sugar)(train_feat, train_fmri, val_feat,
-                                            val_fmri, ridge_corr_mtx, v)
+                                            val_fmri, corr_mtx, wt_mtx, v)
                                             for v in [(i, j)
                                                 for i in range(pixel_size[0])
                                                 for j in range(pixel_size[1])])
-    narray = np.array(ridge_corr_mtx)
-    np.save(outfile, narray)
+    narray = np.array(corr_mtx)
+    np.save(corr_file, narray)
+    narray = np.array(wt_mtx)
+    np.save(wt_file, narray)
 
-def ridge_sugar(train_feat, train_fmri, val_feat, val_fmri, out_mtx, idx):
+def ridge_sugar(train_feat, train_fmri, val_feat, val_fmri,
+                corr_mtx, wt_mtx, idx):
     """Sugar function for ridge regression."""
     pixel_size = (train_feat.shape[1], train_feat.shape[2])
     row, col = idx[0], idx[1]
@@ -79,5 +87,6 @@ def ridge_sugar(train_feat, train_fmri, val_feat, val_fmri, out_mtx, idx):
     tfeat = (tfeat-m) / (1e-10+s)
     vfeat = (val_feat[:, row, col, :]-m) / (1e-10+s)
     wt, corr, valphas, bscores, valinds = ridge.bootstrap_ridge(tfeat.T, train_fmri.T, vfeat.T, val_fmri.T, alphas=np.logspace(-2, 2, 20), nboots=5, chunklen=100, nchunks=10, single_alpha=True)
-    out_mtx[row*pixel_size[0]+col] = corr
+    corr_mtx[row*pixel_size[0]+col] = corr
+    wt_mtx[row*pixel_size[0]+col] = wt.T
 

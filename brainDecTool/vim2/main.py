@@ -443,13 +443,12 @@ if __name__ == '__main__':
     ridge_dir = os.path.join(subj_dir, 'ridge')
     if not os.path.exists(ridge_dir):
         os.mkdir(ridge_dir, 0755)
-    ridge_file = os.path.join(ridge_dir, 'conv1_pixel_wise_ridge.npy')
-    #ridge_file = os.path.join(ridge_dir, 'conv1_optoical_pixel_wise_ridge.npy')
-    #ridge_regression(train_feat_ts, train_fmri_ts,
-    #                 val_feat_ts, val_fmri_ts, ridge_file)
+    ridge_prefix = 'conv1_optical_pixel_wise_ridge'
+    ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts, val_fmri_ts,
+                     ridge_dir, ridge_prefix)
     # roi_stats
-    ridge_mtx = np.load(ridge_file)
-    roi_info(ridge_mtx, tf, vxl_idx, ridge_dir)
+    #ridge_mtx = np.load(ridge_file)
+    #roi_info(ridge_mtx, tf, vxl_idx, ridge_dir)
 
     #-- PLS-CCA
     #pls_dir = os.path.join(subj_dir, 'plscca')
