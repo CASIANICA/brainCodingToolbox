@@ -232,6 +232,7 @@ def save_imshow(data, filename):
     cax = ax.imshow(data.astype(np.float64))
     fig.colorbar(cax)
     fig.savefig(filename)
+    plt.close()
 
 def fweights_bar(feat_weights):
     """Bar plots for feature weights derived from CCA.
