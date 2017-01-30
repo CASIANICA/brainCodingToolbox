@@ -104,7 +104,7 @@ def random_ridge_regression(train_feat, train_fmri, val_feat, val_fmri,
     vxl_num = train_fmri.shape[0]
     # shuffle fmri time courses
     shuffled_train_fmri = np.zeros((vxl_num*iter_num, train_fmri.shape[1]))
-    shuffled_val_fmri = np.zeros((vxl_nuiter_num, val_fmri.shape[1]))
+    shuffled_val_fmri = np.zeros((vxl_num*iter_num, val_fmri.shape[1]))
     train_fmri = train_fmri.T
     val_fmri = val_fmri.T
     for i in range(iter_num):
