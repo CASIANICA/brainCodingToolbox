@@ -229,7 +229,7 @@ def plot_kernerls(in_dir, basename, filename):
 def save_imshow(data, filename):
     """Save `imshow` figure as file."""
     fig, ax = plt.subplots()
-    cax = ax.imshow(data)
+    cax = ax.imshow(data.astype(np.float64))
     fig.colorbar(cax)
     fig.savefig(filename)
 
