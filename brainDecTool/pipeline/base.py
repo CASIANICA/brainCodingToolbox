@@ -91,3 +91,45 @@ def ridge_sugar(train_feat, train_fmri, val_feat, val_fmri,
     corr_mtx[row*pixel_size[0]+col] = corr
     wt_mtx[row*pixel_size[0]+col] = wt.T
 
+def random_ridge_regression(train_feat, train_fmri, val_feat, val_fmri,
+                            iter_num, out_dir, prefix):
+    """Calculate ridge regression between features from one pixel location and
+    the fmri responses from all voxels radnomly.
+    The fmri time courses would be randomly permutated, and regressed to
+    features; the procudure would be conducted `iter_num` times.
+
+    """
+    feat_size = train_feat.shape[0]
+    pixel_size = (train_feat.shape[1], train_feat.shape[2])
+    vxl_num = train_fmri.shape[0]
+    # shuffle fmri time courses
+    shuffled_train_fmri = np.zeros((vxl_num*iter_num, train_fmri.shape[1]))
+    shuffled_val_fmri = np.zeros((vxl_nuiter_num, val_fmri.shape[1]))
+    train_fmri = train_fmri.T
+    val_fmri = val_fmri.T
+    for i in range(iter_num):
+        np.random.shuffle(train_fmri)
+        np.random.shuffle(val_fmri)
+        shuffled_train_fmri[i*vxl_num:(i+1)*vxl_num] = train_fmri.T
+        shuffled_val_fmri[i*vxl_num:(i+1)*vxl_num] = val_fmri.T
+    corr_file = os.path.join(out_dir, prefix+'_corr.npy')
+    wt_file = os.path.join(out_dir, prefix+'_weights.npy')
+    corr_mtx = np.memmap(corr_file, dtype='float16', mode='w+',
+                         shape=(pixel_size[0]*pixel_size[1], vxl_num*iter_num))
+    wt_mtx = np.memmap(wt_file, dtype='float16', mode='w+',
+            shape=(pixel_size[0]*pixel_size[1], vxl_num*iter_num, feat_size))
+    print 'Compute random Ridge regreesion for each pixel ...'
+    Parallel(n_jobs=4)(delayed(ridge_sugar)(train_feat, shuffled_train_fmri,
+                                            val_feat, shuffled_val_fmri,
+                                            corr_mtx, wt_mtx, v)
+                                            for v in [(i, j)
+                                                for i in range(pixel_size[0])
+                                                for j in range(pixel_size[1])])
+    narray = np.array(corr_mtx)
+    narray = narray.reshape(narray.shape[0], iter_num, vxl_num)
+    np.save(corr_file, narray)
+    narray = np.array(wt_mtx)
+    narray = narray.reshape(narray.shape[0], iter_num, vxl_num, -1)
+    np.save(wt_file, narray)
+
+
