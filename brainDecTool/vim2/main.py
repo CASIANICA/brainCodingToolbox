@@ -353,7 +353,12 @@ def roi_info(data, fmri_table, mask_idx, out_dir):
 
 def permutation_stats(random_corr_mtx):
     """Get statistical estimate of `true` correlation coefficient."""
-    pass
+    vxl_num = random_corr_mtx.shape[2]
+    maxv = random_corr_mtx.max(axis=0)
+    for i in range(vxl_num):
+        print maxv[:, i].max()
+        print maxv[:, i].min()
+        print '----------------'
 
 
 if __name__ == '__main__':
