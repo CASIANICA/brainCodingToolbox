@@ -380,23 +380,24 @@ if __name__ == '__main__':
     #mean_file = os.path.join(subj_dir, 'S%s_mean_%s.nii.gz'%(subj_id, dataset))
     #vutil.gen_mean_vol(tf, dataset, mean_file)
 
-    #-- load fmri response from training/validation dataset
-    #train_fmri_ts = tf.get_node('/rt')[:]
-    #val_fmri_ts = tf.get_node('/rv')[:]
+    #-- load fmri response
+    train_fmri_ts = tf.get_node('/rt')[:]
+    val_fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
-    # load brain mask
-    mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
-    mask = vutil.data_swap(mask_file).flatten()
-    vxl_idx = np.nonzero(mask==1)[0]
+    #-- load brain mask
+    #mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
+    #mask = vutil.data_swap(mask_file).flatten()
+    #vxl_idx = np.nonzero(mask==1)[0]
     #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
     #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
-    # load convolved cnn activation data for validation dataset
+    
+    #-- load cnn activation data
     #train_feat_file = os.path.join(feat_dir, 'conv1_train_trs.npy')
     #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
     #val_feat_file = os.path.join(feat_dir, 'conv1_val_trs.npy')
     #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
     # data.shape = (96, 55, 55, 540/7200)
-    # load optical flow data: mag and ang
+    #-- load optical flow data: mag and ang
     #tr_mag_file = os.path.join(feat_dir, 'train_opticalflow_mag_trs_55_55.npy')
     #tr_mag_ts = np.load(tr_mag_file, mmap_mode='r')
     #val_mag_file = os.path.join(feat_dir, 'val_opticalflow_mag_trs_55_55.npy')
@@ -407,6 +408,23 @@ if __name__ == '__main__':
     #val_ang_ts = np.load(val_ang_file, mmap_mode='r')
     # data.shape = (11, 11, 540/7200)
     
+    #-- feature stack
+    #print 'Feature stack ...'
+    #train_feat_stack = np.vstack((train_feat_ts,
+    #                              np.expand_dims(tr_mag_ts, axis=0),
+    #                              np.expand_dims(tr_ang_ts, axis=0)))
+    #val_feat_stack = np.vstack((val_feat_ts,
+    #                            np.expand_dims(val_mag_ts, axis=0),
+    #                            np.expand_dims(val_ang_ts, axis=0)))
+    tmp_train_file = os.path.join(feat_dir, 'train_conv1_optic_trs.npy')
+    #np.save(tmp_train_file, train_feat_stack)
+    tmp_val_file = os.path.join(feat_dir, 'val_conv1_optic_trs.npy')
+    #np.save(tmp_val_file, val_feat_stack)
+    #del train_feat_ts, val_feat_ts, tr_mag_ts, tr_ang_ts, val_mag_ts
+    #del val_ang_ts, train_feat_stack, val_feat_stack
+    train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
+    val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
+
     #-- calculate cross-modality corrlation 
     # sum up all channels
     # select parts of channels
@@ -428,23 +446,6 @@ if __name__ == '__main__':
     #roi_mask = get_roi_mask(tf)
     #multiple_regression(fmri_ts, feat_ts, regress_file)
 
-    #-- feature stack
-    #print 'Feature stack ...'
-    #train_feat_stack = np.vstack((train_feat_ts,
-    #                              np.expand_dims(tr_mag_ts, axis=0),
-    #                              np.expand_dims(tr_ang_ts, axis=0)))
-    #val_feat_stack = np.vstack((val_feat_ts,
-    #                            np.expand_dims(val_mag_ts, axis=0),
-    #                            np.expand_dims(val_ang_ts, axis=0)))
-    #tmp_train_file = os.path.join(feat_dir, 'train_conv1_optic_trs.npy')
-    #np.save(tmp_train_file, train_feat_stack)
-    #tmp_val_file = os.path.join(feat_dir, 'val_conv1_optic_trs.npy')
-    #np.save(tmp_val_file, val_feat_stack)
-    #del train_feat_ts, val_feat_ts, tr_mag_ts, tr_ang_ts, val_mag_ts
-    #del val_ang_ts, train_feat_stack, val_feat_stack
-    #train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
-    #val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
-
     #-- ridge regression
     ridge_dir = os.path.join(subj_dir, 'ridge')
     if not os.path.exists(ridge_dir):
@@ -452,21 +453,21 @@ if __name__ == '__main__':
     #ridge_prefix = 'conv1_optical_pixel_wise_ridge'
     #ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts, val_fmri_ts,
     #                 ridge_dir, ridge_prefix)
-    # random regression
-    #selected_vxl_idx = [6938, 9641, 3962, 6803, 3903, 6436, 3767, 3831, 29942,
-    #                    29997, 29871, 32269, 22044, 24801, 27262, 29755, 3406,
-    #                    3529, 6481, 9499, 9341, 9401, 12815, 15704]
-    #train_fmri_ts = np.nan_to_num(train_fmri_ts[selected_vxl_idx])
-    #val_fmri_ts = np.nan_to_num(val_fmri_ts[selected_vxl_idx])
-    #print train_fmri_ts.shape
-    #ridge_prefix = 'random_conv1_optical_pixel_wise'
-    #random_ridge_regression(train_feat_ts, train_fmri_ts,
-    #                        val_feat_ts, val_fmri_ts,
-    #                        1000, ridge_dir, ridge_prefix)
-    # roi_stats
-    ridge_file = os.path.join(ridge_dir, 'conv1_optical_pixel_wise_corr.npy')
-    ridge_mtx = np.load(ridge_file)
-    roi_info(ridge_mtx, tf, vxl_idx, ridge_dir)
+    #-- random regression
+    selected_vxl_idx = [5666, 9697, 5533, 5597, 5285, 5538, 5273, 5465, 38695,
+                        38826, 42711, 46873, 30444, 34474, 38548, 42581, 5097,
+                        5224, 5205, 9238, 9330, 13169, 17748, 21780]
+    train_fmri_ts = np.nan_to_num(train_fmri_ts[selected_vxl_idx])
+    val_fmri_ts = np.nan_to_num(val_fmri_ts[selected_vxl_idx])
+    print train_fmri_ts.shape
+    ridge_prefix = 'random_conv1_optical_pixel_wise'
+    random_ridge_regression(train_feat_ts, train_fmri_ts,
+                            val_feat_ts, val_fmri_ts,
+                            1000, ridge_dir, ridge_prefix)
+    #-- roi_stats
+    #ridge_file = os.path.join(ridge_dir, 'conv1_optical_pixel_wise_corr.npy')
+    #ridge_mtx = np.load(ridge_file)
+    #roi_info(ridge_mtx, tf, vxl_idx, ridge_dir)
 
     #-- PLS-CCA
     #pls_dir = os.path.join(subj_dir, 'plscca')
