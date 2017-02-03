@@ -363,6 +363,8 @@ def permutation_stats(random_corr_mtx):
     maxv = maxv.flatten()
     maxv.sort()
     quar = maxv.shape[0]*0.95 - 1
+    # 95% - 0.17224
+    # 99% - 0.19019
     print maxv[int(np.rint(quar))]
 
 
