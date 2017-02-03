@@ -359,6 +359,11 @@ def permutation_stats(random_corr_mtx):
         print maxv[:, i].max()
         print maxv[:, i].min()
         print '----------------'
+    # get 95% corr coef across voxels
+    maxv = maxv.flatten()
+    maxv.sort()
+    quar = maxv.shape[0]*0.95 - 1
+    print maxv[int(np.rint(quar))]
 
 
 if __name__ == '__main__':
@@ -374,8 +379,8 @@ if __name__ == '__main__':
     subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
     
     #-- load fmri data
-    fmri_file = os.path.join(subj_dir, 'VoxelResponses.mat')
-    tf = tables.open_file(fmri_file)
+    #fmri_file = os.path.join(subj_dir, 'VoxelResponses.mat')
+    #tf = tables.open_file(fmri_file)
     #tf.list_nodes
     #-- roi mat to nii
     #roi_file = os.path.join(subj_dir, 'S%s_small_roi.nii.gz'%(subj_id))
@@ -386,8 +391,8 @@ if __name__ == '__main__':
     #vutil.gen_mean_vol(tf, dataset, mean_file)
 
     #-- load fmri response
-    train_fmri_ts = tf.get_node('/rt')[:]
-    val_fmri_ts = tf.get_node('/rv')[:]
+    #train_fmri_ts = tf.get_node('/rt')[:]
+    #val_fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
     #-- load brain mask
     #mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
@@ -421,14 +426,14 @@ if __name__ == '__main__':
     #val_feat_stack = np.vstack((val_feat_ts,
     #                            np.expand_dims(val_mag_ts, axis=0),
     #                            np.expand_dims(val_ang_ts, axis=0)))
-    tmp_train_file = os.path.join(feat_dir, 'train_conv1_optic_trs.npy')
+    #tmp_train_file = os.path.join(feat_dir, 'train_conv1_optic_trs.npy')
     #np.save(tmp_train_file, train_feat_stack)
-    tmp_val_file = os.path.join(feat_dir, 'val_conv1_optic_trs.npy')
+    #tmp_val_file = os.path.join(feat_dir, 'val_conv1_optic_trs.npy')
     #np.save(tmp_val_file, val_feat_stack)
     #del train_feat_ts, val_feat_ts, tr_mag_ts, tr_ang_ts, val_mag_ts
     #del val_ang_ts, train_feat_stack, val_feat_stack
-    train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
-    val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
+    #train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
+    #val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
 
     #-- calculate cross-modality corrlation 
     # sum up all channels
@@ -458,21 +463,25 @@ if __name__ == '__main__':
     #ridge_prefix = 'conv1_optical_pixel_wise_ridge'
     #ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts, val_fmri_ts,
     #                 ridge_dir, ridge_prefix)
-    #-- random regression
-    selected_vxl_idx = [5666, 9697, 5533, 5597, 5285, 5538, 5273, 5465, 38695,
-                        38826, 42711, 46873, 30444, 34474, 38548, 42581, 5097,
-                        5224, 5205, 9238, 9330, 13169, 17748, 21780]
-    train_fmri_ts = np.nan_to_num(train_fmri_ts[selected_vxl_idx])
-    val_fmri_ts = np.nan_to_num(val_fmri_ts[selected_vxl_idx])
-    print train_fmri_ts.shape
-    ridge_prefix = 'random_conv1_optical_pixel_wise'
-    random_ridge_regression(train_feat_ts, train_fmri_ts,
-                            val_feat_ts, val_fmri_ts,
-                            1000, ridge_dir, ridge_prefix)
     #-- roi_stats
     #ridge_file = os.path.join(ridge_dir, 'conv1_optical_pixel_wise_corr.npy')
     #ridge_mtx = np.load(ridge_file)
     #roi_info(ridge_mtx, tf, vxl_idx, ridge_dir)
+    #-- random regression
+    #selected_vxl_idx = [5666, 9697, 5533, 5597, 5285, 5538, 5273, 5465, 38695,
+    #                    38826, 42711, 46873, 30444, 34474, 38548, 42581, 5097,
+    #                    5224, 5205, 9238, 9330, 13169, 17748, 21780]
+    #train_fmri_ts = np.nan_to_num(train_fmri_ts[selected_vxl_idx])
+    #val_fmri_ts = np.nan_to_num(val_fmri_ts[selected_vxl_idx])
+    #print train_fmri_ts.shape
+    #ridge_prefix = 'random_conv1_optical_pixel_wise'
+    #random_ridge_regression(train_feat_ts, train_fmri_ts,
+    #                        val_feat_ts, val_fmri_ts,
+    #                        1000, ridge_dir, ridge_prefix)
+    #-- permutation stats
+    rand_f = os.path.join(ridge_dir,'random_conv1_optical_pixel_wise_corr.npy')
+    random_corr_mtx = np.load(rand_f)
+    permutation_stats(random_corr_mtx)
 
     #-- PLS-CCA
     #pls_dir = os.path.join(subj_dir, 'plscca')
@@ -497,5 +506,5 @@ if __name__ == '__main__':
     #reg_cca(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, cca_dir)
 
     #-- close fmri data
-    tf.close()
+    #tf.close()
 
