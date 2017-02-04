@@ -486,8 +486,8 @@ if __name__ == '__main__':
     #-- roi_stats
     corr_file = os.path.join(ridge_dir, 'conv1_optical_pixel_wise_corr.npy')
     wt_file = os.path.join(ridge_dir, 'conv1_optical_pixel_wise_weights.npy')
-    corr_mtx = np.load(corr_file)
-    wt_mtx = np.load(wt_file)
+    corr_mtx = np.load(corr_file, mmap_mode='r')
+    wt_mtx = np.load(wt_file, mmap_mode='r')
     roi_info(corr_mtx, wt_mtx, tf, vxl_idx, ridge_dir)
     #-- random regression
     #selected_vxl_idx = [5666, 9697, 5533, 5597, 5285, 5538, 5273, 5465, 38695,
