@@ -338,14 +338,11 @@ def roi_info(corr_mtx, wt_mtx, fmri_table, mask_idx, out_dir):
     roi_list = ['v1lh', 'v1rh', 'v2lh', 'v2rh', 'v3lh', 'v3rh',
                 'v3alh', 'v3arh', 'v3blh', 'v3brh', 'v4lh', 'v4rh']
     figure_prints = np.zeros((wt_mtx.shape[2], len(roi_list)))
-    print figure_prints.shape
     for ridx in range(len(roi_list)):
-        print roi_list[ridx]
         roi_mask = fmri_table.get_node('/roi/%s'%(roi_list[ridx]))[:].flatten()
         roi_idx = np.nonzero(roi_mask==1)[0]
         roi_ptr = np.array([np.where(mask_idx==roi_idx[i])[0][0]
                             for i in range(len(roi_idx))])
-        print roi_ptr.shape
         #-- plot pRF for each voxel
         #roi_dir = os.path.join(out_dir, roi)
         #os.system('mkdir %s'%(roi_dir))
@@ -363,9 +360,9 @@ def roi_info(corr_mtx, wt_mtx, fmri_table, mask_idx, out_dir):
             f = tmp>=0.17224
             if f.sum():
                 ele_num += f.sum()
-                fp += np.sum(np.sum(wt_mtx[f, idx, :], axis=0), axis=0)
+                fp += np.sum(wt_mtx[f, idx, :], axis=0)
+                print fp
         fp /= ele_num
-        print fp.shape
         figure_prints[:, ridx] = fp
     np.save(os.path.join(out_dir, 'roi_figure_prints.npy'), figure_prints)
 
