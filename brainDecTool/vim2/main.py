@@ -333,23 +333,37 @@ def reg_cca(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
     feat_cc_corr = feat_cc_corr.reshape(96, 11, 11, 7)
     vutil.plot_cca_fweights(feat_cc_corr, out_dir, 'feat_cc_corr')
 
-def roi_info(data, fmri_table, mask_idx, out_dir):
+def roi_info(corr_mtx, wt_mtx, fmri_table, mask_idx, out_dir):
     """Get ROI info."""
     roi_list = ['v1lh', 'v1rh', 'v2lh', 'v2rh', 'v3lh', 'v3rh',
                 'v3alh', 'v3arh', 'v3blh', 'v3brh', 'v4lh', 'v4rh']
-    for roi in roi_list:
-        roi_mask = fmri_table.get_node('/roi/%s'%(roi))[:].flatten()
+    figure_prints = np.zeros((wt_mtx.shape[2], len(roi_list)))
+    for ridx in range(len(roi_list)):
+        roi_mask = fmri_table.get_node('/roi/%s'%(roi_list[ridx]))[:].flatten()
         roi_idx = np.nonzero(roi_mask==1)[0]
         roi_ptr = np.array([np.where(mask_idx==roi_idx[i])[0][0]
                             for i in range(len(roi_idx))])
-        roi_dir = os.path.join(out_dir, roi)
-        os.system('mkdir %s'%(roi_dir))
+        #-- plot pRF for each voxel
+        #roi_dir = os.path.join(out_dir, roi)
+        #os.system('mkdir %s'%(roi_dir))
+        #for idx in roi_ptr:
+        #    tmp = corr_mtx[:, idx]
+        #    if np.sum(tmp):
+        #        tmp = tmp.reshape(55, 55)
+        #        vutil.save_imshow(tmp, os.path.join(roi_dir,
+        #                                            '%s.png'%(mask_idx[idx])))
+        #-- get feature response figure print
+        ele_num = 0
+        fp = np.zeros((figure_peints.shape[0]))
         for idx in roi_ptr:
-            tmp = data[:, idx]
-            if np.sum(tmp):
-                tmp = tmp.reshape(55, 55)
-                vutil.save_imshow(tmp, os.path.join(roi_dir,
-                                                    '%s.png'%(mask_idx[idx])))
+            tmp = corr_mtx[:, idx]
+            f = tmp>=0.17224
+            if f.sum():
+                ele_num += f.sum()
+                fp += np.sum(np.sum(wt_mtx[f, idx, :], axis=0), axis=0)
+        fp /= ele_num
+        figure_prints[:, ridx] = fp
+    np.save(os.path.join(out_dir, 'roi_figure_prints.npy'), figure_prints)
 
 def permutation_stats(random_corr_mtx):
     """Get statistical estimate of `true` correlation coefficient."""
@@ -381,8 +395,8 @@ if __name__ == '__main__':
     subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
     
     #-- load fmri data
-    #fmri_file = os.path.join(subj_dir, 'VoxelResponses.mat')
-    #tf = tables.open_file(fmri_file)
+    fmri_file = os.path.join(subj_dir, 'VoxelResponses.mat')
+    tf = tables.open_file(fmri_file)
     #tf.list_nodes
     #-- roi mat to nii
     #roi_file = os.path.join(subj_dir, 'S%s_small_roi.nii.gz'%(subj_id))
@@ -397,9 +411,9 @@ if __name__ == '__main__':
     #val_fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
     #-- load brain mask
-    #mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
-    #mask = vutil.data_swap(mask_file).flatten()
-    #vxl_idx = np.nonzero(mask==1)[0]
+    mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
+    mask = vutil.data_swap(mask_file).flatten()
+    vxl_idx = np.nonzero(mask==1)[0]
     #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
     #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     
@@ -466,9 +480,11 @@ if __name__ == '__main__':
     #ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts, val_fmri_ts,
     #                 ridge_dir, ridge_prefix)
     #-- roi_stats
-    #ridge_file = os.path.join(ridge_dir, 'conv1_optical_pixel_wise_corr.npy')
-    #ridge_mtx = np.load(ridge_file)
-    #roi_info(ridge_mtx, tf, vxl_idx, ridge_dir)
+    corr_file = os.path.join(ridge_dir, 'conv1_optical_pixel_wise_corr.npy')
+    wt_file = os.path.join(ridge_dir, 'conv1_optical_pixel_wise_weights.npy')
+    corr_mtx = np.load(corr_file)
+    wt_mtx = np.load(wt_file)
+    roi_info(corr_mtx, wt_mtx, tf, vxl_idx, ridge_dir)
     #-- random regression
     #selected_vxl_idx = [5666, 9697, 5533, 5597, 5285, 5538, 5273, 5465, 38695,
     #                    38826, 42711, 46873, 30444, 34474, 38548, 42581, 5097,
@@ -481,9 +497,9 @@ if __name__ == '__main__':
     #                        val_feat_ts, val_fmri_ts,
     #                        1000, ridge_dir, ridge_prefix)
     #-- permutation stats
-    rand_f = os.path.join(ridge_dir,'random_conv1_optical_pixel_wise_corr.npy')
-    random_corr_mtx = np.load(rand_f)
-    permutation_stats(random_corr_mtx)
+    #rand_f = os.path.join(ridge_dir,'random_conv1_optical_pixel_wise_corr.npy')
+    #random_corr_mtx = np.load(rand_f)
+    #permutation_stats(random_corr_mtx)
 
     #-- PLS-CCA
     #pls_dir = os.path.join(subj_dir, 'plscca')
