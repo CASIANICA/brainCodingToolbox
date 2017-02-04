@@ -361,7 +361,6 @@ def roi_info(corr_mtx, wt_mtx, fmri_table, mask_idx, out_dir):
             if f.sum():
                 ele_num += f.sum()
                 fp += np.sum(wt_mtx[f, idx, :], axis=0)
-                print fp
         fp /= ele_num
         figure_prints[:, ridx] = fp
     np.save(os.path.join(out_dir, 'roi_figure_prints.npy'), figure_prints)
