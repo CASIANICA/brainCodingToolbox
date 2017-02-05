@@ -478,7 +478,7 @@ if __name__ == '__main__':
         os.mkdir(ridge_dir, 0755)
     #ridge_prefix = 'conv1_optical_pixel_wise_ridge'
     #ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts, val_fmri_ts,
-    #                 ridge_dir, ridge_prefix)
+    #                 ridge_dir, ridge_prefix, with_wt=True, n_cpus=4)
     #-- roi_stats
     corr_file = os.path.join(ridge_dir, 'conv1_optical_pixel_wise_corr.npy')
     wt_file = os.path.join(ridge_dir, 'conv1_optical_pixel_wise_weights.npy')
