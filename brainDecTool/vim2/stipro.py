@@ -228,6 +228,7 @@ def stim_pro(feat_ptr, output, orig_size, fps, fact, i, using_hrf=True):
         dts = down_sample(ts, (1, fps))
         # shift time series
         ndts = np.zeros_like(dts)
+        delay_time = 4
         ndts[:, delay_time:] = dts[:, :(-1*delay_time)]
 
     # reshape to 3D
@@ -241,7 +242,7 @@ def stim_pro(feat_ptr, output, orig_size, fps, fact, i, using_hrf=True):
         ndts = down_sample(ndts, (fact, fact, 1))
     output[channel_idx, ...] = ndts
 
-def feat_tr_pro(in_file, out_dir, out_dim=None):
+def feat_tr_pro(in_file, out_dir, out_dim=None, using_hrf=True):
     """Get TRs from input 3D dataset (the third dim is time).
     
     Input
@@ -270,14 +271,23 @@ def feat_tr_pro(in_file, out_dir, out_dim=None):
     feat_ts = feat_ts.reshape(-1, ts_shape[2])
     # log-transform
     feat_ts = np.log(feat_ts+1)
-    # convolved with HRF
-    convolved = np.apply_along_axis(np.convolve, 1, feat_ts, hrf_signal)
-    # remove time points after the end of the scanning run
-    n_to_remove = len(hrf_times) - 1
-    convolved = convolved[:, :-n_to_remove]
-    # temporal down-sample
-    vol_times = np.arange(0, feat_ts.shape[1], fps)
-    dconvolved = convolved[:, vol_times]
+    if using_hrf:
+        # convolved with HRF
+        convolved = np.apply_along_axis(np.convolve, 1, feat_ts, hrf_signal)
+        # remove time points after the end of the scanning run
+        n_to_remove = len(hrf_times) - 1
+        convolved = convolved[:, :-n_to_remove]
+        # temporal down-sample
+        vol_times = np.arange(0, feat_ts.shape[1], fps)
+        dconvolved = convolved[:, vol_times]
+    else:
+        # temporal down-sample
+        dts = down_sample(feat_ts, (1, fps))
+        # shift time series
+        dconvolved = np.zeros_like(dts)
+        delay_time = 4
+        dconvolved[:, delay_time:] = dts[:, :(-1*delay_time)]
+
     # reshape to 3D
     dconvolved3d = dconvolved.reshape(ts_shape[0], ts_shape[1], len(vol_times))
 
@@ -360,5 +370,5 @@ if __name__ == '__main__':
     #-- calculate dense optical flow
     #get_optical_flow(stimulus, 'train', feat_dir)
     #optical_file = os.path.join(feat_dir, 'train_opticalflow_mag.npy')
-    #feat_tr_pro(optical_file, feat_dir, out_dim=None)
+    #feat_tr_pro(optical_file, feat_dir, out_dim=None, using_hrf=False)
 

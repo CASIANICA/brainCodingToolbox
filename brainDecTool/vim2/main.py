@@ -337,24 +337,24 @@ def roi_info(corr_mtx, wt_mtx, fmri_table, mask_idx, out_dir):
     """Get ROI info."""
     roi_list = ['v1lh', 'v1rh', 'v2lh', 'v2rh', 'v3lh', 'v3rh',
                 'v3alh', 'v3arh', 'v3blh', 'v3brh', 'v4lh', 'v4rh']
-    figure_prints = np.zeros((wt_mtx.shape[2], len(roi_list)))
+    fingerprints = np.zeros((wt_mtx.shape[2], len(roi_list)))
     for ridx in range(len(roi_list)):
         roi_mask = fmri_table.get_node('/roi/%s'%(roi_list[ridx]))[:].flatten()
         roi_idx = np.nonzero(roi_mask==1)[0]
         roi_ptr = np.array([np.where(mask_idx==roi_idx[i])[0][0]
                             for i in range(len(roi_idx))])
         #-- plot pRF for each voxel
-        #roi_dir = os.path.join(out_dir, roi)
-        #os.system('mkdir %s'%(roi_dir))
-        #for idx in roi_ptr:
-        #    tmp = corr_mtx[:, idx]
-        #    if np.sum(tmp):
-        #        tmp = tmp.reshape(55, 55)
-        #        vutil.save_imshow(tmp, os.path.join(roi_dir,
-        #                                            '%s.png'%(mask_idx[idx])))
+        roi_dir = os.path.join(out_dir, roi_list[ridx])
+        os.system('mkdir %s'%(roi_dir))
+        for idx in roi_ptr:
+            tmp = corr_mtx[:, idx]
+            if np.sum(tmp):
+                tmp = tmp.reshape(55, 55)
+                vutil.save_imshow(tmp, os.path.join(roi_dir,
+                                                    '%s.png'%(mask_idx[idx])))
         #-- get feature response figure print
         ele_num = 0
-        fp = np.zeros((figure_prints.shape[0]))
+        fp = np.zeros((fingerprints.shape[0]))
         for idx in roi_ptr:
             tmp = corr_mtx[:, idx]
             f = tmp>=0.17224
@@ -362,8 +362,8 @@ def roi_info(corr_mtx, wt_mtx, fmri_table, mask_idx, out_dir):
                 ele_num += f.sum()
                 fp += np.sum(wt_mtx[f, idx, :], axis=0)
         fp /= ele_num
-        figure_prints[:, ridx] = fp
-    np.save(os.path.join(out_dir, 'roi_figure_prints.npy'), figure_prints)
+        fingerprints[:, ridx] = fp
+    np.save(os.path.join(out_dir, 'roi_fingerprints.npy'), fingerprints)
 
 def permutation_stats(random_corr_mtx):
     """Get statistical estimate of `true` correlation coefficient."""
