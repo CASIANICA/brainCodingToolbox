@@ -289,7 +289,7 @@ def feat_tr_pro(in_file, out_dir, out_dim=None, using_hrf=True):
         dconvolved[:, delay_time:] = dts[:, :(-1*delay_time)]
 
     # reshape to 3D
-    dconvolved3d = dconvolved.reshape(ts_shape[0], ts_shape[1], len(vol_times))
+    dconvolved3d = dconvolved.reshape(ts_shape[0], ts_shape[1], -1)
 
     # spatial down-sample
     if out_dim:
