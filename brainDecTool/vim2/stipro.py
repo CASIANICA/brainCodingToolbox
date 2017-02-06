@@ -294,7 +294,10 @@ def feat_tr_pro(in_file, out_dir, out_dim=None, using_hrf=True):
     # spatial down-sample
     if out_dim:
         ds_mark = '_%s_%s' %(out_dim[0], out_dim[1])
-        dconvolved3d = resize(dconvolved3d, out_dim, order=1)
+        im_max, im_min = dconvolved.min(), dconvolved.max()
+        im_std = (dconvolved - im_min) / (im_max - im_min)
+        resized_im = resize(im_std, out_dim, order=1)
+        dconvolved3d = resized_im * (im_max - im_min) + im_min
         #dconvolved3d = down_sample(dconvolved3d, (ds_fact, ds_fact, 1))
     else:
         ds_mark = ''
