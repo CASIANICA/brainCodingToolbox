@@ -104,6 +104,88 @@ def retinotopic_mapping(corr_file, mask=None):
     vutil.save2nifti(vol, os.path.join(data_dir,
                                 'train_max'+ str(max_n) + '_angle.nii.gz'))
 
+def ridge_retinotopic_mapping(corr_file, mask=None):
+    """Make the retinotopic mapping using activation map from CNN."""
+    data_dir = os.path.dirname(corr_file)
+    #fig_dir = os.path.join(data_dir, 'fig')
+    #if not os.path.exists(fig_dir):
+    #    os.mkdir(fig_dir, 0755)
+    # load the cross-correlation matrix from file
+    corr_mtx = np.load(corr_file, mmap_mode='r')
+    # corr_mtx.shape = (3025, 43007)
+    corr_mtx = corr_mtx.T
+    if isinstance(mask, np.ndarray):
+        vxl_num = len(mask)
+        vxl_idx = np.nonzero(mask==1)[0]
+    else:
+        vxl_num = corr_mtx.shape[0]
+        vxl_idx = np.arange(vxl_num)
+    pos_mtx = np.zeros((vxl_num, 2))
+    pos_mtx[:] = np.nan
+    for i in range(len(vxl_idx)):
+        print 'Iter %s of %s' %(i, len(vxl_idx)),
+        tmp = corr_mtx[i, :]
+        tmp = np.nan_to_num(np.array(tmp))
+        # significant threshold
+        # one-tail test
+        #tmp[tmp <= 0.019257] = 0
+        if np.sum(tmp):
+            tmp = tmp.reshape(55, 55)
+            mmtx = tmp
+            #tmp = tmp.reshape(96, 55, 55)
+            #mmtx = np.max(tmp, axis=0)
+            print mmtx.min(), mmtx.max()
+            #fig_file = os.path.join(fig_dir, 'v'+str(i)+'.png')
+            #imsave(fig_file, mmtx)
+            # get indices of n maximum values
+            max_n = 20
+            row_idx, col_idx = np.unravel_index(
+                                        np.argsort(mmtx.ravel())[-1*max_n:],
+                                        mmtx.shape)
+            nmtx = np.zeros(mmtx.shape)
+            nmtx[row_idx, col_idx] = mmtx[row_idx, col_idx]
+            # center of mass
+            x, y = ndimage.measurements.center_of_mass(nmtx)
+            pos_mtx[vxl_idx[i], :] = [x, y]
+        else:
+            print ' '
+    #receptive_field_file = os.path.join(data_dir, 'receptive_field_pos.npy')
+    #np.save(receptive_field_file, pos_mtx)
+    #pos_mtx = np.load(receptive_field_file)
+    # eccentricity
+    dist = retinotopy.coord2ecc(pos_mtx, (55, 55))
+    # convert distance into degree
+    # 0-4 degree -> d < 5.5
+    # 4-8 degree -> d < 11
+    # 8-12 degree -> d < 16.5
+    # 12-16 degree -> d < 22
+    # else > 16 degree
+    ecc = np.zeros(dist.shape)
+    for i in range(len(dist)):
+        if np.isnan(dist[i]):
+            ecc[i] = np.nan
+        elif dist[i] < 5.445:
+            ecc[i] = 1
+        elif dist[i] < 10.91:
+            ecc[i] = 2
+        elif dist[i] < 16.39:
+            ecc[i] = 3
+        elif dist[i] < 21.92:
+            ecc[i] = 4
+        else:
+            ecc[i] = 5
+    #dist_vec = np.nan_to_num(ecc)
+    #vol = dist_vec.reshape(18, 64, 64)
+    vol = ecc.reshape(18, 64, 64)
+    vutil.save2nifti(vol, os.path.join(data_dir,
+                                'train_max' + str(max_n) + '_ecc.nii.gz'))
+    # angle
+    angle_vec = retinotopy.coord2angle(pos_mtx, (55, 55))
+    #angle_vec = np.nan_to_num(angle_vec)
+    vol = angle_vec.reshape(18, 64, 64)
+    vutil.save2nifti(vol, os.path.join(data_dir,
+                                'train_max'+ str(max_n) + '_angle.nii.gz'))
+
 def hrf_estimate(tf, feat_ts):
     """Estimate HRFs."""
     # voxel coordinates for test
@@ -395,8 +477,8 @@ if __name__ == '__main__':
     subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
     
     #-- load fmri data
-    fmri_file = os.path.join(subj_dir, 'VoxelResponses.mat')
-    tf = tables.open_file(fmri_file)
+    #fmri_file = os.path.join(subj_dir, 'VoxelResponses.mat')
+    #tf = tables.open_file(fmri_file)
     #tf.list_nodes
     #-- roi mat to nii
     #roi_file = os.path.join(subj_dir, 'S%s_small_roi.nii.gz'%(subj_id))
@@ -413,7 +495,7 @@ if __name__ == '__main__':
     #-- load brain mask
     mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
     mask = vutil.data_swap(mask_file).flatten()
-    vxl_idx = np.nonzero(mask==1)[0]
+    #vxl_idx = np.nonzero(mask==1)[0]
     #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
     #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     
@@ -482,9 +564,11 @@ if __name__ == '__main__':
     #-- roi_stats
     corr_file = os.path.join(ridge_dir, 'conv1_optical_pixel_wise_corr.npy')
     wt_file = os.path.join(ridge_dir, 'conv1_optical_pixel_wise_weights.npy')
-    corr_mtx = np.load(corr_file, mmap_mode='r')
-    wt_mtx = np.load(wt_file, mmap_mode='r')
-    roi_info(corr_mtx, wt_mtx, tf, vxl_idx, ridge_dir)
+    #corr_mtx = np.load(corr_file, mmap_mode='r')
+    #wt_mtx = np.load(wt_file, mmap_mode='r')
+    #roi_info(corr_mtx, wt_mtx, tf, vxl_idx, ridge_dir)
+    #-- retinotopic mapping
+    ridge_retinotopic_mapping(corr_file, mask)
     #-- random regression
     #selected_vxl_idx = [5666, 9697, 5533, 5597, 5285, 5538, 5273, 5465, 38695,
     #                    38826, 42711, 46873, 30444, 34474, 38548, 42581, 5097,
