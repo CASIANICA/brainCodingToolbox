@@ -130,7 +130,7 @@ def ridge_retinotopic_mapping(corr_file, mask=None):
         # one-tail test
         #tmp[tmp <= 0.019257] = 0
         if np.sum(tmp):
-            tmp = tmp.reshape(55, 55)
+            tmp = tmp.reshape(27, 27)
             mmtx = tmp
             #tmp = tmp.reshape(96, 55, 55)
             #mmtx = np.max(tmp, axis=0)
@@ -153,7 +153,7 @@ def ridge_retinotopic_mapping(corr_file, mask=None):
     #np.save(receptive_field_file, pos_mtx)
     #pos_mtx = np.load(receptive_field_file)
     # eccentricity
-    dist = retinotopy.coord2ecc(pos_mtx, (55, 55))
+    dist = retinotopy.coord2ecc(pos_mtx, (27, 27))
     # convert distance into degree
     # 0-4 degree -> d < 5.5
     # 4-8 degree -> d < 11
@@ -164,13 +164,13 @@ def ridge_retinotopic_mapping(corr_file, mask=None):
     for i in range(len(dist)):
         if np.isnan(dist[i]):
             ecc[i] = np.nan
-        elif dist[i] < 5.445:
+        elif dist[i] < 5.445/2:
             ecc[i] = 1
-        elif dist[i] < 10.91:
+        elif dist[i] < 10.91/2:
             ecc[i] = 2
-        elif dist[i] < 16.39:
+        elif dist[i] < 16.39/2:
             ecc[i] = 3
-        elif dist[i] < 21.92:
+        elif dist[i] < 21.92/2:
             ecc[i] = 4
         else:
             ecc[i] = 5
