@@ -114,6 +114,61 @@ def ridge_sugar_with_wt(train_feat, train_fmri, val_feat, val_fmri,
     corr_mtx[row*pixel_size[0]+col] = corr
     wt_mtx[row*pixel_size[0]+col] = wt.T
 
+def pred_cnn_ridge(train_fmri, train_feat, val_fmri, val_feat,
+                   out_dir, prefix, with_wt=True, n_cpus=2):
+    """Calculate ridge regression between features from one pixel location and
+    the fmri responses from all voxels.
+    """
+    chnl_size = train_feat.shape[0]
+    pixel_size = (train_feat.shape[1], train_feat.shape[2])
+    voxel_size = train_fmri.shape[0]
+    corr_file = os.path.join(out_dir, prefix+'_corr.npy')
+    corr_mtx = np.memmap(corr_file, dtype='float16', mode='w+',
+                         shape=(chnl_size, pixel_size[0], pixel_size[1]))
+    if with_wt:
+        wt_file = os.path.join(out_dir, prefix+'_weights.npy')
+        wt_mtx = np.memmap(wt_file, dtype='float16', mode='w+',
+                    shape=(chnl_size, pixel_size[0], pixel_size[1], voxel_size))
+        print 'Compute Ridge regreesion for each feature ...'
+        Parallel(n_jobs=n_cpus)(delayed(cnn_pred_sugar_wt)(
+                                    train_fmri, train_feat, val_fmri, val_feat,
+                                    corr_mtx, wt_mtx, v)
+                                for v in [(i, j)
+                                    for i in range(pixel_size[0])
+                                    for j in range(pixel_size[1])])
+        narray = np.array(wt_mtx)
+        np.save(wt_file, narray)
+    else:
+        print 'Compute Ridge regreesion for each feature ...'
+        Parallel(n_jobs=n_cpus)(delayed(cnn_pred_sugar)(
+                                    train_fmri, train_feat, val_fmri, val_feat,
+                                    corr_mtx, v)
+                                for v in [(i, j)
+                                    for i in range(pixel_size[0])
+                                    for j in range(pixel_size[1])])
+    narray = np.array(corr_mtx)
+    np.save(corr_file, narray)
+
+def cnn_pred_sugar(train_fmri, train_feat, val_fmri, val_feat, corr_mtx, idx):
+    """Sugar function for cnn activation prediction."""
+    row, col = idx[0], idx[1]
+    print 'row %s - col %s' % (row, col)
+    tfeat = train_feat[:, row, col, :]
+    vfeat = val_feat[:, row, col, :]
+    wt, corr, valphas, bscores, valinds = ridge.bootstrap_ridge(train_fmri.T, tfeat.T, val_fmri.T, vfeat.T, alphas=np.logspace(-2, 2, 20), nboots=5, chunklen=100, nchunks=10, single_alpha=True)
+    corr_mtx[:, row, col] = corr
+
+def cnn_pred_sugar_wt(train_fmri, train_feat, val_fmri, val_feat,
+                      corr_mtx, wt_mtx, idx):
+    """Sugar function for cnn activation prediction."""
+    row, col = idx[0], idx[1]
+    print 'row %s - col %s' % (row, col)
+    tfeat = train_feat[:, row, col, :]
+    vfeat = val_feat[:, row, col, :]
+    wt, corr, valphas, bscores, valinds = ridge.bootstrap_ridge(train_fmri.T, tfeat.T, val_fmri.T, vfeat.T, alphas=np.logspace(-2, 2, 20), nboots=5, chunklen=100, nchunks=10, single_alpha=True)
+    corr_mtx[:, row, col] = corr
+    wt_mtx[:, row, col, :] = wt
+
 def random_ridge_regression(train_feat, train_fmri, val_feat, val_fmri,
                             iter_num, out_dir, prefix):
     """Calculate ridge regression between features from one pixel location and
