@@ -92,8 +92,8 @@ def ridge_sugar(train_feat, train_fmri, val_feat, val_fmri, corr_mtx, idx):
     row, col = idx[0], idx[1]
     print 'row %s - col %s' % (row, col)
     tfeat = train_feat[:, row, col, :]
-    m = np.mean(tfeat)
-    s = np.std(tfeat)
+    m = np.mean(tfeat, axis=1, keepdims=True)
+    s = np.std(tfeat, axis=1, keepdims=True)
     tfeat = (tfeat-m) / (1e-10+s)
     vfeat = (val_feat[:, row, col, :]-m) / (1e-10+s)
     wt, corr, valphas, bscores, valinds = ridge.bootstrap_ridge(tfeat.T, train_fmri.T, vfeat.T, val_fmri.T, alphas=np.logspace(-2, 2, 20), nboots=5, chunklen=100, nchunks=10, single_alpha=True)
@@ -106,8 +106,8 @@ def ridge_sugar_with_wt(train_feat, train_fmri, val_feat, val_fmri,
     row, col = idx[0], idx[1]
     print 'row %s - col %s' % (row, col)
     tfeat = train_feat[:, row, col, :]
-    m = np.mean(tfeat)
-    s = np.std(tfeat)
+    m = np.mean(tfeat, axis=1, keepdims=True)
+    s = np.std(tfeat, axis=1, keepdims=True)
     tfeat = (tfeat-m) / (1e-10+s)
     vfeat = (val_feat[:, row, col, :]-m) / (1e-10+s)
     wt, corr, valphas, bscores, valinds = ridge.bootstrap_ridge(tfeat.T, train_fmri.T, vfeat.T, val_fmri.T, alphas=np.logspace(-2, 2, 20), nboots=5, chunklen=100, nchunks=10, single_alpha=True)

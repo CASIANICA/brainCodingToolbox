@@ -591,8 +591,8 @@ if __name__ == '__main__':
         os.mkdir(cnn_pred_dir, 0755)
     pred_out_prefix = 'pred_norm1'
     # fmri data preprocessing
-    m = np.mean(train_fmri_ts)
-    s = np.std(train_fmri_ts)
+    m = np.mean(train_fmri_ts, axis=1, keepdims=True)
+    s = np.std(train_fmri_ts, axis=1, keepdims=True)
     train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
     val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
     pred_cnn_ridge(train_fmri_ts, train_feat_ts, val_mri_ts, val_feat_ts,
