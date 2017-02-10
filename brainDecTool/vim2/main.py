@@ -493,10 +493,14 @@ if __name__ == '__main__':
     train_fmri_ts = tf.get_node('/rt')[:]
     val_fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
+    #-- get non-nan voxel indexs
+    train_fmri_s = train_fmri_ts.sum(axis=1)
+    non_nan_idx = np.nonzero(np.logical_not(np.isnan(train_fmri_s)))[0]
     #-- load brain mask
     mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
     mask = vutil.data_swap(mask_file).flatten()
     vxl_idx = np.nonzero(mask==1)[0]
+    vxl_idx = np.intersect1d(vxl_idx, non_nan_idx)
     train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
     val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     
