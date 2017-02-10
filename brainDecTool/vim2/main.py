@@ -510,12 +510,14 @@ if __name__ == '__main__':
     val_feat_file = os.path.join(feat_dir, 'conv1_val_trs.npy')
     val_feat_ts = np.load(val_feat_file, mmap_mode='r')
     # feature temporal z-score
-    #train_feat_m = train_feat_ts.mean(axis=3, keepdims=True)
-    #train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
-    #train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
-    #val_feat_ts = (val_feat_ts-train_feat_m)/(1e-10+train_feat_s)
+    print 'CNN features temporal z-score ...'
+    train_feat_m = train_feat_ts.mean(axis=3, keepdims=True)
+    train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
+    train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
+    val_feat_ts = (val_feat_ts-train_feat_m)/(1e-10+train_feat_s)
     # data.shape = (96, 55, 55, 540/7200)
-    #-- load optical flow data: mag and ang
+    
+    #-- load optical flow data: mag and ang and stack features
     tr_mag_file = os.path.join(feat_dir, 'train_opticalflow_mag_trs_55_55.npy')
     tr_mag_ts = np.load(tr_mag_file, mmap_mode='r')
     val_mag_file = os.path.join(feat_dir, 'val_opticalflow_mag_trs_55_55.npy')
@@ -524,26 +526,35 @@ if __name__ == '__main__':
     tr_ang_ts = np.load(tr_ang_file, mmap_mode='r')
     val_ang_file = os.path.join(feat_dir, 'val_opticalflow_ang_trs_55_55.npy')
     val_ang_ts = np.load(val_ang_file, mmap_mode='r')
+    # feature temporal z-score
+    print 'optical flow features temporal z-score ...'
+    tr_mag_m = tr_mag_ts.mean(axis=2, keepdims=True)
+    tr_mag_s = tr_mag_ts.std(axis=2, keepdims=True)
+    tr_mag_ts = (tr_mag_ts-tr_mag_m)/(1e-10+tr_mag_s)
+    val_mag_ts = (val_mag_ts-tr_mag_m)/(1e-10+tr_mag_s)
+    tr_ang_m = tr_ang_ts.mean(axis=2, keepdims=True)
+    tr_ang_s = tr_ang_ts.std(axis=2, keepdims=True)
+    tr_ang_ts = (tr_ang_ts-tr_ang_m)/(1e-10+tr_ang_s)
+    val_ang_ts = (val_ang_ts-tr_ang_m)/(1e-10+tr_ang_s)
     # data.shape = (11, 11, 540/7200)
     
     #-- feature stack
-    print 'Feature stack ...'
+    print 'training dataset feature stack ...'
     train_feat_stack = np.vstack((train_feat_ts,
                                   np.expand_dims(tr_mag_ts, axis=0),
                                   np.expand_dims(tr_ang_ts, axis=0)))
+    del train_feat_ts, tr_mag_ts, tr_ang_ts
+    tmp_train_file = os.path.join(feat_dir, 'train_conv1_optic_trs.npy')
+    np.save(tmp_train_file, train_feat_stack)
+    del train_feat_stack
+    print 'val dataset feature stack ...'
     val_feat_stack = np.vstack((val_feat_ts,
                                 np.expand_dims(val_mag_ts, axis=0),
                                 np.expand_dims(val_ang_ts, axis=0)))
-    train_feat_m = train_feat_stack.mean(axis=3, keepdims=True)
-    train_feat_s = train_feat_stack.std(axis=3, keepdims=True)
-    train_feat_stack = (train_feat_stack-train_feat_m)/(1e-10+train_feat_s)
-    val_feat_stack = (val_feat_stack-train_feat_m)/(1e-10+train_feat_s)
-    tmp_train_file = os.path.join(feat_dir, 'train_conv1_optic_trs.npy')
-    np.save(tmp_train_file, train_feat_stack)
+    del val_feat_ts, val_mag_ts, val_ang_ts
     tmp_val_file = os.path.join(feat_dir, 'val_conv1_optic_trs.npy')
     np.save(tmp_val_file, val_feat_stack)
-    del train_feat_ts, val_feat_ts, tr_mag_ts, tr_ang_ts, val_mag_ts
-    del val_ang_ts, train_feat_stack, val_feat_stack
+    del val_feat_stack
     train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
     val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
 
@@ -573,6 +584,7 @@ if __name__ == '__main__':
     if not os.path.exists(ridge_dir):
         os.mkdir(ridge_dir, 0755)
     #-- fmri data z-score
+    print 'fmri data temporal z-score'
     m = np.mean(train_fmri_ts, axis=1, keepdims=True)
     s = np.std(train_fmri_ts, axis=1, keepdims=True)
     train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
