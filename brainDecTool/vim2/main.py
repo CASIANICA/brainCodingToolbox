@@ -105,7 +105,7 @@ def retinotopic_mapping(corr_file, mask=None):
     vutil.save2nifti(vol, os.path.join(data_dir,
                                 'train_max'+ str(max_n) + '_angle.nii.gz'))
 
-def ridge_retinotopic_mapping(corr_file, mask=None):
+def ridge_retinotopic_mapping(corr_file, mask_idx=None):
     """Make the retinotopic mapping using activation map from CNN."""
     data_dir = os.path.dirname(corr_file)
     #fig_dir = os.path.join(data_dir, 'fig')
@@ -115,12 +115,11 @@ def ridge_retinotopic_mapping(corr_file, mask=None):
     corr_mtx = np.load(corr_file, mmap_mode='r')
     # corr_mtx.shape = (3025, 43007)
     corr_mtx = corr_mtx.T
-    if isinstance(mask, np.ndarray):
-        vxl_num = len(mask)
-        vxl_idx = np.nonzero(mask==1)[0]
-    else:
+    if not isinstance(mask_idx, np.ndarray):
         vxl_num = corr_mtx.shape[0]
         vxl_idx = np.arange(vxl_num)
+    else:
+        vxl_idx = mask_idx
     pos_mtx = np.zeros((vxl_num, 2))
     pos_mtx[:] = np.nan
     for i in range(len(vxl_idx)):
@@ -424,6 +423,7 @@ def roi_info(corr_mtx, wt_mtx, fmri_table, mask_idx, out_dir):
     for ridx in range(len(roi_list)):
         roi_mask = fmri_table.get_node('/roi/%s'%(roi_list[ridx]))[:].flatten()
         roi_idx = np.nonzero(roi_mask==1)[0]
+        roi_idx = np.intersect1d(roi_idx, mask_idx)
         roi_ptr = np.array([np.where(mask_idx==roi_idx[i])[0][0]
                             for i in range(len(roi_idx))])
         #-- plot pRF for each voxel
@@ -599,7 +599,7 @@ if __name__ == '__main__':
     #wt_mtx = np.load(wt_file, mmap_mode='r')
     #roi_info(corr_mtx, wt_mtx, tf, vxl_idx, ridge_dir)
     #-- retinotopic mapping
-    #ridge_retinotopic_mapping(corr_file, mask)
+    #ridge_retinotopic_mapping(corr_file, vxl_idx)
     #-- random regression
     #selected_vxl_idx = [5666, 9697, 5533, 5597, 5285, 5538, 5273, 5465, 38695,
     #                    38826, 42711, 46873, 30444, 34474, 38548, 42581, 5097,
