@@ -185,23 +185,17 @@ def random_ridge_regression(train_feat, train_fmri, val_feat, val_fmri,
         shuffled_train_fmri[i*vxl_num:(i+1)*vxl_num] = train_fmri.T
         shuffled_val_fmri[i*vxl_num:(i+1)*vxl_num] = val_fmri.T
     corr_file = os.path.join(out_dir, prefix+'_corr.npy')
-    wt_file = os.path.join(out_dir, prefix+'_weights.npy')
     corr_mtx = np.memmap(corr_file, dtype='float16', mode='w+',
                          shape=(pixel_size[0]*pixel_size[1], vxl_num*iter_num))
-    wt_mtx = np.memmap(wt_file, dtype='float16', mode='w+',
-            shape=(pixel_size[0]*pixel_size[1], vxl_num*iter_num, feat_size))
     print 'Compute random Ridge regreesion for each pixel ...'
     Parallel(n_jobs=4)(delayed(ridge_sugar)(train_feat, shuffled_train_fmri,
                                             val_feat, shuffled_val_fmri,
-                                            corr_mtx, wt_mtx, v)
+                                            corr_mtx, v)
                                             for v in [(i, j)
                                                 for i in range(pixel_size[0])
                                                 for j in range(pixel_size[1])])
     narray = np.array(corr_mtx)
     narray = narray.reshape(narray.shape[0], iter_num, vxl_num)
     np.save(corr_file, narray)
-    narray = np.array(wt_mtx)
-    narray = narray.reshape(narray.shape[0], iter_num, vxl_num, -1)
-    np.save(wt_file, narray)
 
 

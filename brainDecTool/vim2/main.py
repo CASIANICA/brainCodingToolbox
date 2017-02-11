@@ -608,6 +608,11 @@ if __name__ == '__main__':
     #                    5224, 5205, 9238, 9330, 13169, 17748, 21780]
     #train_fmri_ts = np.nan_to_num(train_fmri_ts[selected_vxl_idx])
     #val_fmri_ts = np.nan_to_num(val_fmri_ts[selected_vxl_idx])
+    #print 'fmri data temporal z-score'
+    #m = np.mean(train_fmri_ts, axis=1, keepdims=True)
+    #s = np.std(train_fmri_ts, axis=1, keepdims=True)
+    #train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
+    #val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
     #print train_fmri_ts.shape
     #ridge_prefix = 'random_conv1_optical_pixel_wise'
     #random_ridge_regression(train_feat_ts, train_fmri_ts,
