@@ -600,6 +600,9 @@ if __name__ == '__main__':
     #corr_mtx = np.load(corr_file, mmap_mode='r')
     #wt_mtx = np.load(wt_file, mmap_mode='r')
     #roi_info(corr_mtx, wt_mtx, tf, vxl_idx, ridge_dir)
+    #-- codes for ploting fingerprints of ROIs
+    # plt.bar(np.arange(98), roi_fingerprints[:, 0], 0.35)
+    # plt.savefig('v1lh.png')
     #-- retinotopic mapping
     #ridge_retinotopic_mapping(corr_file, vxl_idx)
     #-- random regression
