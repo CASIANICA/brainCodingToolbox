@@ -448,6 +448,11 @@ def roi_info(corr_mtx, wt_mtx, fmri_table, mask_idx, out_dir):
                 fp += np.sum(wt_mtx[f, idx, :], axis=0)
         fp /= ele_num
         fingerprints[:, ridx] = fp
+    #-- plot fingerprint for each roi
+    for i in range(len(roi_list)):
+        plt.bar(np.arange(96), fingerprints[:96, i], 0.35)
+        plt.savefig('%s.png'%(roi_list[i]))
+        plt.close()
     np.save(os.path.join(out_dir, 'roi_fingerprints.npy'), fingerprints)
 
 def permutation_stats(random_corr_mtx):
