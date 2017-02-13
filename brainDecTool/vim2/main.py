@@ -163,11 +163,11 @@ def ridge_retinotopic_mapping(corr_file, vxl_idx=None, top_n=None):
         else:
             ecc[i] = 5
     vol = ecc.reshape(18, 64, 64)
-    vutil.save2nifti(vol, os.path.join(data_dir, 'max_%s_ecc.nii.gz'%(top_n)))
+    vutil.save2nifti(vol, os.path.join(data_dir, 'ecc_max%s.nii.gz'%(top_n)))
     # angle
     angle_vec = retinotopy.coord2angle(pos_mtx, (55, 55))
     vol = angle_vec.reshape(18, 64, 64)
-    vutil.save2nifti(vol, os.path.join(data_dir, 'max_%s_angle.nii.gz'%(top_n)))
+    vutil.save2nifti(vol, os.path.join(data_dir, 'angle_max%s.nii.gz'%(top_n)))
 
 def hrf_estimate(tf, feat_ts):
     """Estimate HRFs."""
