@@ -442,7 +442,7 @@ def roi_info(corr_mtx, wt_mtx, fmri_table, mask_idx, out_dir):
         fp = np.zeros((fingerprints.shape[0]))
         for idx in roi_ptr:
             tmp = corr_mtx[:, idx]
-            f = tmp>=0.17224
+            f = tmp>=0.17419
             if f.sum():
                 ele_num += f.sum()
                 fp += np.sum(wt_mtx[f, idx, :], axis=0)
