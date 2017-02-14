@@ -149,7 +149,7 @@ def cnn_pred_sugar(train_fmri, train_feat, val_fmri, val_feat, corr_mtx, idx):
     print 'row %s - col %s' % (row, col)
     tfeat = train_feat[:, row, col, :]
     vfeat = val_feat[:, row, col, :]
-    wt, corr, valphas, bscores, valinds = ridge.bootstrap_ridge(train_fmri.T, tfeat.T, val_fmri.T, vfeat.T, alphas=np.logspace(-2, 2, 20), nboots=5, chunklen=100, nchunks=10, single_alpha=True)
+    wt, corr, valphas, bscores, valinds = ridge.bootstrap_ridge(train_fmri.T, tfeat.T, val_fmri.T, vfeat.T, alphas=np.logspace(-2, 2, 20), nboots=5, chunklen=100, nchunks=10, single_alpha=False)
     corr_mtx[:, row, col] = corr
 
 def cnn_pred_sugar_wt(train_fmri, train_feat, val_fmri, val_feat,
@@ -159,7 +159,7 @@ def cnn_pred_sugar_wt(train_fmri, train_feat, val_fmri, val_feat,
     print 'row %s - col %s' % (row, col)
     tfeat = train_feat[:, row, col, :]
     vfeat = val_feat[:, row, col, :]
-    wt, corr, valphas, bscores, valinds = ridge.bootstrap_ridge(train_fmri.T, tfeat.T, val_fmri.T, vfeat.T, alphas=np.logspace(-2, 2, 20), nboots=5, chunklen=100, nchunks=10, single_alpha=True)
+    wt, corr, valphas, bscores, valinds = ridge.bootstrap_ridge(train_fmri.T, tfeat.T, val_fmri.T, vfeat.T, alphas=np.logspace(-2, 2, 20), nboots=5, chunklen=100, nchunks=10, single_alpha=False)
     corr_mtx[:, row, col] = corr
     wt_mtx[:, row, col, :] = wt.T
 
