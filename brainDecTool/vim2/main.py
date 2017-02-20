@@ -582,11 +582,11 @@ if __name__ == '__main__':
     #if not os.path.exists(ridge_dir):
     #    os.mkdir(ridge_dir, 0755)
     #-- fmri data z-score
-    #print 'fmri data temporal z-score'
-    #m = np.mean(train_fmri_ts, axis=1, keepdims=True)
-    #s = np.std(train_fmri_ts, axis=1, keepdims=True)
-    #train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
-    #val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
+    print 'fmri data temporal z-score'
+    m = np.mean(train_fmri_ts, axis=1, keepdims=True)
+    s = np.std(train_fmri_ts, axis=1, keepdims=True)
+    train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
+    val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
     #ridge_prefix = 'conv1_pixel_wise'
     #ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts, val_fmri_ts,
     #                 ridge_dir, ridge_prefix, with_wt=True, n_cpus=4)
@@ -623,7 +623,7 @@ if __name__ == '__main__':
     if not os.path.exists(cnn_pred_dir):
         os.mkdir(cnn_pred_dir, 0755)
     pred_out_prefix = 'pred_norm1'
-    pred_cnn_ridge(train_fmri_ts, train_feat_ts, val_mri_ts, val_feat_ts,
+    pred_cnn_ridge(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
                    cnn_pred_dir, pred_out_prefix, with_wt=True, n_cpus=2)
     
     #-- PLS-CCA
