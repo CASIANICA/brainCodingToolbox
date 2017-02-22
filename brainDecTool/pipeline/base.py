@@ -86,6 +86,24 @@ def ridge_regression(train_feat, train_fmri, val_feat, val_fmri,
     narray = np.array(corr_mtx)
     np.save(corr_file, narray)
 
+def layer_ridge_regression(train_feat, train_fmri, val_feat, val_fmri,
+                           out_dir, prefix, with_wt=True):
+    """Calculate ridge regression between features from one layer and
+    the fmri responses from all voxels.
+    """
+    train_feat = train_feat.reshape(-1, train_feat.shape[3])
+    print train_feat.shape
+    val_feat = val_feat.reshape(-1, val_feat.shape[3])
+    voxel_size = train_fmri.shape[0]
+    corr_file = os.path.join(out_dir, prefix+'_corr.npy')
+    wt, corr, valphas, bscores, valinds = ridge.bootstrap_ridge(train_feat.T, train_fmri.T, val_feat.T, val_fmri.T, alphas=np.logspace(-2, 2, 20), nboots=5, chunklen=100, nchunks=10, single_alpha=True)
+    print corr.shape
+    print wt.shape
+    np.save(corr_file, corr)
+    if with_wt:
+        wt_file = os.path.join(out_dir, prefix+'_weights.npy')
+        np.save(wt_file, wt)
+
 def ridge_sugar(train_feat, train_fmri, val_feat, val_fmri, corr_mtx, idx):
     """Sugar function for ridge regression."""
     pixel_size = (train_feat.shape[1], train_feat.shape[2])

@@ -18,6 +18,7 @@ from brainDecTool.pipeline import retinotopy
 from brainDecTool.pipeline.base import random_cross_modal_corr
 from brainDecTool.pipeline.base import multiple_regression
 from brainDecTool.pipeline.base import ridge_regression,random_ridge_regression
+from brainDecTool.pipeline.base import layer_ridge_regression
 from brainDecTool.pipeline.base import pred_cnn_ridge
 from brainDecTool.vim2 import util as vutil
 
@@ -401,7 +402,8 @@ def reg_cca(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, out_dir):
 def roi_info(corr_mtx, wt_mtx, fmri_table, mask_idx, out_dir):
     """Get ROI info."""
     roi_list = ['v1lh', 'v1rh', 'v2lh', 'v2rh', 'v3lh', 'v3rh',
-                'v3alh', 'v3arh', 'v3blh', 'v3brh', 'v4lh', 'v4rh']
+                'v3alh', 'v3arh', 'v3blh', 'v3brh', 'v4lh', 'v4rh',
+                'MTlh', 'MTrh', 'MTplh', 'MTprh']
     fingerprints = np.zeros((wt_mtx.shape[2], len(roi_list)))
     for ridx in range(len(roi_list)):
         roi_mask = fmri_table.get_node('/roi/%s'%(roi_list[ridx]))[:].flatten()
@@ -415,7 +417,7 @@ def roi_info(corr_mtx, wt_mtx, fmri_table, mask_idx, out_dir):
         for idx in roi_ptr:
             tmp = corr_mtx[:, idx]
             if np.sum(tmp):
-                tmp = tmp.reshape(55, 55)
+                tmp = tmp.reshape(13, 13)
                 vutil.save_imshow(tmp, os.path.join(roi_dir,
                                                     '%s.png'%(mask_idx[idx])))
             else:
@@ -425,7 +427,11 @@ def roi_info(corr_mtx, wt_mtx, fmri_table, mask_idx, out_dir):
         fp = np.zeros((fingerprints.shape[0]))
         for idx in roi_ptr:
             tmp = corr_mtx[:, idx]
-            f = tmp>=0.17419
+            # conv1+optical : 0.17419
+            # norm1 : 0.15906
+            # norm2 : 0.14636
+            # conv3 : 0.14502
+            f = tmp>=0.14502
             if f.sum():
                 ele_num += f.sum()
                 fp += np.sum(wt_mtx[f, idx, :], axis=0)
@@ -460,7 +466,7 @@ if __name__ == '__main__':
     # config parser
     cf = configParser.Config('config')
     root_dir = cf.get('base', 'path')
-    feat_dir = os.path.join(root_dir, 'sfeatures', 'nohrf')
+    feat_dir = os.path.join(root_dir, 'sfeatures')
     db_dir = os.path.join(root_dir, 'subjects')
 
     # subj config
@@ -495,25 +501,25 @@ if __name__ == '__main__':
     val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     
     #-- load cnn activation data
-    train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
-    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    #train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
+    #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
     #val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
     #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
     # data.shape = (96, 55, 55, 540/7200)
     # feature temporal z-score
-    print 'CNN features temporal z-score ...'
-    train_feat_m = train_feat_ts.mean(axis=3, keepdims=True)
-    train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
+    #print 'CNN features temporal z-score ...'
+    #train_feat_m = train_feat_ts.mean(axis=3, keepdims=True)
+    #train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
     #train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
     #val_feat_ts = (val_feat_ts-train_feat_m)/(1e-10+train_feat_s)
-    #tmp_train_file = os.path.join(feat_dir, 'train_norm1_trs_z.npy')
+    tmp_train_file = os.path.join(feat_dir, 'train_norm1_trs_z.npy')
     #np.save(tmp_train_file, train_feat_ts)
     #del train_feat_ts
-    #tmp_val_file = os.path.join(feat_dir, 'val_norm1_trs_z.npy')
+    tmp_val_file = os.path.join(feat_dir, 'val_norm1_trs_z.npy')
     #np.save(tmp_val_file, val_feat_ts)
     #del val_feat_ts
-    #train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
-    #val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
+    train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
+    val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
     
     #-- load optical flow data: mag and ang and stack features
     #tr_mag_file = os.path.join(feat_dir, 'train_opticalflow_mag_trs_55_55.npy')
@@ -578,21 +584,26 @@ if __name__ == '__main__':
     #multiple_regression(fmri_ts, feat_ts, regress_file)
 
     #-- ridge regression
-    #ridge_dir = os.path.join(subj_dir, 'ridge')
-    #if not os.path.exists(ridge_dir):
-    #    os.mkdir(ridge_dir, 0755)
+    ridge_dir = os.path.join(subj_dir, 'ridge')
+    if not os.path.exists(ridge_dir):
+        os.mkdir(ridge_dir, 0755)
     #-- fmri data z-score
     print 'fmri data temporal z-score'
     m = np.mean(train_fmri_ts, axis=1, keepdims=True)
     s = np.std(train_fmri_ts, axis=1, keepdims=True)
-    #train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
+    train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
     val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
-    #ridge_prefix = 'conv1_pixel_wise'
+    #ridge_prefix = 'conv3_pixel_wise'
     #ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts, val_fmri_ts,
     #                 ridge_dir, ridge_prefix, with_wt=True, n_cpus=4)
+    ridge_prefix = 'norm1_layer_wise'
+    print 'layer-wise regression'
+    layer_ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts,
+                           val_fmri_ts, ridge_dir, ridge_prefix,
+                           with_wt=True)
     #-- roi_stats
-    #corr_file = os.path.join(ridge_dir, 'conv1_optical_pixel_wise_corr.npy')
-    #wt_file = os.path.join(ridge_dir, 'conv1_optical_pixel_wise_weights.npy')
+    #corr_file = os.path.join(ridge_dir, 'conv3_pixel_wise_corr.npy')
+    #wt_file = os.path.join(ridge_dir, 'conv3_pixel_wise_weights.npy')
     #corr_mtx = np.load(corr_file, mmap_mode='r')
     #wt_mtx = np.load(wt_file, mmap_mode='r')
     #roi_info(corr_mtx, wt_mtx, tf, vxl_idx, ridge_dir)
@@ -610,29 +621,29 @@ if __name__ == '__main__':
     #train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
     #val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
     #print train_fmri_ts.shape
-    #ridge_prefix = 'random_conv1_optical_pixel_wise'
+    #ridge_prefix = 'random_conv3_pixel_wise'
     #random_ridge_regression(train_feat_ts, train_fmri_ts,
     #                        val_feat_ts, val_fmri_ts,
     #                        1000, ridge_dir, ridge_prefix)
     #-- permutation stats
-    #rand_f = os.path.join(ridge_dir,'random_conv1_optical_pixel_wise_corr.npy')
+    #rand_f = os.path.join(ridge_dir,'random_conv3_pixel_wise_corr.npy')
     #random_corr_mtx = np.load(rand_f)
     #permutation_stats(random_corr_mtx)
     #-- CNN activation prediction models
-    cnn_pred_dir = os.path.join(subj_dir, 'cnn_pred')
-    if not os.path.exists(cnn_pred_dir):
-        os.mkdir(cnn_pred_dir, 0755)
-    pred_out_prefix = 'pred_norm1'
+    #cnn_pred_dir = os.path.join(subj_dir, 'cnn_pred')
+    #if not os.path.exists(cnn_pred_dir):
+    #    os.mkdir(cnn_pred_dir, 0755)
+    #pred_out_prefix = 'pred_norm1'
     #pred_cnn_ridge(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
     #               cnn_pred_dir, pred_out_prefix, with_wt=True, n_cpus=2)
     #-- cnn features reconstruction
-    wt_file = os.path.join(cnn_pred_dir, pred_out_prefix+'_weights.npy')
-    wts = np.load(wt_file, mmap_mode='r')
-    pred_val_feat_ts_z = wts.dot(val_fmri_ts)
-    print pred_val_feat_ts_z.shape
-    pred_val_feat_ts = pred_val_feat_ts_z*(1e-10+train_feat_s) + train_feat_m
-    out_file = os.path.join(cnn_pred_dir, pred_out_prefix+'_val_feat_ts.npy')
-    np.save(out_file, np.array(pred_val_feat_ts))
+    #wt_file = os.path.join(cnn_pred_dir, pred_out_prefix+'_weights.npy')
+    #wts = np.load(wt_file, mmap_mode='r')
+    #pred_val_feat_ts_z = wts.dot(val_fmri_ts)
+    #print pred_val_feat_ts_z.shape
+    #pred_val_feat_ts = pred_val_feat_ts_z*(1e-10+train_feat_s) + train_feat_m
+    #out_file = os.path.join(cnn_pred_dir, pred_out_prefix+'_val_feat_ts.npy')
+    #np.save(out_file, np.array(pred_val_feat_ts))
 
     #-- PLS-CCA
     #pls_dir = os.path.join(subj_dir, 'plscca')
