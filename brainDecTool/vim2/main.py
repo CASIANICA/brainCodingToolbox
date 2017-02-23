@@ -596,6 +596,8 @@ if __name__ == '__main__':
     #ridge_prefix = 'conv3_pixel_wise'
     #ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts, val_fmri_ts,
     #                 ridge_dir, ridge_prefix, with_wt=True, n_cpus=4)
+    #-- layer-wise ridge regression
+    #-- remember to modify the data type of wt in ridge function!
     ridge_prefix = 'norm1_layer_wise'
     print 'layer-wise regression'
     layer_ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts,

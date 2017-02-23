@@ -59,8 +59,8 @@ def ridge(stim, resp, alpha, singcutoff=1e-10, normalpha=False,
     # Compute weights for each alpha
     ualphas = np.unique(nalphas)
     # for layer regression, using dtype=float16
-    wt = np.zeros((stim.shape[1], resp.shape[1]), dtype=np.float16)
-    #wt = np.zeros((stim.shape[1], resp.shape[1]))
+    #wt = np.zeros((stim.shape[1], resp.shape[1]), dtype=np.float16)
+    wt = np.zeros((stim.shape[1], resp.shape[1]))
     for ua in ualphas:
         selvox = np.nonzero(nalphas==ua)[0]
         awt = reduce(np.dot, [Vh.T, np.diag(S/(S**2+ua**2)), UR[:,selvox]])
