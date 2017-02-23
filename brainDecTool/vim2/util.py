@@ -46,6 +46,14 @@ def node2feature(node_idx, data_shape):
     row_idx = (node_idx % (s[1]*s[2])) / s[2]
     return (channel_idx, row_idx, col_idx)
 
+def vxl_data2nifti(data, vxl_idx, out_file):
+    """Save data according to its voxel index into a nifti file."""
+    data_mtx = np.zeros((18, 64, 64))
+    data_mtx[:] = np.nan
+    data_mtx = data_mtx.flatten()
+    data_mtx[vxl_idx] = data
+    save2nifti(data_mtx.reshape(18, 64, 64), out_file)
+
 def save2nifti(data, filename):
     """Save 3D data as nifti file.
     Original data shape is (18, 64, 64), and the resulting data shape is

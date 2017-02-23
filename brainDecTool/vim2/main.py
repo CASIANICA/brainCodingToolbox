@@ -487,7 +487,7 @@ if __name__ == '__main__':
 
     #-- load fmri response
     train_fmri_ts = tf.get_node('/rt')[:]
-    val_fmri_ts = tf.get_node('/rv')[:]
+    #val_fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
     #-- get non-nan voxel indexs
     train_fmri_s = train_fmri_ts.sum(axis=1)
@@ -497,8 +497,8 @@ if __name__ == '__main__':
     mask = vutil.data_swap(mask_file).flatten()
     vxl_idx = np.nonzero(mask==1)[0]
     vxl_idx = np.intersect1d(vxl_idx, non_nan_idx)
-    train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
-    val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
+    #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
+    #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     
     #-- load cnn activation data
     #train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
@@ -512,14 +512,14 @@ if __name__ == '__main__':
     #train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
     #train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
     #val_feat_ts = (val_feat_ts-train_feat_m)/(1e-10+train_feat_s)
-    tmp_train_file = os.path.join(feat_dir, 'train_norm1_trs_z.npy')
+    #tmp_train_file = os.path.join(feat_dir, 'train_norm1_trs_z.npy')
     #np.save(tmp_train_file, train_feat_ts)
     #del train_feat_ts
-    tmp_val_file = os.path.join(feat_dir, 'val_norm1_trs_z.npy')
+    #tmp_val_file = os.path.join(feat_dir, 'val_norm1_trs_z.npy')
     #np.save(tmp_val_file, val_feat_ts)
     #del val_feat_ts
-    train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
-    val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
+    #train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
+    #val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
     
     #-- load optical flow data: mag and ang and stack features
     #tr_mag_file = os.path.join(feat_dir, 'train_opticalflow_mag_trs_55_55.npy')
@@ -588,21 +588,15 @@ if __name__ == '__main__':
     if not os.path.exists(ridge_dir):
         os.mkdir(ridge_dir, 0755)
     #-- fmri data z-score
-    print 'fmri data temporal z-score'
-    m = np.mean(train_fmri_ts, axis=1, keepdims=True)
-    s = np.std(train_fmri_ts, axis=1, keepdims=True)
-    train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
-    val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
+    #print 'fmri data temporal z-score'
+    #m = np.mean(train_fmri_ts, axis=1, keepdims=True)
+    #s = np.std(train_fmri_ts, axis=1, keepdims=True)
+    #train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
+    #val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
+    #-- pixel-wise regression
     #ridge_prefix = 'conv3_pixel_wise'
     #ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts, val_fmri_ts,
     #                 ridge_dir, ridge_prefix, with_wt=True, n_cpus=4)
-    #-- layer-wise ridge regression
-    #-- remember to modify the data type of wt in ridge function!
-    ridge_prefix = 'norm1_layer_wise'
-    print 'layer-wise regression'
-    layer_ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts,
-                           val_fmri_ts, ridge_dir, ridge_prefix,
-                           with_wt=True)
     #-- roi_stats
     #corr_file = os.path.join(ridge_dir, 'conv3_pixel_wise_corr.npy')
     #wt_file = os.path.join(ridge_dir, 'conv3_pixel_wise_weights.npy')
@@ -611,7 +605,21 @@ if __name__ == '__main__':
     #roi_info(corr_mtx, wt_mtx, tf, vxl_idx, ridge_dir)
     #-- retinotopic mapping
     #ridge_retinotopic_mapping(corr_file, vxl_idx, 5)
-    #-- random regression
+    
+    #-- layer-wise ridge regression
+    #-- remember to modify the data type of wt in ridge function!
+    #ridge_prefix = 'norm1_layer_wise'
+    #print 'layer-wise regression'
+    #layer_ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts,
+    #                       val_fmri_ts, ridge_dir, ridge_prefix,
+    #                       with_wt=True)
+    #-- predicted voxel activity to nifti
+    corr_file = os.path.join(ridge_dir, 'norm1_layer_wise_corr.npy')
+    corr_data = np.load(corr_file)
+    nii_file = os.path.join(ridge_dir, 'norm1_vxl_corr.nii.gz')
+    vutil.vxl_data2nifti(corr_data, vxl_idx, nii_file)
+    
+    #-- pixel-wise random regression
     #selected_vxl_idx = [5666, 9697, 5533, 5597, 5285, 5538, 5273, 5465, 38695,
     #                    38826, 42711, 46873, 30444, 34474, 38548, 42581, 5097,
     #                    5224, 5205, 9238, 9330, 13169, 17748, 21780]
@@ -622,7 +630,6 @@ if __name__ == '__main__':
     #s = np.std(train_fmri_ts, axis=1, keepdims=True)
     #train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
     #val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
-    #print train_fmri_ts.shape
     #ridge_prefix = 'random_conv3_pixel_wise'
     #random_ridge_regression(train_feat_ts, train_fmri_ts,
     #                        val_feat_ts, val_fmri_ts,
@@ -631,6 +638,7 @@ if __name__ == '__main__':
     #rand_f = os.path.join(ridge_dir,'random_conv3_pixel_wise_corr.npy')
     #random_corr_mtx = np.load(rand_f)
     #permutation_stats(random_corr_mtx)
+    
     #-- CNN activation prediction models
     #cnn_pred_dir = os.path.join(subj_dir, 'cnn_pred')
     #if not os.path.exists(cnn_pred_dir):
