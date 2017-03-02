@@ -77,14 +77,18 @@ def recon_test():
     caffenet.forward(data=data)
     #feat = np.copy(caffenet.blobs['fc6'].data)
     feat = np.copy(caffenet.blobs['norm1'].data)
-    #print feat.shape
+    # feat.shape = (10, 96, 27, 27)
     del caffenet
+
+    # select specific channels for reconstruction
+    nfeat = np.zeros_like(feat)
+    nfeat[:, 0:48, :, :] = feat[:, 0:48, :, :]
 
     # run the reconstruction net
     rc_dir = os.path.join(test_dir, 'conv1')
     net = caffe.Net(os.path.join(rc_dir,'invert_alexnet_conv1_deploy.prototxt'),
                     os.path.join(rc_dir, 'invert_alexnet_conv1.caffemodel'))
-    generated = net.forward(feat=feat)
+    generated = net.forward(feat=nfeat)
     recon = generated['deconv0'][:,::-1, :, :]
     del net
 
@@ -92,8 +96,8 @@ def recon_test():
     images = np.transpose(images, (0, 2, 3, 1))
     recon = np.transpose(recon, (0, 2, 3, 1))
     print images.shape, recon.shape
-    normalize(images, out_range=(0., 1.), in_range=(-120, 120))
-    normalize(recon, out_range=(0., 1.), in_range=(-120, 120))
+    images = normalize(images, out_range=(0., 1.), in_range=(-120, 120))
+    recon = normalize(recon, out_range=(0., 1.), in_range=(-120, 120))
     # save results to a file
     np.save('orig_imgs.npy', images)
     np.save('recon_img.npy', recon)
@@ -117,27 +121,29 @@ def recon(feat):
 
 if __name__ == '__main__':
     """Main function."""
-    root_dir = r'/home/huanglijie/brainDecoding'
-    feat_file = os.path.join(root_dir, 'vS1_pred_feat1.npy')
-    feat = np.load(feat_file)
-    # up-sample to 27x27
-    feat = zoom(feat, (1, 2, 2, 1), order=1)
-    feat = feat[:, :27, :27, :]
-    # deconvolve signals
-    #time_unit = 1.0
-    #hrf_times = np.arange(0, 35, 1)
-    #hrf_signal = hrf.biGammaHRF(hrf_times)
-    #feat = feat.reshape(-1, feat.shape[3]).T
-    #deconv, _ = np.apply_along_axis(signal.deconvolve, 0, feat, hrf_signal[1:])
-    #deconv = np.concatenate(deconv).reshape(deconv.shape[0],deconv[0].shape[0])
-    #deconv = deconv.reshape(96, 27, 27, -1)
-    # inverse log transform
-    feat = np.exp(feat) - 1
-    # reorder data shape
-    feat = feat.transpose((3, 0, 1, 2))
-    #deconv = deconv.transpose((3, 0, 1, 2))
-    test_feat = feat[:10, ...]
-    recon = recon(test_feat)
-    # save results to a file
-    np.save('recon_img.npy', recon)
-
+    #root_dir = r'/home/huanglijie/brainDecoding'
+    #feat_file = os.path.join(root_dir, 'vS1_pred_feat1.npy')
+    #feat = np.load(feat_file)
+    ## up-sample to 27x27
+    #feat = zoom(feat, (1, 2, 2, 1), order=1)
+    #feat = feat[:, :27, :27, :]
+    ## deconvolve signals
+    ##time_unit = 1.0
+    ##hrf_times = np.arange(0, 35, 1)
+    ##hrf_signal = hrf.biGammaHRF(hrf_times)
+    ##feat = feat.reshape(-1, feat.shape[3]).T
+    ##deconv, _ = np.apply_along_axis(signal.deconvolve, 0, feat, hrf_signal[1:])
+    ##deconv = np.concatenate(deconv).reshape(deconv.shape[0],deconv[0].shape[0])
+    ##deconv = deconv.reshape(96, 27, 27, -1)
+    ## inverse log transform
+    #feat = np.exp(feat) - 1
+    ## reorder data shape
+    #feat = feat.transpose((3, 0, 1, 2))
+    ##deconv = deconv.transpose((3, 0, 1, 2))
+    #test_feat = feat[:10, ...]
+    #recon = recon(test_feat)
+    ## save results to a file
+    #np.save('recon_img.npy', recon)
+    
+    # module test
+    recon_test()
