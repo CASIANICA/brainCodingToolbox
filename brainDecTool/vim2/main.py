@@ -23,6 +23,45 @@ from brainDecTool.pipeline.base import pred_cnn_ridge
 from brainDecTool.vim2 import util as vutil
 
 
+def inter_subj_cca(db_dir):
+    """Inter-subject CCA to extract stimulus-related brain areas"""
+    # training stack data
+    tdata = []
+    # validation stack data
+    vdata = []
+    subj_num = 3
+    subjects = ['S1', 'S2', 'S3']
+
+    for subj in subjects:
+        subj_dir = os.path.join(db_dir, 'v%s'%subj)
+        tf = tables.open_file(os.path.join(subj_dir, 'VoxelResponses.mat'))
+        # generate mask
+        train_fmri_ts = tf.get_node('/rt')[:]
+        train_fmri_s = train_fmri_ts.sum(axis=1)
+        non_nan_idx = np.nonzero(np.logical_not(np.isnan(train_fmri_s)))[0]
+        mask_file = os.path.join(subj_dir, '%s_mask.nii.gz'%(subj))
+        mask = vutil.data_swap(mask_file).flatten()
+        vxl_idx = np.nonzero(mask==1)[0]
+        vxl_idx = np.intersect1d(vxl_idx, non_nan_idx)
+        #-- load fmri response
+        zscore = lambda d: (d-d.mean(1, keepdims=True))/d.std(1, keepdims=True)
+        train_ts = np.nan_to_num(zscore(np.nan_to_num(tf.get_node('/rt')[:])))
+        val_ts = np.nan_to_num(zscore(np.nan_to_num(tf.get_node('/rv')[:])))
+        # data.shape = (73728, 540/7200)
+        print train_ts[vxl_idx].T.shape
+        print val_ts[vxl_idx].T.shape
+        tdata.append(train_ts[vxl_idx].T)
+        vdata.append(val_ts[vxl_idx].T)
+
+    # CCA
+    regs = np.array(np.logspace(-4, 2, 10))
+    numCCs = np.arange(3, 6)
+    cca = rcca.CCACrossValidate(numCCs=numCCs, regs=regs)
+    cca.train(tdata)
+    cca.validate(vdata)
+    cca.compute_ev(vdata)
+    cca.save('inter_subj)cca_results.hdf5')
+
 def retinotopic_mapping(corr_file, mask=None):
     """Make the retinotopic mapping using activation map from CNN."""
     data_dir = os.path.dirname(corr_file)
@@ -469,13 +508,16 @@ if __name__ == '__main__':
     feat_dir = os.path.join(root_dir, 'sfeatures')
     db_dir = os.path.join(root_dir, 'subjects')
 
+    # inter-subject CCA
+    inter_subj_cca(db_dir)
+    
     # subj config
-    subj_id = 1
-    subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
+    #subj_id = 1
+    #subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
     
     #-- load fmri data
-    fmri_file = os.path.join(subj_dir, 'VoxelResponses.mat')
-    tf = tables.open_file(fmri_file)
+    #fmri_file = os.path.join(subj_dir, 'VoxelResponses.mat')
+    #tf = tables.open_file(fmri_file)
     #tf.list_nodes
     #-- roi mat to nii
     #roi_file = os.path.join(subj_dir, 'S%s_small_roi.nii.gz'%(subj_id))
@@ -486,17 +528,17 @@ if __name__ == '__main__':
     #vutil.gen_mean_vol(tf, dataset, mean_file)
 
     #-- load fmri response
-    train_fmri_ts = tf.get_node('/rt')[:]
+    #train_fmri_ts = tf.get_node('/rt')[:]
     #val_fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
     #-- get non-nan voxel indexs
-    train_fmri_s = train_fmri_ts.sum(axis=1)
-    non_nan_idx = np.nonzero(np.logical_not(np.isnan(train_fmri_s)))[0]
+    #train_fmri_s = train_fmri_ts.sum(axis=1)
+    #non_nan_idx = np.nonzero(np.logical_not(np.isnan(train_fmri_s)))[0]
     #-- load brain mask
-    mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
-    mask = vutil.data_swap(mask_file).flatten()
-    vxl_idx = np.nonzero(mask==1)[0]
-    vxl_idx = np.intersect1d(vxl_idx, non_nan_idx)
+    #mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
+    #mask = vutil.data_swap(mask_file).flatten()
+    #vxl_idx = np.nonzero(mask==1)[0]
+    #vxl_idx = np.intersect1d(vxl_idx, non_nan_idx)
     #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
     #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     
@@ -584,9 +626,9 @@ if __name__ == '__main__':
     #multiple_regression(fmri_ts, feat_ts, regress_file)
 
     #-- ridge regression
-    ridge_dir = os.path.join(subj_dir, 'ridge')
-    if not os.path.exists(ridge_dir):
-        os.mkdir(ridge_dir, 0755)
+    #ridge_dir = os.path.join(subj_dir, 'ridge')
+    #if not os.path.exists(ridge_dir):
+    #    os.mkdir(ridge_dir, 0755)
     #-- fmri data z-score
     #print 'fmri data temporal z-score'
     #m = np.mean(train_fmri_ts, axis=1, keepdims=True)
@@ -614,10 +656,10 @@ if __name__ == '__main__':
     #                       val_fmri_ts, ridge_dir, ridge_prefix,
     #                       with_wt=True)
     #-- predicted voxel activity to nifti
-    corr_file = os.path.join(ridge_dir, 'norm1_layer_wise_corr.npy')
-    corr_data = np.load(corr_file)
-    nii_file = os.path.join(ridge_dir, 'norm1_vxl_corr.nii.gz')
-    vutil.vxl_data2nifti(corr_data, vxl_idx, nii_file)
+    #corr_file = os.path.join(ridge_dir, 'norm1_layer_wise_corr.npy')
+    #corr_data = np.load(corr_file)
+    #nii_file = os.path.join(ridge_dir, 'norm1_vxl_corr.nii.gz')
+    #vutil.vxl_data2nifti(corr_data, vxl_idx, nii_file)
     
     #-- pixel-wise random regression
     #selected_vxl_idx = [5666, 9697, 5533, 5597, 5285, 5538, 5273, 5465, 38695,
