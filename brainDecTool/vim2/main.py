@@ -66,7 +66,7 @@ def vxl_assign_layer(ridge_dir, vxl_idx):
     """Assign layer index for each voxel."""
     layers = ['norm1', 'norm2', 'conv3', 'conv4', 'pool5']
     for layer in layers:
-        corr_file = os.path.join(ridge, '%s_layer_wise_corr.npy'%layer)
+        corr_file = os.path.join(ridge_dir, '%s_layer_wise_corr.npy'%layer)
         tmp = np.load(corr_file)
         if layers.index(layer):
             data = np.column_stack((data, tmp))
@@ -675,7 +675,7 @@ if __name__ == '__main__':
     #corr_data = np.load(corr_file)
     #nii_file = os.path.join(ridge_dir, 'norm1_vxl_corr.nii.gz')
     #vutil.vxl_data2nifti(corr_data, vxl_idx, nii_file)
-    vxl_assign_layer(ridge_dir, vxl_idx):
+    vxl_assign_layer(ridge_dir, vxl_idx)
     
     #-- pixel-wise random regression
     #selected_vxl_idx = [5666, 9697, 5533, 5597, 5285, 5538, 5273, 5465, 38695,
@@ -730,6 +730,7 @@ if __name__ == '__main__':
     #inter_subj_cc_sim(1, 2, db_dir)
 
     #-- regularized CCA
+    # TODO: each feature map can be modeled separately.
     #cca_dir = os.path.join(retino_dir, 'rcca', 'rcca_cc7')
     #if not os.path.exists(cca_dir):
     #    os.mkdir(cca_dir, 0755)
