@@ -62,6 +62,21 @@ def inter_subj_cca(db_dir):
     cca.compute_ev(vdata)
     cca.save('inter_subj)cca_results.hdf5')
 
+def vxl_assign_layer(ridge_dir, vxl_idx):
+    """Assign layer index for each voxel."""
+    layers = ['norm1', 'norm2', 'conv3', 'conv4', 'pool5']
+    for layer in layers:
+        corr_file = os.path.join(ridge, '%s_layer_wise_corr.npy'%layer)
+        tmp = np.load(corr_file)
+        if layers.index(layer):
+            data = np.column_stack((data, tmp))
+        else:
+            data = tmp
+    print data.shape
+    layer_idx = np.argmax(data, axis=1) + 1
+    outfile = os.path.join(ridge_dir, 'layer_index.nii.gz')
+    vutil.vxl_data2nifti(layer_idx, vxl_idx, outfile)
+
 def retinotopic_mapping(corr_file, mask=None):
     """Make the retinotopic mapping using activation map from CNN."""
     data_dir = os.path.dirname(corr_file)
@@ -660,6 +675,7 @@ if __name__ == '__main__':
     #corr_data = np.load(corr_file)
     #nii_file = os.path.join(ridge_dir, 'norm1_vxl_corr.nii.gz')
     #vutil.vxl_data2nifti(corr_data, vxl_idx, nii_file)
+    vxl_assign_layer(ridge_dir, vxl_idx):
     
     #-- pixel-wise random regression
     #selected_vxl_idx = [5666, 9697, 5533, 5597, 5285, 5538, 5273, 5465, 38695,
