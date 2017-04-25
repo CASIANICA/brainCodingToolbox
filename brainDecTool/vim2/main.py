@@ -25,12 +25,13 @@ from brainDecTool.vim2 import util as vutil
 
 def inter_subj_cca(db_dir):
     """Inter-subject CCA to extract stimulus-related brain areas"""
+    subj_num = 3
+    subjects = ['S1', 'S2', 'S3']
+    
     # training stack data
     tdata = []
     # validation stack data
     vdata = []
-    subj_num = 3
-    subjects = ['S1', 'S2', 'S3']
 
     for subj in subjects:
         subj_dir = os.path.join(db_dir, 'v%s'%subj)
@@ -60,7 +61,7 @@ def inter_subj_cca(db_dir):
     cca.train(tdata)
     cca.validate(vdata)
     cca.compute_ev(vdata)
-    cca.save('inter_subj)cca_results.hdf5')
+    cca.save('inter_subj_cca_results.hdf5')
 
 def vxl_assign_layer(ridge_dir, vxl_idx):
     """Assign layer index for each voxel."""
@@ -524,15 +525,19 @@ if __name__ == '__main__':
     db_dir = os.path.join(root_dir, 'subjects')
 
     # inter-subject CCA
-    inter_subj_cca(db_dir)
-    
+    #inter_subj_cca(db_dir)
+ 
+    # phrase 'test': the analyses were only conducted within V1 for code test
+    # phrase 'work': for real analyses
+    phrase = 'test'
+ 
     # subj config
-    #subj_id = 1
-    #subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
-    
+    subj_id = 1
+    subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
+ 
     #-- load fmri data
-    #fmri_file = os.path.join(subj_dir, 'VoxelResponses.mat')
-    #tf = tables.open_file(fmri_file)
+    fmri_file = os.path.join(subj_dir, 'VoxelResponses.mat')
+    tf = tables.open_file(fmri_file)
     #tf.list_nodes
     #-- roi mat to nii
     #roi_file = os.path.join(subj_dir, 'S%s_small_roi.nii.gz'%(subj_id))
@@ -543,25 +548,31 @@ if __name__ == '__main__':
     #vutil.gen_mean_vol(tf, dataset, mean_file)
 
     #-- load fmri response
-    #train_fmri_ts = tf.get_node('/rt')[:]
-    #val_fmri_ts = tf.get_node('/rv')[:]
+    train_fmri_ts = tf.get_node('/rt')[:]
+    val_fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
     #-- get non-nan voxel indexs
-    #train_fmri_s = train_fmri_ts.sum(axis=1)
-    #non_nan_idx = np.nonzero(np.logical_not(np.isnan(train_fmri_s)))[0]
+    train_fmri_s = train_fmri_ts.sum(axis=1)
+    non_nan_idx = np.nonzero(np.logical_not(np.isnan(train_fmri_s)))[0]
     #-- load brain mask
-    #mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
-    #mask = vutil.data_swap(mask_file).flatten()
-    #vxl_idx = np.nonzero(mask==1)[0]
-    #vxl_idx = np.intersect1d(vxl_idx, non_nan_idx)
-    #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
-    #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
+    if phrase == 'test':
+        mask_file = os.path.join(subj_dir, 'S%s_small_roi.nii.gz'%(subj_id))
+        mask = vutil.data_swap(mask_file).flatten()
+        mask[mask>2] = 0
+        mask[mask>0] = 1
+    else:
+        mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
+        mask = vutil.data_swap(mask_file).flatten()
+    vxl_idx = np.nonzero(mask==1)[0]
+    vxl_idx = np.intersect1d(vxl_idx, non_nan_idx)
+    train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
+    val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     
     #-- load cnn activation data
-    #train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
-    #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
-    #val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
-    #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
+    train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
+    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
+    val_feat_ts = np.load(val_feat_file, mmap_mode='r')
     # data.shape = (96, 55, 55, 540/7200)
     # feature temporal z-score
     #print 'CNN features temporal z-score ...'
@@ -675,7 +686,7 @@ if __name__ == '__main__':
     #corr_data = np.load(corr_file)
     #nii_file = os.path.join(ridge_dir, 'norm1_vxl_corr.nii.gz')
     #vutil.vxl_data2nifti(corr_data, vxl_idx, nii_file)
-    vxl_assign_layer(ridge_dir, vxl_idx)
+    #vxl_assign_layer(ridge_dir, vxl_idx)
     
     #-- pixel-wise random regression
     #selected_vxl_idx = [5666, 9697, 5533, 5597, 5285, 5538, 5273, 5465, 38695,
