@@ -567,6 +567,12 @@ if __name__ == '__main__':
     vxl_idx = np.intersect1d(vxl_idx, non_nan_idx)
     train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
     val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
+    # data.shape = (994, 7200/540)
+    ##-- save masked data as npy file
+    #train_file = os.path.join(subj_dir, 'S%s_train_fmri_V1.npy'%(subj_id))
+    #val_file = os.path.join(subj_dir, 'S%s_val_fmri_V1.npy'%(subj_id))
+    #np.save(train_file, train_fmri_ts)
+    #np.save(val_file, val_fmri_ts)
     
     #-- load cnn activation data
     train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
