@@ -38,8 +38,8 @@ def inter_subj_cca(db_dir):
         tf = tables.open_file(os.path.join(subj_dir, 'VoxelResponses.mat'))
         # generate mask
         train_fmri_ts = tf.get_node('/rt')[:]
-        train_fmri_s = train_fmri_ts.sum(axis=1)
-        non_nan_idx = np.nonzero(np.logical_not(np.isnan(train_fmri_s)))[0]
+        fmri_s = train_fmri_ts.sum(axis=1)
+        non_nan_idx = np.nonzero(np.logical_not(np.isnan(fmri_s)))[0]
         mask_file = os.path.join(subj_dir, '%s_mask.nii.gz'%(subj))
         mask = vutil.data_swap(mask_file).flatten()
         vxl_idx = np.nonzero(mask==1)[0]
@@ -78,7 +78,7 @@ def vxl_assign_layer(ridge_dir, vxl_idx):
     outfile = os.path.join(ridge_dir, 'layer_index.nii.gz')
     vutil.vxl_data2nifti(layer_idx, vxl_idx, outfile)
 
-def retinotopic_mapping(corr_file, mask=None):
+def retinotopic_mapping(corr_file, vxl_idx=None):
     """Make the retinotopic mapping using activation map from CNN."""
     data_dir = os.path.dirname(corr_file)
     #fig_dir = os.path.join(data_dir, 'fig')
@@ -86,19 +86,15 @@ def retinotopic_mapping(corr_file, mask=None):
     #    os.mkdir(fig_dir, 0755)
     # load the cross-correlation matrix from file
     corr_mtx = np.load(corr_file, mmap_mode='r')
-    #corr_mtx = np.memmap(corr_file, dtype='float16', mode='r',
-    #                     shape=(73728, 3025))
-    #                     shape=(73728, 290400))
-    if isinstance(mask, np.ndarray):
-        vxl_num = len(mask)
-        vxl_idx = np.nonzero(mask==1)[0]
+    if isinstance(vxl_idx, np.ndarray):
+        vxl_num = len(vxl_idx)
     else:
         vxl_num = corr_mtx.shape[0]
         vxl_idx = np.arange(vxl_num)
     pos_mtx = np.zeros((vxl_num, 2))
     pos_mtx[:] = np.nan
-    for i in range(len(vxl_idx)):
-        print 'Iter %s of %s' %(i, len(vxl_idx)),
+    for i in range(vxl_num):
+        print 'Iter %s of %s' %(i, vxl_num),
         tmp = corr_mtx[i, :]
         tmp = np.nan_to_num(np.array(tmp))
         # significant threshold
@@ -524,10 +520,10 @@ if __name__ == '__main__':
     feat_dir = os.path.join(root_dir, 'sfeatures')
     db_dir = os.path.join(root_dir, 'subjects')
 
-    # inter-subject CCA
+    #-- inter-subject CCA
     #inter_subj_cca(db_dir)
  
-    # phrase 'test': the analyses were only conducted within V1 for code test
+    # phrase 'test': analyses were only conducted within V1 for code test
     # phrase 'work': for real analyses
     phrase = 'test'
  
@@ -552,8 +548,8 @@ if __name__ == '__main__':
     val_fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
     #-- get non-nan voxel indexs
-    train_fmri_s = train_fmri_ts.sum(axis=1)
-    non_nan_idx = np.nonzero(np.logical_not(np.isnan(train_fmri_s)))[0]
+    fmri_s = train_fmri_ts.sum(axis=2)
+    non_nan_idx = np.nonzero(np.logical_not(np.isnan(fmri_s)))[0]
     #-- load brain mask
     if phrase == 'test':
         mask_file = os.path.join(subj_dir, 'S%s_small_roi.nii.gz'%(subj_id))
@@ -579,7 +575,7 @@ if __name__ == '__main__':
     train_feat_ts = np.load(train_feat_file, mmap_mode='r')
     val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
     val_feat_ts = np.load(val_feat_file, mmap_mode='r')
-    # data.shape = (96, 55, 55, 540/7200)
+    # data.shape = (96, 27, 27, 7200/540)
     # feature temporal z-score
     print 'CNN features temporal z-score ...'
     train_feat_m = train_feat_ts.mean(axis=3, keepdims=True)
@@ -636,21 +632,19 @@ if __name__ == '__main__':
     #train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
     #val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
 
-    #-- calculate cross-modality corrlation 
-    # sum up all channels
-    # select parts of channels
-    #feat_ts = feat_ts[0:48, :]
-    #feat_ts = feat_ts.sum(axis=0)
+    #-- retinotopic mapping based on cross-modality corrlation 
     #retino_dir = os.path.join(subj_dir, 'retinotopic')
     #if not os.path.exists(retino_dir):
     #    os.mkdir(retino_dir, 0755)
-    #corr_file = os.path.join(retino_dir, 'val_feat1_corr.npy')
-    #val_feat_ts = val_feat_ts.reshape(290400, 540)
-    #parallel_corr2_coef(val_fmri_ts, val_feat_ts, corr_file, block_size=96)
+    #corr_file = os.path.join(retino_dir, 'train_norm1_corr.npy')
+    # select channels
+    ##feat_ts = train_feat_ts[0:48, :]
+    #feat_ts = feat_ts.reshape(69984, 7200)
+    #parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=96)
+    #retinotopic_mapping(corr_file, vxl_idx)
+    #-- random cross-modal correlation
     #rand_corr_file = os.path.join(retino_dir, 'train_fmri_feat1_rand_corr.npy')
     #random_cross_modal_corr(fmri_ts, feat_ts, 10, 1000, rand_corr_file)
-    #-- retinotopic mapping
-    #retinotopic_mapping(corr_file, mask)
     
     #-- multiple regression voxel ~ channels from each location
     #regress_file = os.path.join(retino_dir, 'val_fmri_feat1_regress.npy')
