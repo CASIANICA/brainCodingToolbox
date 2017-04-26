@@ -575,23 +575,23 @@ if __name__ == '__main__':
     #np.save(val_file, val_fmri_ts)
     
     #-- load cnn activation data
-    #train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
-    #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
-    #val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
-    #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
+    train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
+    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
+    val_feat_ts = np.load(val_feat_file, mmap_mode='r')
     # data.shape = (96, 55, 55, 540/7200)
     # feature temporal z-score
-    #print 'CNN features temporal z-score ...'
-    #train_feat_m = train_feat_ts.mean(axis=3, keepdims=True)
-    #train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
-    #train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
-    #val_feat_ts = (val_feat_ts-train_feat_m)/(1e-10+train_feat_s)
-    tmp_train_file = os.path.join(feat_dir, 'nohrf', 'train_norm1_trs_z.npy')
-    #np.save(tmp_train_file, train_feat_ts)
-    #del train_feat_ts
-    tmp_val_file = os.path.join(feat_dir, 'nohrf', 'val_norm1_trs_z.npy')
-    #np.save(tmp_val_file, val_feat_ts)
-    #del val_feat_ts
+    print 'CNN features temporal z-score ...'
+    train_feat_m = train_feat_ts.mean(axis=3, keepdims=True)
+    train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
+    train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
+    val_feat_ts = (val_feat_ts-train_feat_m)/(1e-10+train_feat_s)
+    tmp_train_file = os.path.join(feat_dir, 'train_norm1_trs_z.npy')
+    np.save(tmp_train_file, train_feat_ts)
+    del train_feat_ts
+    tmp_val_file = os.path.join(feat_dir, 'val_norm1_trs_z.npy')
+    np.save(tmp_val_file, val_feat_ts)
+    del val_feat_ts
     train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
     val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
     
