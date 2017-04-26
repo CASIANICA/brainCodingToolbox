@@ -575,10 +575,10 @@ if __name__ == '__main__':
     #np.save(val_file, val_fmri_ts)
     
     #-- load cnn activation data
-    train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
-    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
-    val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
-    val_feat_ts = np.load(val_feat_file, mmap_mode='r')
+    #train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
+    #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    #val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
+    #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
     # data.shape = (96, 55, 55, 540/7200)
     # feature temporal z-score
     #print 'CNN features temporal z-score ...'
@@ -586,14 +586,14 @@ if __name__ == '__main__':
     #train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
     #train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
     #val_feat_ts = (val_feat_ts-train_feat_m)/(1e-10+train_feat_s)
-    #tmp_train_file = os.path.join(feat_dir, 'train_norm1_trs_z.npy')
+    tmp_train_file = os.path.join(feat_dir, 'nohrf', 'train_norm1_trs_z.npy')
     #np.save(tmp_train_file, train_feat_ts)
     #del train_feat_ts
-    #tmp_val_file = os.path.join(feat_dir, 'val_norm1_trs_z.npy')
+    tmp_val_file = os.path.join(feat_dir, 'nohrf', 'val_norm1_trs_z.npy')
     #np.save(tmp_val_file, val_feat_ts)
     #del val_feat_ts
-    #train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
-    #val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
+    train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
+    val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
     
     #-- load optical flow data: mag and ang and stack features
     #tr_mag_file = os.path.join(feat_dir, 'train_opticalflow_mag_trs_55_55.npy')
@@ -658,17 +658,19 @@ if __name__ == '__main__':
     #multiple_regression(fmri_ts, feat_ts, regress_file)
 
     #-- ridge regression
-    #ridge_dir = os.path.join(subj_dir, 'ridge')
+    #ridge_dir = os.path.join(subj_dir, 'new_ridge')
     #if not os.path.exists(ridge_dir):
     #    os.mkdir(ridge_dir, 0755)
     #-- fmri data z-score
-    #print 'fmri data temporal z-score'
-    #m = np.mean(train_fmri_ts, axis=1, keepdims=True)
-    #s = np.std(train_fmri_ts, axis=1, keepdims=True)
-    #train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
-    #val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
+    print 'fmri data temporal z-score'
+    m = np.mean(train_fmri_ts, axis=1, keepdims=True)
+    s = np.std(train_fmri_ts, axis=1, keepdims=True)
+    train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
+    m = np.mean(val_fmri_ts, axis=1, keepdims=True)
+    s = np.std(val_fmri_ts, axis=1, keepdims=True)
+    val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
     #-- pixel-wise regression
-    #ridge_prefix = 'conv3_pixel_wise'
+    #ridge_prefix = 'norm1_pixel_wise'
     #ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts, val_fmri_ts,
     #                 ridge_dir, ridge_prefix, with_wt=True, n_cpus=4)
     #-- roi_stats
@@ -715,20 +717,20 @@ if __name__ == '__main__':
     #permutation_stats(random_corr_mtx)
     
     #-- CNN activation prediction models
-    #cnn_pred_dir = os.path.join(subj_dir, 'cnn_pred')
-    #if not os.path.exists(cnn_pred_dir):
-    #    os.mkdir(cnn_pred_dir, 0755)
-    #pred_out_prefix = 'pred_norm1'
-    #pred_cnn_ridge(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
-    #               cnn_pred_dir, pred_out_prefix, with_wt=True, n_cpus=2)
+    cnn_pred_dir = os.path.join(subj_dir, 'cnn_pred')
+    if not os.path.exists(cnn_pred_dir):
+        os.mkdir(cnn_pred_dir, 0755)
+    pred_out_prefix = 'pred_norm1'
+    pred_cnn_ridge(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
+                   cnn_pred_dir, pred_out_prefix, with_wt=True, n_cpus=2)
     #-- cnn features reconstruction
-    #wt_file = os.path.join(cnn_pred_dir, pred_out_prefix+'_weights.npy')
-    #wts = np.load(wt_file, mmap_mode='r')
-    #pred_val_feat_ts_z = wts.dot(val_fmri_ts)
-    #print pred_val_feat_ts_z.shape
-    #pred_val_feat_ts = pred_val_feat_ts_z*(1e-10+train_feat_s) + train_feat_m
-    #out_file = os.path.join(cnn_pred_dir, pred_out_prefix+'_val_feat_ts.npy')
-    #np.save(out_file, np.array(pred_val_feat_ts))
+    wt_file = os.path.join(cnn_pred_dir, pred_out_prefix+'_weights.npy')
+    wts = np.load(wt_file, mmap_mode='r')
+    pred_val_feat_ts_z = wts.dot(val_fmri_ts)
+    print pred_val_feat_ts_z.shape
+    pred_val_feat_ts = pred_val_feat_ts_z*(1e-10+train_feat_s) + train_feat_m
+    out_file = os.path.join(cnn_pred_dir, pred_out_prefix+'_val_feat_ts.npy')
+    np.save(out_file, np.array(pred_val_feat_ts))
 
     #-- PLS-CCA
     #pls_dir = os.path.join(subj_dir, 'plscca')
