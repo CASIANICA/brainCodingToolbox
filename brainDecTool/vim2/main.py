@@ -23,6 +23,87 @@ from brainDecTool.pipeline.base import pred_cnn_ridge
 from brainDecTool.vim2 import util as vutil
 
 
+def retinotopic_mapping(corr_file, vxl_idx=None, figout=False):
+    """Make the retinotopic mapping using activation map from CNN."""
+    data_dir = os.path.dirname(corr_file)
+    if figout:
+        fig_dir = os.path.join(data_dir, 'fig')
+        if not os.path.exists(fig_dir):
+            os.mkdir(fig_dir, 0755)
+    # load the cross-correlation matrix from file
+    corr_mtx = np.load(corr_file, mmap_mode='r')
+    # set voxel index
+    if not isinstance(vxl_idx, np.ndarray):
+        vxl_idx = np.arange(corr_mtx.shape[0])
+    elif len(vxl_idx) != corr_mtx.shape[0]:
+        print 'mismatch on voxel number!'
+        return
+    else:
+        print 'voxel index loaded.'
+    pos_mtx = np.zeros((73728, 2))
+    pos_mtx[:] = np.nan
+    for i in range(len(vxl_idx)):
+        print 'Iter %s of %s' %(i+1, len(vxl_idx)),
+        tmp = corr_mtx[i, :]
+        tmp = np.nan_to_num(np.array(tmp))
+        # significant threshold for one-tail test
+        tmp[tmp <= 0.019257] = 0
+        if np.sum(tmp):
+            tmp = tmp.reshape(96, 27, 27)
+            mmtx = np.max(tmp, axis=0)
+            print mmtx.min(), mmtx.max()
+            # get indices of n maximum values
+            max_n = 20
+            row_idx, col_idx = np.unravel_index(
+                                        np.argsort(mmtx.ravel())[-1*max_n:],
+                                        mmtx.shape)
+            nmtx = np.zeros(mmtx.shape)
+            nmtx[row_idx, col_idx] = mmtx[row_idx, col_idx]
+            if figout:
+                fig_file = os.path.join(fig_dir, 'v'+str(vxl_idx[i])+'.png')
+                imsave(fig_file, nmtx)
+            # center of mass
+            x, y = ndimage.measurements.center_of_mass(nmtx)
+            pos_mtx[vxl_idx[i], :] = [x, y]
+        else:
+            print ' '
+    #receptive_field_file = os.path.join(data_dir, 'receptive_field_pos.npy')
+    #np.save(receptive_field_file, pos_mtx)
+    #pos_mtx = np.load(receptive_field_file)
+    # eccentricity
+    dist = retinotopy.coord2ecc(pos_mtx, (27, 27))
+    # convert distance into degree
+    # 0-4 degree -> d < 5.5
+    # 4-8 degree -> d < 11
+    # 8-12 degree -> d < 16.5
+    # 12-16 degree -> d < 22
+    # else > 16 degree
+    ecc = np.zeros(dist.shape)
+    for i in range(len(dist)):
+        if np.isnan(dist[i]):
+            ecc[i] = np.nan
+        elif dist[i] < 2.7:
+            ecc[i] = 1
+        elif dist[i] < 5.4:
+            ecc[i] = 2
+        elif dist[i] < 8.1:
+            ecc[i] = 3
+        elif dist[i] < 10.8:
+            ecc[i] = 4
+        else:
+            ecc[i] = 5
+    #dist_vec = np.nan_to_num(ecc)
+    #vol = dist_vec.reshape(18, 64, 64)
+    vol = ecc.reshape(18, 64, 64)
+    vutil.save2nifti(vol, os.path.join(data_dir,
+                                'train_max' + str(max_n) + '_ecc.nii.gz'))
+    # angle
+    angle_vec = retinotopy.coord2angle(pos_mtx, (27, 27))
+    #angle_vec = np.nan_to_num(angle_vec)
+    vol = angle_vec.reshape(18, 64, 64)
+    vutil.save2nifti(vol, os.path.join(data_dir,
+                                'train_max'+ str(max_n) + '_angle.nii.gz'))
+
 def inter_subj_cca(db_dir):
     """Inter-subject CCA to extract stimulus-related brain areas"""
     subj_num = 3
@@ -62,100 +143,6 @@ def inter_subj_cca(db_dir):
     cca.validate(vdata)
     cca.compute_ev(vdata)
     cca.save('inter_subj_cca_results.hdf5')
-
-def vxl_assign_layer(ridge_dir, vxl_idx):
-    """Assign layer index for each voxel."""
-    layers = ['norm1', 'norm2', 'conv3', 'conv4', 'pool5']
-    for layer in layers:
-        corr_file = os.path.join(ridge_dir, '%s_layer_wise_corr.npy'%layer)
-        tmp = np.load(corr_file)
-        if layers.index(layer):
-            data = np.column_stack((data, tmp))
-        else:
-            data = tmp
-    print data.shape
-    layer_idx = np.argmax(data, axis=1) + 1
-    outfile = os.path.join(ridge_dir, 'layer_index.nii.gz')
-    vutil.vxl_data2nifti(layer_idx, vxl_idx, outfile)
-
-def retinotopic_mapping(corr_file, vxl_idx=None):
-    """Make the retinotopic mapping using activation map from CNN."""
-    data_dir = os.path.dirname(corr_file)
-    #fig_dir = os.path.join(data_dir, 'fig')
-    #if not os.path.exists(fig_dir):
-    #    os.mkdir(fig_dir, 0755)
-    # load the cross-correlation matrix from file
-    corr_mtx = np.load(corr_file, mmap_mode='r')
-    if isinstance(vxl_idx, np.ndarray):
-        vxl_num = len(vxl_idx)
-    else:
-        vxl_num = corr_mtx.shape[0]
-        vxl_idx = np.arange(vxl_num)
-    pos_mtx = np.zeros((vxl_num, 2))
-    pos_mtx[:] = np.nan
-    for i in range(vxl_num):
-        print 'Iter %s of %s' %(i, vxl_num),
-        tmp = corr_mtx[i, :]
-        tmp = np.nan_to_num(np.array(tmp))
-        # significant threshold
-        # one-tail test
-        tmp[tmp <= 0.019257] = 0
-        if np.sum(tmp):
-            #tmp = tmp.reshape(55, 55)
-            #mmtx = tmp
-            tmp = tmp.reshape(96, 55, 55)
-            mmtx = np.max(tmp, axis=0)
-            print mmtx.min(), mmtx.max()
-            #fig_file = os.path.join(fig_dir, 'v'+str(i)+'.png')
-            #imsave(fig_file, mmtx)
-            # get indices of n maximum values
-            max_n = 20
-            row_idx, col_idx = np.unravel_index(
-                                        np.argsort(mmtx.ravel())[-1*max_n:],
-                                        mmtx.shape)
-            nmtx = np.zeros(mmtx.shape)
-            nmtx[row_idx, col_idx] = mmtx[row_idx, col_idx]
-            # center of mass
-            x, y = ndimage.measurements.center_of_mass(nmtx)
-            pos_mtx[vxl_idx[i], :] = [x, y]
-        else:
-            print ' '
-    #receptive_field_file = os.path.join(data_dir, 'receptive_field_pos.npy')
-    #np.save(receptive_field_file, pos_mtx)
-    #pos_mtx = np.load(receptive_field_file)
-    # eccentricity
-    dist = retinotopy.coord2ecc(pos_mtx, (55, 55))
-    # convert distance into degree
-    # 0-4 degree -> d < 5.5
-    # 4-8 degree -> d < 11
-    # 8-12 degree -> d < 16.5
-    # 12-16 degree -> d < 22
-    # else > 16 degree
-    ecc = np.zeros(dist.shape)
-    for i in range(len(dist)):
-        if np.isnan(dist[i]):
-            ecc[i] = np.nan
-        elif dist[i] < 5.445:
-            ecc[i] = 1
-        elif dist[i] < 10.91:
-            ecc[i] = 2
-        elif dist[i] < 16.39:
-            ecc[i] = 3
-        elif dist[i] < 21.92:
-            ecc[i] = 4
-        else:
-            ecc[i] = 5
-    #dist_vec = np.nan_to_num(ecc)
-    #vol = dist_vec.reshape(18, 64, 64)
-    vol = ecc.reshape(18, 64, 64)
-    vutil.save2nifti(vol, os.path.join(data_dir,
-                                'train_max' + str(max_n) + '_ecc.nii.gz'))
-    # angle
-    angle_vec = retinotopy.coord2angle(pos_mtx, (55, 55))
-    #angle_vec = np.nan_to_num(angle_vec)
-    vol = angle_vec.reshape(18, 64, 64)
-    vutil.save2nifti(vol, os.path.join(data_dir,
-                                'train_max'+ str(max_n) + '_angle.nii.gz'))
 
 def ridge_retinotopic_mapping(corr_file, vxl_idx=None, top_n=None):
     """Make the retinotopic mapping using activation map from CNN."""
@@ -525,10 +512,10 @@ if __name__ == '__main__':
  
     # phrase 'test': analyses were only conducted within V1 for code test
     # phrase 'work': for real analyses
-    phrase = 'test'
+    phrase = 'work'
  
     # subj config
-    subj_id = 1
+    subj_id = 2
     subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
  
     #-- load fmri data
@@ -548,7 +535,7 @@ if __name__ == '__main__':
     val_fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
     #-- get non-nan voxel indexs
-    fmri_s = train_fmri_ts.sum(axis=2)
+    fmri_s = train_fmri_ts.sum(axis=1)
     non_nan_idx = np.nonzero(np.logical_not(np.isnan(fmri_s)))[0]
     #-- load brain mask
     if phrase == 'test':
@@ -569,28 +556,14 @@ if __name__ == '__main__':
     #val_file = os.path.join(subj_dir, 'S%s_val_fmri_V1.npy'%(subj_id))
     #np.save(train_file, train_fmri_ts)
     #np.save(val_file, val_fmri_ts)
-    
+
     #-- load cnn activation data
     train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
     train_feat_ts = np.load(train_feat_file, mmap_mode='r')
     val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
     val_feat_ts = np.load(val_feat_file, mmap_mode='r')
     # data.shape = (96, 27, 27, 7200/540)
-    # feature temporal z-score
-    print 'CNN features temporal z-score ...'
-    train_feat_m = train_feat_ts.mean(axis=3, keepdims=True)
-    train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
-    train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
-    val_feat_ts = (val_feat_ts-train_feat_m)/(1e-10+train_feat_s)
-    tmp_train_file = os.path.join(feat_dir, 'train_norm1_trs_z.npy')
-    np.save(tmp_train_file, train_feat_ts)
-    del train_feat_ts
-    tmp_val_file = os.path.join(feat_dir, 'val_norm1_trs_z.npy')
-    np.save(tmp_val_file, val_feat_ts)
-    del val_feat_ts
-    train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
-    val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
-    
+ 
     #-- load optical flow data: mag and ang and stack features
     #tr_mag_file = os.path.join(feat_dir, 'train_opticalflow_mag_trs_55_55.npy')
     #tr_mag_ts = np.load(tr_mag_file, mmap_mode='r')
@@ -611,8 +584,7 @@ if __name__ == '__main__':
     #tr_ang_ts = (tr_ang_ts-tr_ang_m)/(1e-10+tr_ang_s)
     #val_ang_ts = (val_ang_ts-tr_ang_m)/(1e-10+tr_ang_s)
     # data.shape = (11, 11, 540/7200)
-    
-    #-- feature stack
+    #- feature stack
     #print 'training dataset feature stack ...'
     #train_feat_stack = np.vstack((train_feat_ts,
     #                              np.expand_dims(tr_mag_ts, axis=0),
@@ -632,29 +604,62 @@ if __name__ == '__main__':
     #train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
     #val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
 
-    #-- retinotopic mapping based on cross-modality corrlation 
-    #retino_dir = os.path.join(subj_dir, 'retinotopic')
+    #-- Cross-modality mapping: voxel~CNN unit corrlation
+    #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
+    #if not os.path.exists(cross_corr_dir):
+    #    os.mkdir(cross_corr_dir, 0755)
+    #corr_file = os.path.join(cross_corr_dir, 'train_norm1_corr.npy')
+    #feat_ts = train_feat_ts.reshape(69984, 7200)
+    #parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=96)
+    #-- random cross-modal correlation
+    #rand_corr_file = os.path.join(cross_corr_dir, 'rand_train_norm1_corr.npy')
+    #random_cross_modal_corr(train_fmri_ts, feat_ts, 10, 1000, rand_corr_file)
+ 
+    #-- retinotopic mapping based on cross-correlation with norm1
+    #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
+    #retino_dir = os.path.join(cross_corr_dir, 'retinotopic')
     #if not os.path.exists(retino_dir):
     #    os.mkdir(retino_dir, 0755)
-    #corr_file = os.path.join(retino_dir, 'train_norm1_corr.npy')
-    # select channels
-    ##feat_ts = train_feat_ts[0:48, :]
-    #feat_ts = feat_ts.reshape(69984, 7200)
-    #parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=96)
-    #retinotopic_mapping(corr_file, vxl_idx)
-    #-- random cross-modal correlation
-    #rand_corr_file = os.path.join(retino_dir, 'train_fmri_feat1_rand_corr.npy')
-    #random_cross_modal_corr(fmri_ts, feat_ts, 10, 1000, rand_corr_file)
-    
-    #-- multiple regression voxel ~ channels from each location
-    #regress_file = os.path.join(retino_dir, 'val_fmri_feat1_regress.npy')
-    #roi_mask = get_roi_mask(tf)
-    #multiple_regression(fmri_ts, feat_ts, regress_file)
+    #corr_file = os.path.join(cross_corr_dir, 'train_norm1_corr.npy')
+    #retinotopic_mapping(corr_file, vxl_idx, figout=False)
 
-    #-- ridge regression
-    #ridge_dir = os.path.join(subj_dir, 'new_ridge')
-    #if not os.path.exists(ridge_dir):
-    #    os.mkdir(ridge_dir, 0755)
+    #-- cnn layer assignment based on cross-correlation
+    #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
+    #layer_names = ['norm1', 'norm2', 'conv3', 'conv4', 'pool5']
+    #vxl_num = len(vxl_idx)
+    #layer_num = len(layer_names)
+    #max_corr = np.zeros((vxl_num, layer_num))
+    #for i in range(layer_num):
+    #    l = layer_names[i]
+    #    corr_file = os.path.join(cross_corr_dir, 'train_%s_corr.npy'%l)
+    #    corr = np.nan_to_num(np.load(corr_file))
+    #    max_corr[:, i] = corr.max(axis=1)
+    #max_corr_file = os.path.join(cross_corr_dir, 'max_corr_across_layers.npy')
+    #np.save(max_corr_file, max_corr)
+    #layer_idx = np.argmax(max_corr, axis=1) + 1
+    #layer_file = os.path.join(cross_corr_dir, 'layer_mapping.nii.gz')
+    #vutil.vxl_data2nifti(layer_idx, vxl_idx, layer_file)
+
+    #-- Encoding: ridge regression
+    ridge_dir = os.path.join(subj_dir, 'ridge')
+    if not os.path.exists(ridge_dir):
+        os.mkdir(ridge_dir, 0755)
+    
+    #-- feature temporal z-score
+    print 'CNN features temporal z-score ...'
+    train_feat_m = train_feat_ts.mean(axis=3, keepdims=True)
+    train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
+    train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
+    val_feat_ts = (val_feat_ts-train_feat_m)/(1e-10+train_feat_s)
+    tmp_train_file = os.path.join(feat_dir, 'train_norm1_trs_z.npy')
+    np.save(tmp_train_file, train_feat_ts)
+    del train_feat_ts
+    tmp_val_file = os.path.join(feat_dir, 'val_norm1_trs_z.npy')
+    np.save(tmp_val_file, val_feat_ts)
+    del val_feat_ts
+    train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
+    val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
+
     #-- fmri data z-score
     print 'fmri data temporal z-score'
     m = np.mean(train_fmri_ts, axis=1, keepdims=True)
@@ -663,6 +668,21 @@ if __name__ == '__main__':
     m = np.mean(val_fmri_ts, axis=1, keepdims=True)
     s = np.std(val_fmri_ts, axis=1, keepdims=True)
     val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
+    
+    #-- layer-wise ridge regression
+    #-- remember to modify the data type of wt in ridge function!
+    ridge_prefix = 'layer_wise_norm1'
+    print 'layer-wise regression'
+    layer_ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts,
+                           val_fmri_ts, ridge_dir, ridge_prefix,
+                           with_wt=True)
+    #-- predicted voxel activity to nifti
+    #corr_file = os.path.join(ridge_dir, 'norm1_layer_wise_corr.npy')
+    #corr_data = np.load(corr_file)
+    #nii_file = os.path.join(ridge_dir, 'norm1_vxl_corr.nii.gz')
+    #vutil.vxl_data2nifti(corr_data, vxl_idx, nii_file)
+    #vxl_assign_layer(ridge_dir, vxl_idx)
+    
     #-- pixel-wise regression
     #ridge_prefix = 'norm1_pixel_wise'
     #ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts, val_fmri_ts,
@@ -675,20 +695,12 @@ if __name__ == '__main__':
     #roi_info(corr_mtx, wt_mtx, tf, vxl_idx, ridge_dir)
     #-- retinotopic mapping
     #ridge_retinotopic_mapping(corr_file, vxl_idx, 5)
-    
-    #-- layer-wise ridge regression
-    #-- remember to modify the data type of wt in ridge function!
-    #ridge_prefix = 'norm1_layer_wise'
-    #print 'layer-wise regression'
-    #layer_ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts,
-    #                       val_fmri_ts, ridge_dir, ridge_prefix,
-    #                       with_wt=True)
-    #-- predicted voxel activity to nifti
-    #corr_file = os.path.join(ridge_dir, 'norm1_layer_wise_corr.npy')
-    #corr_data = np.load(corr_file)
-    #nii_file = os.path.join(ridge_dir, 'norm1_vxl_corr.nii.gz')
-    #vutil.vxl_data2nifti(corr_data, vxl_idx, nii_file)
-    #vxl_assign_layer(ridge_dir, vxl_idx)
+
+    #-- multiple regression voxel ~ channels from each location
+    #regress_file = os.path.join(retino_dir, 'val_fmri_feat1_regress.npy')
+    #roi_mask = get_roi_mask(tf)
+    #multiple_regression(fmri_ts, feat_ts, regress_file)
+
     
     #-- pixel-wise random regression
     #selected_vxl_idx = [5666, 9697, 5533, 5597, 5285, 5538, 5273, 5465, 38695,
@@ -711,20 +723,20 @@ if __name__ == '__main__':
     #permutation_stats(random_corr_mtx)
     
     #-- CNN activation prediction models
-    cnn_pred_dir = os.path.join(subj_dir, 'cnn_pred')
-    if not os.path.exists(cnn_pred_dir):
-        os.mkdir(cnn_pred_dir, 0755)
-    pred_out_prefix = 'pred_norm1'
-    pred_cnn_ridge(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
-                   cnn_pred_dir, pred_out_prefix, with_wt=True, n_cpus=2)
+    #cnn_pred_dir = os.path.join(subj_dir, 'cnn_pred')
+    #if not os.path.exists(cnn_pred_dir):
+    #    os.mkdir(cnn_pred_dir, 0755)
+    #pred_out_prefix = 'pred_norm1'
+    #pred_cnn_ridge(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
+    #               cnn_pred_dir, pred_out_prefix, with_wt=True, n_cpus=2)
     #-- cnn features reconstruction
-    wt_file = os.path.join(cnn_pred_dir, pred_out_prefix+'_weights.npy')
-    wts = np.load(wt_file, mmap_mode='r')
-    pred_val_feat_ts_z = wts.dot(val_fmri_ts)
-    print pred_val_feat_ts_z.shape
-    pred_val_feat_ts = pred_val_feat_ts_z*(1e-10+train_feat_s) + train_feat_m
-    out_file = os.path.join(cnn_pred_dir, pred_out_prefix+'_val_feat_ts.npy')
-    np.save(out_file, np.array(pred_val_feat_ts))
+    #wt_file = os.path.join(cnn_pred_dir, pred_out_prefix+'_weights.npy')
+    #wts = np.load(wt_file, mmap_mode='r')
+    #pred_val_feat_ts_z = wts.dot(val_fmri_ts)
+    #print pred_val_feat_ts_z.shape
+    #pred_val_feat_ts = pred_val_feat_ts_z*(1e-10+train_feat_s) + train_feat_m
+    #out_file = os.path.join(cnn_pred_dir, pred_out_prefix+'_val_feat_ts.npy')
+    #np.save(out_file, np.array(pred_val_feat_ts))
 
     #-- PLS-CCA
     #pls_dir = os.path.join(subj_dir, 'plscca')
