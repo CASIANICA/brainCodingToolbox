@@ -11,7 +11,7 @@ from brainDecTool.math import rcca
 from sklearn.cross_decomposition import PLSCanonical
 
 from brainDecTool.util import configParser
-from brainDecTool.math import parallel_corr2_coef, corr2_coef
+from brainDecTool.math import parallel_corr2_coef, corr2_coef, ridge
 from brainDecTool.math import get_pls_components
 from brainDecTool.math.norm import zero_one_norm
 from brainDecTool.pipeline import retinotopy
@@ -658,7 +658,9 @@ if __name__ == '__main__':
     np.save(tmp_val_file, val_feat_ts)
     del val_feat_ts
     train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
+    train_feat_ts = train_feat_ts.reshape(69984, 7200)
     val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
+    val_feat_ts = val_feat_ts.reshape(69984, 540)
 
     #-- fmri data z-score
     print 'fmri data temporal z-score'
@@ -668,14 +670,66 @@ if __name__ == '__main__':
     m = np.mean(val_fmri_ts, axis=1, keepdims=True)
     s = np.std(val_fmri_ts, axis=1, keepdims=True)
     val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
+
+    #-- layer-wise ridge regression: select cnn units whose correlation with
+    #-- the given voxel exceeded the half of the maximal correlation within
+    #-- the layer.
+    cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
+    cross_corr_file = os.path.join(cross_corr_dir, 'train_norm1_corr.npy')
+    cross_corr = np.load(cross_corr_file, mmap_mode='r')
+    # output config
+    ALPHA_NUM = 20
+    BOOTS_NUM = 15
+    vxl_num, feat_num = cross_corr.shape
+    wt_mtx = np.zeros((vxl_num, feat_num))
+    alpha_mtx = np.zeros(vxl_num)
+    val_corr_mtx = np.zeros(vxl_num)
+    bootstrap_corr_mtx = np.zeros((vxl_num, ALPHA_NUM, BOOTS_NUM))
+    # voxel-wise regression
+    for i in range(vxl_num):
+        print 'Voxel %s in %s'%(i+1, vxl_num)
+        v_corr = cross_corr[i, :]
+        feat_idx = v_corr > (v_corr.max()/2)
+        print 'Select %s features'%(feat_idx.sum())
+        vtrain_feat = train_feat_ts[feat_idx, :]
+        vval_feat = val_feat_ts[feat_idx, :]
+        vtrain_fmri = np.expand_dims(train_fmri_ts[i, :], axis=0)
+        print vtrain_fmri.shape
+        vval_fmri = np.expand_dims(val_fmri_ts[i, :], axis=0)
+        print vval_fmri.shape
+        wt, val_corr, alpha, bscores, valinds = ridge.bootstrap_ridge(
+                                vtrain_feat.T, vtrain_fmri.T,
+                                vval_feat.T, vval_fmri.T,
+                                alphas=np.logspace(-2, 2, ALPHA_NUM),
+                                nboots=BOOTS_NUM, chunklen=72, nchunks=20,
+                                single_alpha=False, use_corr=True)
+        print 'Alpha: %s'%(alpha)
+        wt_mtx[i, :] = wt.T
+        alpha_mtx[i] = alpha
+        val_corr_mtx[i] = val_corr
+        bootstrap_corr_mtx[i, ...] = bscores[:, 0, :]
+    # save output
+    wt_file = os.path.join(ridge_dir, 'norm1_wt.npy')
+    alpha_file = os.path.join(ridge_dir, 'norm1_alpha.npy')
+    val_corr_file = os.path.join(ridge_dir, 'norm1_val_corr.npy')
+    bootstrap_corr_file = os.path.join(ridge_dir, 'norm1_bootstrap_corr.npy')
+    np.save(wt_file, wt_mtx)
+    np.save(alpha_file, alpha_mtx)
+    np.save(val_corr_file, val_corr_mtx)
+    np.save(bootstrap_corr_file, bootstrap_corr_mtx)
+
+    #-- pixel-wise regression
+    #ridge_prefix = 'norm1_pixel_wise'
+    #ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts, val_fmri_ts,
+    #                 ridge_dir, ridge_prefix, with_wt=True, n_cpus=4)
     
     #-- layer-wise ridge regression
     #-- remember to modify the data type of wt in ridge function!
-    ridge_prefix = 'layer_wise_norm1'
-    print 'layer-wise regression'
-    layer_ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts,
-                           val_fmri_ts, ridge_dir, ridge_prefix,
-                           with_wt=True)
+    #ridge_prefix = 'layer_wise_norm1'
+    #print 'layer-wise regression'
+    #layer_ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts,
+    #                       val_fmri_ts, ridge_dir, ridge_prefix,
+    #                       with_wt=True)
     #-- predicted voxel activity to nifti
     #corr_file = os.path.join(ridge_dir, 'norm1_layer_wise_corr.npy')
     #corr_data = np.load(corr_file)
@@ -683,10 +737,6 @@ if __name__ == '__main__':
     #vutil.vxl_data2nifti(corr_data, vxl_idx, nii_file)
     #vxl_assign_layer(ridge_dir, vxl_idx)
     
-    #-- pixel-wise regression
-    #ridge_prefix = 'norm1_pixel_wise'
-    #ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts, val_fmri_ts,
-    #                 ridge_dir, ridge_prefix, with_wt=True, n_cpus=4)
     #-- roi_stats
     #corr_file = os.path.join(ridge_dir, 'conv3_pixel_wise_corr.npy')
     #wt_file = os.path.join(ridge_dir, 'conv3_pixel_wise_weights.npy')
