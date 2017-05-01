@@ -307,7 +307,8 @@ def bootstrap_ridge(Rstim, Rresp, Pstim, Presp, alphas, nboots, chunklen,
         bootstrap sample.
     """
     nresp, nvox = Rresp.shape
-    valinds = [] # Will hold the indices into the validation data for each bootstrap
+    # Will hold the indices into the validation data for each bootstrap
+    valinds = [] 
     
     Rcmats = []
     for bi in counter(range(nboots), countevery=1, total=nboots):

@@ -512,7 +512,7 @@ if __name__ == '__main__':
  
     # phrase 'test': analyses were only conducted within V1 for code test
     # phrase 'work': for real analyses
-    phrase = 'work'
+    phrase = 'test'
  
     # subj config
     subj_id = 2
@@ -530,24 +530,31 @@ if __name__ == '__main__':
     #mean_file = os.path.join(subj_dir, 'S%s_mean_%s.nii.gz'%(subj_id, dataset))
     #vutil.gen_mean_vol(tf, dataset, mean_file)
 
+    #-- create mask
+    train_fmri_ts = tf.get_node('/rt')[:]
+    # data.shape = (73728, 7200)
+    # get non-nan voxel indexs
+    fmri_s = train_fmri_ts.sum(axis=1)
+    non_nan_idx = np.nonzero(np.logical_not(np.isnan(fmri_s)))[0]
+    # create mask
+    full_mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
+    full_mask = vutil.data_swap(full_mask_file).flatten()
+    full_vxl_idx = np.nonzero(full_mask==1)[0]
+    full_vxl_idx = np.intersect1d(full_vxl_idx, non_nan_idx)
+    if phrase=='test':
+        mask_file = os.path.join(subj_dir, 'S%s_small_roi.nii.gz'%(subj_id))
+        mask = vutil.data_swap(mask_file).flatten()
+        mask[mask>1] = 0
+        mask[mask>0] = 1
+        vxl_idx = np.nonzero(mask==1)[0]
+        vxl_idx = np.intersect1d(vxl_idx, non_nan_idx)
+    else:
+        vxl_idx = full_vxl_idx
+
     #-- load fmri response
     train_fmri_ts = tf.get_node('/rt')[:]
     val_fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
-    #-- get non-nan voxel indexs
-    fmri_s = train_fmri_ts.sum(axis=1)
-    non_nan_idx = np.nonzero(np.logical_not(np.isnan(fmri_s)))[0]
-    #-- load brain mask
-    if phrase == 'test':
-        mask_file = os.path.join(subj_dir, 'S%s_small_roi.nii.gz'%(subj_id))
-        mask = vutil.data_swap(mask_file).flatten()
-        mask[mask>2] = 0
-        mask[mask>0] = 1
-    else:
-        mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
-        mask = vutil.data_swap(mask_file).flatten()
-    vxl_idx = np.nonzero(mask==1)[0]
-    vxl_idx = np.intersect1d(vxl_idx, non_nan_idx)
     train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
     val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     # data.shape = (994, 7200/540)
@@ -680,23 +687,23 @@ if __name__ == '__main__':
     # output config
     ALPHA_NUM = 20
     BOOTS_NUM = 15
-    vxl_num, feat_num = cross_corr.shape
+    full_vxl_num, feat_num = cross_corr.shape
+    vxl_num = len(vxl_idx)
     wt_mtx = np.zeros((vxl_num, feat_num))
     alpha_mtx = np.zeros(vxl_num)
     val_corr_mtx = np.zeros(vxl_num)
     bootstrap_corr_mtx = np.zeros((vxl_num, ALPHA_NUM, BOOTS_NUM))
+    #bootstrap_corr_mtx = np.zeros((vxl_num, BOOTS_NUM))
     # voxel-wise regression
     for i in range(vxl_num):
         print 'Voxel %s in %s'%(i+1, vxl_num)
-        v_corr = cross_corr[i, :]
+        v_corr = cross_corr[np.where(full_vxl_idx==vxl_idx[i])[0][0], :]
         feat_idx = v_corr > (v_corr.max()/2)
         print 'Select %s features'%(feat_idx.sum())
         vtrain_feat = train_feat_ts[feat_idx, :]
         vval_feat = val_feat_ts[feat_idx, :]
         vtrain_fmri = np.expand_dims(train_fmri_ts[i, :], axis=0)
-        print vtrain_fmri.shape
         vval_fmri = np.expand_dims(val_fmri_ts[i, :], axis=0)
-        print vval_fmri.shape
         wt, val_corr, alpha, bscores, valinds = ridge.bootstrap_ridge(
                                 vtrain_feat.T, vtrain_fmri.T,
                                 vval_feat.T, vval_fmri.T,
@@ -704,9 +711,12 @@ if __name__ == '__main__':
                                 nboots=BOOTS_NUM, chunklen=72, nchunks=20,
                                 single_alpha=False, use_corr=True)
         print 'Alpha: %s'%(alpha)
-        wt_mtx[i, :] = wt.T
-        alpha_mtx[i] = alpha
+        print 'Val Corr: %s'%(val_corr)
+        wt_mtx[i, feat_idx] = wt.T
         val_corr_mtx[i] = val_corr
+        alpha_mtx[i] = alpha
+        #alpha_idx = np.where(np.logspace(-2, 2, ALPHA_NUM)==alpha)[0][0]
+        #bootstrap_corr_mtx[i, :] = bscores[alpha_idx, 0, :]
         bootstrap_corr_mtx[i, ...] = bscores[:, 0, :]
     # save output
     wt_file = os.path.join(ridge_dir, 'norm1_wt.npy')
