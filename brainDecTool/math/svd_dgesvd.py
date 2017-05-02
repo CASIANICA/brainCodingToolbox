@@ -20,6 +20,8 @@ from numpy.core import array, asarray, zeros, empty, transpose, \
 lib_path = '/'.join(np.__file__.split('/')[0:-4])
 if platform=='darwin':
     lib = CDLL(os.path.join(lib_path, 'libmkl_rt.dylib'))
+else:
+    lib = CDLL(os.path.join(lib_path, 'libmkl_rt.so'))
 
 def _makearray(a):
     new = asarray(a)
