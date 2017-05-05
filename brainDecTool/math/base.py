@@ -58,7 +58,7 @@ def parallel_corr2_coef(A, B, filename, block_size=32, n_jobs=8):
     # parallelize the corr computation
     Parallel(n_jobs=n_jobs)(delayed(pcorr2_sugar)(A, B, corr_mtx, i,
                             block_size) for i in range(B_size/block_size))
-    narray = np.array(corr_mtx)
+    narray = np.nan_to_num(np.array(corr_mtx))
     np.save(filename, narray)
 
 def pcorr2_sugar(A, B, output, i, block_size):

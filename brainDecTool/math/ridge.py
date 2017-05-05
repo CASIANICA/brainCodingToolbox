@@ -58,6 +58,8 @@ def ridge(stim, resp, alpha, singcutoff=1e-10, normalpha=False,
 
     # Compute weights for each alpha
     ualphas = np.unique(nalphas)
+    # for layer regression, using dtype=float16
+    #wt = np.zeros((stim.shape[1], resp.shape[1]), dtype=np.float16)
     wt = np.zeros((stim.shape[1], resp.shape[1]))
     for ua in ualphas:
         selvox = np.nonzero(nalphas==ua)[0]
@@ -305,7 +307,8 @@ def bootstrap_ridge(Rstim, Rresp, Pstim, Presp, alphas, nboots, chunklen,
         bootstrap sample.
     """
     nresp, nvox = Rresp.shape
-    valinds = [] # Will hold the indices into the validation data for each bootstrap
+    # Will hold the indices into the validation data for each bootstrap
+    valinds = [] 
     
     Rcmats = []
     for bi in counter(range(nboots), countevery=1, total=nboots):
