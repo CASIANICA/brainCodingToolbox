@@ -552,11 +552,11 @@ if __name__ == '__main__':
         vxl_idx = full_vxl_idx
 
     #-- load fmri response
-    train_fmri_ts = tf.get_node('/rt')[:]
-    val_fmri_ts = tf.get_node('/rv')[:]
+    #train_fmri_ts = tf.get_node('/rt')[:]
+    #val_fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
-    train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
-    val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
+    #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
+    #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     # data.shape = (994, 7200/540)
     ##-- save masked data as npy file
     #train_file = os.path.join(subj_dir, 'S%s_train_fmri_V1.npy'%(subj_id))
@@ -565,10 +565,10 @@ if __name__ == '__main__':
     #np.save(val_file, val_fmri_ts)
 
     #-- load cnn activation data
-    train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
-    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
-    val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
-    val_feat_ts = np.load(val_feat_file, mmap_mode='r')
+    #train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
+    #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    #val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
+    #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
     # data.shape = (96, 27, 27, 7200/540)
  
     #-- load optical flow data: mag and ang and stack features
@@ -653,80 +653,97 @@ if __name__ == '__main__':
         os.mkdir(ridge_dir, 0755)
     
     #-- feature temporal z-score
-    print 'CNN features temporal z-score ...'
-    train_feat_m = train_feat_ts.mean(axis=3, keepdims=True)
-    train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
-    train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
-    val_feat_ts = (val_feat_ts-train_feat_m)/(1e-10+train_feat_s)
-    tmp_train_file = os.path.join(feat_dir, 'train_norm1_trs_z.npy')
-    np.save(tmp_train_file, train_feat_ts)
-    del train_feat_ts
-    tmp_val_file = os.path.join(feat_dir, 'val_norm1_trs_z.npy')
-    np.save(tmp_val_file, val_feat_ts)
-    del val_feat_ts
-    train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
-    train_feat_ts = train_feat_ts.reshape(69984, 7200)
-    val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
-    val_feat_ts = val_feat_ts.reshape(69984, 540)
+    #print 'CNN features temporal z-score ...'
+    #train_feat_m = train_feat_ts.mean(axis=3, keepdims=True)
+    #train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
+    #train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
+    #val_feat_ts = (val_feat_ts-train_feat_m)/(1e-10+train_feat_s)
+    #tmp_train_file = os.path.join(feat_dir, 'train_norm1_trs_z.npy')
+    #np.save(tmp_train_file, train_feat_ts)
+    #del train_feat_ts
+    #tmp_val_file = os.path.join(feat_dir, 'val_norm1_trs_z.npy')
+    #np.save(tmp_val_file, val_feat_ts)
+    #del val_feat_ts
+    #train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
+    #train_feat_ts = train_feat_ts.reshape(69984, 7200)
+    #val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
+    #val_feat_ts = val_feat_ts.reshape(69984, 540)
 
     #-- fmri data z-score
-    print 'fmri data temporal z-score'
-    m = np.mean(train_fmri_ts, axis=1, keepdims=True)
-    s = np.std(train_fmri_ts, axis=1, keepdims=True)
-    train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
-    m = np.mean(val_fmri_ts, axis=1, keepdims=True)
-    s = np.std(val_fmri_ts, axis=1, keepdims=True)
-    val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
+    #print 'fmri data temporal z-score'
+    #m = np.mean(train_fmri_ts, axis=1, keepdims=True)
+    #s = np.std(train_fmri_ts, axis=1, keepdims=True)
+    #train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
+    #m = np.mean(val_fmri_ts, axis=1, keepdims=True)
+    #s = np.std(val_fmri_ts, axis=1, keepdims=True)
+    #val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
 
     #-- layer-wise ridge regression: select cnn units whose correlation with
     #-- the given voxel exceeded the half of the maximal correlation within
     #-- the layer.
-    cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
-    cross_corr_file = os.path.join(cross_corr_dir, 'train_norm1_corr.npy')
-    cross_corr = np.load(cross_corr_file, mmap_mode='r')
-    # output config
-    ALPHA_NUM = 20
-    BOOTS_NUM = 15
-    full_vxl_num, feat_num = cross_corr.shape
-    vxl_num = len(vxl_idx)
-    wt_mtx = np.zeros((vxl_num, feat_num))
-    alpha_mtx = np.zeros(vxl_num)
-    val_corr_mtx = np.zeros(vxl_num)
-    bootstrap_corr_mtx = np.zeros((vxl_num, ALPHA_NUM, BOOTS_NUM))
+    #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
+    #cross_corr_file = os.path.join(cross_corr_dir, 'train_norm1_corr.npy')
+    #cross_corr = np.load(cross_corr_file, mmap_mode='r')
+    ## output config
+    #ALPHA_NUM = 20
+    #BOOTS_NUM = 15
+    #full_vxl_num, feat_num = cross_corr.shape
+    #vxl_num = len(vxl_idx)
+    #wt_mtx = np.zeros((vxl_num, feat_num))
+    #alpha_mtx = np.zeros(vxl_num)
+    #val_corr_mtx = np.zeros(vxl_num)
+    ##bootstrap_corr_mtx = np.zeros((vxl_num, ALPHA_NUM, BOOTS_NUM))
     #bootstrap_corr_mtx = np.zeros((vxl_num, BOOTS_NUM))
-    # voxel-wise regression
-    for i in range(vxl_num):
-        print 'Voxel %s in %s'%(i+1, vxl_num)
-        v_corr = cross_corr[np.where(full_vxl_idx==vxl_idx[i])[0][0], :]
-        feat_idx = v_corr > (v_corr.max()/2)
-        print 'Select %s features'%(feat_idx.sum())
-        vtrain_feat = train_feat_ts[feat_idx, :]
-        vval_feat = val_feat_ts[feat_idx, :]
-        vtrain_fmri = np.expand_dims(train_fmri_ts[i, :], axis=0)
-        vval_fmri = np.expand_dims(val_fmri_ts[i, :], axis=0)
-        wt, val_corr, alpha, bscores, valinds = ridge.bootstrap_ridge(
-                                vtrain_feat.T, vtrain_fmri.T,
-                                vval_feat.T, vval_fmri.T,
-                                alphas=np.logspace(-2, 2, ALPHA_NUM),
-                                nboots=BOOTS_NUM, chunklen=72, nchunks=20,
-                                single_alpha=False, use_corr=True)
-        print 'Alpha: %s'%(alpha)
-        print 'Val Corr: %s'%(val_corr)
-        wt_mtx[i, feat_idx] = wt.T
-        val_corr_mtx[i] = val_corr
-        alpha_mtx[i] = alpha
-        #alpha_idx = np.where(np.logspace(-2, 2, ALPHA_NUM)==alpha)[0][0]
-        #bootstrap_corr_mtx[i, :] = bscores[alpha_idx, 0, :]
-        bootstrap_corr_mtx[i, ...] = bscores[:, 0, :]
-    # save output
-    wt_file = os.path.join(ridge_dir, 'norm1_wt.npy')
-    alpha_file = os.path.join(ridge_dir, 'norm1_alpha.npy')
-    val_corr_file = os.path.join(ridge_dir, 'norm1_val_corr.npy')
-    bootstrap_corr_file = os.path.join(ridge_dir, 'norm1_bootstrap_corr.npy')
-    np.save(wt_file, wt_mtx)
-    np.save(alpha_file, alpha_mtx)
-    np.save(val_corr_file, val_corr_mtx)
-    np.save(bootstrap_corr_file, bootstrap_corr_mtx)
+    ## voxel-wise regression
+    #for i in range(vxl_num):
+    #    print 'Voxel %s in %s'%(i+1, vxl_num)
+    #    v_corr = cross_corr[np.where(full_vxl_idx==vxl_idx[i])[0][0], :]
+    #    feat_idx = v_corr > (v_corr.max()/2)
+    #    print 'Select %s features'%(feat_idx.sum())
+    #    vtrain_feat = train_feat_ts[feat_idx, :]
+    #    vval_feat = val_feat_ts[feat_idx, :]
+    #    vtrain_fmri = np.expand_dims(train_fmri_ts[i, :], axis=0)
+    #    vval_fmri = np.expand_dims(val_fmri_ts[i, :], axis=0)
+    #    wt, val_corr, alpha, bscores, valinds = ridge.bootstrap_ridge(
+    #                            vtrain_feat.T, vtrain_fmri.T,
+    #                            vval_feat.T, vval_fmri.T,
+    #                            alphas=np.arange(100, 2001, 2001/ALPHA_NUM),
+    #                            #alphas=np.logspace(-2, 3, ALPHA_NUM),
+    #                            nboots=BOOTS_NUM, chunklen=72, nchunks=20,
+    #                            single_alpha=False, use_corr=True)
+    #    print 'Alpha: %s'%(alpha)
+    #    print 'Val Corr: %s'%(val_corr)
+    #    wt_mtx[i, feat_idx] = wt.T
+    #    val_corr_mtx[i] = val_corr
+    #    alpha_mtx[i] = alpha
+    #    alpha_idx = np.where(np.arange(100, 2001, 2001/ALPHA_NUM)==alpha)[0][0]
+    #    #alpha_idx = np.where(np.logspace(-2, 3, ALPHA_NUM)==alpha)[0][0]
+    #    bootstrap_corr_mtx[i, :] = bscores[alpha_idx, 0, :]
+    #    #bootstrap_corr_mtx[i, ...] = bscores[:, 0, :]
+    ## save output
+    #wt_file = os.path.join(ridge_dir, 'norm1_wt.npy')
+    #alpha_file = os.path.join(ridge_dir, 'norm1_alpha.npy')
+    #val_corr_file = os.path.join(ridge_dir, 'norm1_val_corr.npy')
+    #bootstrap_corr_file = os.path.join(ridge_dir, 'norm1_bootstrap_corr.npy')
+    #np.save(wt_file, wt_mtx)
+    #np.save(alpha_file, alpha_mtx)
+    #np.save(val_corr_file, val_corr_mtx)
+    #np.save(bootstrap_corr_file, bootstrap_corr_mtx)
+
+    #-- assign layer index based on CV accuracy
+    layer_names = ['norm1', 'norm2', 'conv3', 'conv4', 'pool5']
+    vxl_num = len(vxl_idx)
+    layer_num = len(layer_names)
+    cv_acc = np.zeros((vxl_num, layer_num))
+    for i in range(layer_num):
+        l = layer_names[i]
+        corr_file = os.path.join(ridge_dir, '%s_bootstrap_corr.npy'%l)
+        cv_acc[:, i] = np.load(corr_file).mean(axis=1)
+    max_acc_file = os.path.join(ridge_dir, 'max_corr_across_layers.npy')
+    np.save(max_acc_file, max_acc)
+    layer_idx = np.argmax(max_acc, axis=1) + 1
+    layer_file = os.path.join(ridge_dir, 'layer_mapping.nii.gz')
+    vutil.vxl_data2nifti(layer_idx, vxl_idx, layer_file)
 
     #-- pixel-wise regression
     #ridge_prefix = 'norm1_pixel_wise'
