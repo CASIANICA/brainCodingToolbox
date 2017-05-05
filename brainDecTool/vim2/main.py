@@ -23,9 +23,8 @@ from brainDecTool.pipeline.base import pred_cnn_ridge
 from brainDecTool.vim2 import util as vutil
 
 
-def retinotopic_mapping(corr_file, vxl_idx=None, figout=False):
+def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
     """Make the retinotopic mapping using activation map from CNN."""
-    data_dir = os.path.dirname(corr_file)
     if figout:
         fig_dir = os.path.join(data_dir, 'fig')
         if not os.path.exists(fig_dir):
@@ -552,10 +551,10 @@ if __name__ == '__main__':
         vxl_idx = full_vxl_idx
 
     #-- load fmri response
-    #train_fmri_ts = tf.get_node('/rt')[:]
+    train_fmri_ts = tf.get_node('/rt')[:]
     #val_fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
-    #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
+    train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
     #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     # data.shape = (994, 7200/540)
     ##-- save masked data as npy file
@@ -572,8 +571,8 @@ if __name__ == '__main__':
     # data.shape = (96, 27, 27, 7200/540)
  
     #-- load optical flow data: mag and ang and stack features
-    #tr_mag_file = os.path.join(feat_dir, 'train_opticalflow_mag_trs_55_55.npy')
-    #tr_mag_ts = np.load(tr_mag_file, mmap_mode='r')
+    tr_mag_file = os.path.join(feat_dir, 'train_opticalflow_mag_trs_55_55.npy')
+    tr_mag_ts = np.load(tr_mag_file, mmap_mode='r')
     #val_mag_file = os.path.join(feat_dir, 'val_opticalflow_mag_trs_55_55.npy')
     #val_mag_ts = np.load(val_mag_file, mmap_mode='r')
     #tr_ang_file = os.path.join(feat_dir, 'train_opticalflow_ang_trs_55_55.npy')
@@ -612,15 +611,19 @@ if __name__ == '__main__':
     #val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
 
     #-- Cross-modality mapping: voxel~CNN unit corrlation
-    #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
-    #if not os.path.exists(cross_corr_dir):
-    #    os.mkdir(cross_corr_dir, 0755)
+    cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
+    if not os.path.exists(cross_corr_dir):
+        os.mkdir(cross_corr_dir, 0755)
     #corr_file = os.path.join(cross_corr_dir, 'train_norm1_corr.npy')
     #feat_ts = train_feat_ts.reshape(69984, 7200)
     #parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=96)
     #-- random cross-modal correlation
     #rand_corr_file = os.path.join(cross_corr_dir, 'rand_train_norm1_corr.npy')
     #random_cross_modal_corr(train_fmri_ts, feat_ts, 10, 1000, rand_corr_file)
+    #-- optical flow
+    corr_file = os.path.join(cross_corr_dir, 'train_optic_mag_corr.npy')
+    feat_ts = tr_mag_ts.reshape(3025, 7200)
+    parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=55)
  
     #-- retinotopic mapping based on cross-correlation with norm1
     #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
@@ -628,7 +631,7 @@ if __name__ == '__main__':
     #if not os.path.exists(retino_dir):
     #    os.mkdir(retino_dir, 0755)
     #corr_file = os.path.join(cross_corr_dir, 'train_norm1_corr.npy')
-    #retinotopic_mapping(corr_file, vxl_idx, figout=False)
+    #retinotopic_mapping(corr_file, retino_dir, vxl_idx, figout=False)
 
     #-- cnn layer assignment based on cross-correlation
     #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
@@ -648,9 +651,9 @@ if __name__ == '__main__':
     #vutil.vxl_data2nifti(layer_idx, vxl_idx, layer_file)
 
     #-- Encoding: ridge regression
-    ridge_dir = os.path.join(subj_dir, 'ridge')
-    if not os.path.exists(ridge_dir):
-        os.mkdir(ridge_dir, 0755)
+    #ridge_dir = os.path.join(subj_dir, 'ridge')
+    #if not os.path.exists(ridge_dir):
+    #    os.mkdir(ridge_dir, 0755)
     
     #-- feature temporal z-score
     #print 'CNN features temporal z-score ...'
@@ -731,19 +734,21 @@ if __name__ == '__main__':
     #np.save(bootstrap_corr_file, bootstrap_corr_mtx)
 
     #-- assign layer index based on CV accuracy
-    layer_names = ['norm1', 'norm2', 'conv3', 'conv4', 'pool5']
-    vxl_num = len(vxl_idx)
-    layer_num = len(layer_names)
-    cv_acc = np.zeros((vxl_num, layer_num))
-    for i in range(layer_num):
-        l = layer_names[i]
-        corr_file = os.path.join(ridge_dir, '%s_bootstrap_corr.npy'%l)
-        cv_acc[:, i] = np.load(corr_file).mean(axis=1)
-    max_acc_file = os.path.join(ridge_dir, 'max_corr_across_layers.npy')
-    np.save(max_acc_file, max_acc)
-    layer_idx = np.argmax(max_acc, axis=1) + 1
-    layer_file = os.path.join(ridge_dir, 'layer_mapping.nii.gz')
-    vutil.vxl_data2nifti(layer_idx, vxl_idx, layer_file)
+    #layer_names = ['norm1', 'norm2', 'conv3', 'conv4', 'pool5']
+    #vxl_num = len(vxl_idx)
+    #layer_num = len(layer_names)
+    #cv_acc = np.zeros((vxl_num, layer_num))
+    #for i in range(layer_num):
+    #    l = layer_names[i]
+    #    corr_file = os.path.join(ridge_dir, '%s_bootstrap_corr.npy'%l)
+    #    cv_acc[:, i] = np.load(corr_file).mean(axis=1)
+    #max_acc_file = os.path.join(ridge_dir, 'max_corr_across_layers.npy')
+    #np.save(max_acc_file, max_acc)
+    #layer_idx = np.argmax(max_acc, axis=1) + 1
+    #layer_file = os.path.join(ridge_dir, 'layer_mapping.nii.gz')
+    #vutil.vxl_data2nifti(layer_idx, vxl_idx, layer_file)
+
+    #-----------------
 
     #-- pixel-wise regression
     #ridge_prefix = 'norm1_pixel_wise'
