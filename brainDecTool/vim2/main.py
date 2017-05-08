@@ -23,12 +23,16 @@ from brainDecTool.pipeline.base import pred_cnn_ridge
 from brainDecTool.vim2 import util as vutil
 
 
+def check_path(dir_path):
+    """Check whether the directory does exist, if not, create it."""
+    if not os.path.exists(dir_path):
+        os.mkdir(dir_path, 0755)
+
 def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
     """Make the retinotopic mapping using activation map from CNN."""
     if figout:
         fig_dir = os.path.join(data_dir, 'fig')
-        if not os.path.exists(fig_dir):
-            os.mkdir(fig_dir, 0755)
+        check_path(fig_dir)
     # load the cross-correlation matrix from file
     corr_mtx = np.load(corr_file, mmap_mode='r')
     # set voxel index
@@ -612,8 +616,7 @@ if __name__ == '__main__':
 
     #-- Cross-modality mapping: voxel~CNN unit corrlation
     cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
-    if not os.path.exists(cross_corr_dir):
-        os.mkdir(cross_corr_dir, 0755)
+    check_path(cross_corr_dir)
     #corr_file = os.path.join(cross_corr_dir, 'train_norm1_corr.npy')
     #feat_ts = train_feat_ts.reshape(69984, 7200)
     #parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=96)
@@ -628,8 +631,7 @@ if __name__ == '__main__':
     #-- retinotopic mapping based on cross-correlation with norm1
     #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
     #retino_dir = os.path.join(cross_corr_dir, 'retinotopic')
-    #if not os.path.exists(retino_dir):
-    #    os.mkdir(retino_dir, 0755)
+    #check_path(retino_dir)
     #corr_file = os.path.join(cross_corr_dir, 'train_norm1_corr.npy')
     #retinotopic_mapping(corr_file, retino_dir, vxl_idx, figout=False)
 
@@ -652,8 +654,7 @@ if __name__ == '__main__':
 
     #-- Encoding: ridge regression
     #ridge_dir = os.path.join(subj_dir, 'ridge')
-    #if not os.path.exists(ridge_dir):
-    #    os.mkdir(ridge_dir, 0755)
+    #ckeck_path(ridge_dir)
     
     #-- feature temporal z-score
     #print 'CNN features temporal z-score ...'
@@ -806,8 +807,7 @@ if __name__ == '__main__':
     
     #-- CNN activation prediction models
     #cnn_pred_dir = os.path.join(subj_dir, 'cnn_pred')
-    #if not os.path.exists(cnn_pred_dir):
-    #    os.mkdir(cnn_pred_dir, 0755)
+    #ckeck_path(cnn_pred_dir)
     #pred_out_prefix = 'pred_norm1'
     #pred_cnn_ridge(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
     #               cnn_pred_dir, pred_out_prefix, with_wt=True, n_cpus=2)
@@ -822,11 +822,9 @@ if __name__ == '__main__':
 
     #-- PLS-CCA
     #pls_dir = os.path.join(subj_dir, 'plscca')
-    #if not os.path.exists(pls_dir):
-    #    os.mkdir(pls_dir, 0755)
+    #check_path(pls_dir)
     #cca_dir = os.path.join(pls_dir, 'layer1')
-    #if not os.path.exists(cca_dir):
-    #    os.mkdir(cca_dir, 0755)
+    #check_path(cca_dir)
     # combine layer1 features and optical flow features together
     #plscorr_eval(train_fmri_ts, train_feat_stack, val_fmri_ts, val_feat_stack,
     #             cca_dir, mask_file)
@@ -839,8 +837,7 @@ if __name__ == '__main__':
     #-- regularized CCA
     # TODO: each feature map can be modeled separately.
     #cca_dir = os.path.join(retino_dir, 'rcca', 'rcca_cc7')
-    #if not os.path.exists(cca_dir):
-    #    os.mkdir(cca_dir, 0755)
+    #check_path(cca_dir)
     #reg_cca(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, cca_dir)
 
     #-- close fmri data
