@@ -743,9 +743,9 @@ if __name__ == '__main__':
     #    l = layer_names[i]
     #    corr_file = os.path.join(ridge_dir, '%s_bootstrap_corr.npy'%l)
     #    cv_acc[:, i] = np.load(corr_file).mean(axis=1)
-    #max_acc_file = os.path.join(ridge_dir, 'max_corr_across_layers.npy')
-    #np.save(max_acc_file, max_acc)
-    #layer_idx = np.argmax(max_acc, axis=1) + 1
+    #cv_acc_file = os.path.join(ridge_dir, 'max_corr_across_layers.npy')
+    #np.save(cv_acc_file, cv_acc)
+    #layer_idx = np.argmax(cv_acc, axis=1) + 1
     #layer_file = os.path.join(ridge_dir, 'layer_mapping.nii.gz')
     #vutil.vxl_data2nifti(layer_idx, vxl_idx, layer_file)
 
