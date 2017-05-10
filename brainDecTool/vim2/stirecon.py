@@ -7,9 +7,9 @@ import sys
 sys.path.insert(0, '/home/huanglijie/decov/caffe_invert_alexnet/python')
 #print sys.path
 
-import caffe
-import numpy as np
 import os
+import numpy as np
+import caffe
 import scipy.misc
 import scipy.io
 from scipy import signal
@@ -115,13 +115,37 @@ def recon(feat):
 
     # reorder RGB and normalize images
     recon = np.transpose(recon, (0, 2, 3, 1))
-    print recon.shape
-    recon = normalize(recon, out_range=(0., 1.), in_range=(-120, 120))
     return recon
 
 if __name__ == '__main__':
-    """Main function."""
-    #root_dir = r'/home/huanglijie/brainDecoding'
+    """Main function.
+    While using the function, the caffe env should be set as v3.
+
+    """
+    root_dir = r'/home/huanglijie/brainDecoding'
+    subj_dir = os.path.join(root_dir, 'subjects')
+
+    #-- module test
+    recon_test()
+    
+    #-- visualize neural representation of single voxel
+    ridge_dir = os.path.join(subj_dir, 'vS2', 'ridge')
+    feat_file = os.path.join(ridge_dir, 'vxl_74_pred_norm1.npy')
+    feat = np.load(feat_file).transpose((3, 0, 1, 2))
+    # output config - remove first 10 frames
+    res = np.zeros(530, 216, 216, 3)
+    for i in range(1, 54):
+        test_feat = feat[(i*10):(i*10+10), ...]
+        res[(i*10-10):(i*10), ...] = recon(test_feat)
+    # remove mean intensity across frames for denoising
+    m = res.mean(axis=0, keepdims=True)
+    res = res - m
+    # intensity normalization for display
+    res = normalize(res, out_range=(0., 1.))
+    # save result to a file
+    np.save(os.path.join(ridge_dir, 'vxl_74_recon_img.npy'), res)
+
+    #-- to be deleted
     #feat_file = os.path.join(root_dir, 'vS1_pred_feat1.npy')
     #feat = np.load(feat_file)
     ## up-sample to 27x27
@@ -145,5 +169,3 @@ if __name__ == '__main__':
     ## save results to a file
     #np.save('recon_img.npy', recon)
     
-    # module test
-    recon_test()

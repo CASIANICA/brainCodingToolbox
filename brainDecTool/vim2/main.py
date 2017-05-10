@@ -6,13 +6,11 @@ import numpy as np
 import tables
 from scipy import ndimage
 from scipy.misc import imsave
-
-from brainDecTool.math import rcca
 from sklearn.cross_decomposition import PLSCanonical
 
 from brainDecTool.util import configParser
 from brainDecTool.math import parallel_corr2_coef, corr2_coef, ridge
-from brainDecTool.math import get_pls_components
+from brainDecTool.math import get_pls_components, rcca
 from brainDecTool.math.norm import zero_one_norm
 from brainDecTool.pipeline import retinotopy
 from brainDecTool.pipeline.base import random_cross_modal_corr
@@ -23,12 +21,16 @@ from brainDecTool.pipeline.base import pred_cnn_ridge
 from brainDecTool.vim2 import util as vutil
 
 
+def check_path(dir_path):
+    """Check whether the directory does exist, if not, create it."""
+    if not os.path.exists(dir_path):
+        os.mkdir(dir_path, 0755)
+
 def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
     """Make the retinotopic mapping using activation map from CNN."""
     if figout:
         fig_dir = os.path.join(data_dir, 'fig')
-        if not os.path.exists(fig_dir):
-            os.mkdir(fig_dir, 0755)
+        check_path(fig_dir)
     # load the cross-correlation matrix from file
     corr_mtx = np.load(corr_file, mmap_mode='r')
     # set voxel index
@@ -551,10 +553,10 @@ if __name__ == '__main__':
         vxl_idx = full_vxl_idx
 
     #-- load fmri response
-    train_fmri_ts = tf.get_node('/rt')[:]
+    #train_fmri_ts = tf.get_node('/rt')[:]
     #val_fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
-    train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
+    #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
     #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     # data.shape = (994, 7200/540)
     ##-- save masked data as npy file
@@ -564,15 +566,15 @@ if __name__ == '__main__':
     #np.save(val_file, val_fmri_ts)
 
     #-- load cnn activation data
-    #train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
-    #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
-    #val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
-    #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
+    train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
+    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
+    val_feat_ts = np.load(val_feat_file, mmap_mode='r')
     # data.shape = (96, 27, 27, 7200/540)
  
     #-- load optical flow data: mag and ang and stack features
-    tr_mag_file = os.path.join(feat_dir, 'train_opticalflow_mag_trs_55_55.npy')
-    tr_mag_ts = np.load(tr_mag_file, mmap_mode='r')
+    #tr_mag_file = os.path.join(feat_dir, 'train_opticalflow_mag_trs_55_55.npy')
+    #tr_mag_ts = np.load(tr_mag_file, mmap_mode='r')
     #val_mag_file = os.path.join(feat_dir, 'val_opticalflow_mag_trs_55_55.npy')
     #val_mag_ts = np.load(val_mag_file, mmap_mode='r')
     #tr_ang_file = os.path.join(feat_dir, 'train_opticalflow_ang_trs_55_55.npy')
@@ -611,9 +613,8 @@ if __name__ == '__main__':
     #val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
 
     #-- Cross-modality mapping: voxel~CNN unit corrlation
-    cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
-    if not os.path.exists(cross_corr_dir):
-        os.mkdir(cross_corr_dir, 0755)
+    #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
+    #check_path(cross_corr_dir)
     #corr_file = os.path.join(cross_corr_dir, 'train_norm1_corr.npy')
     #feat_ts = train_feat_ts.reshape(69984, 7200)
     #parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=96)
@@ -621,15 +622,14 @@ if __name__ == '__main__':
     #rand_corr_file = os.path.join(cross_corr_dir, 'rand_train_norm1_corr.npy')
     #random_cross_modal_corr(train_fmri_ts, feat_ts, 10, 1000, rand_corr_file)
     #-- optical flow
-    corr_file = os.path.join(cross_corr_dir, 'train_optic_mag_corr.npy')
-    feat_ts = tr_mag_ts.reshape(3025, 7200)
-    parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=55)
+    #corr_file = os.path.join(cross_corr_dir, 'train_optic_mag_corr.npy')
+    #feat_ts = tr_mag_ts.reshape(3025, 7200)
+    #parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=55)
  
     #-- retinotopic mapping based on cross-correlation with norm1
     #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
     #retino_dir = os.path.join(cross_corr_dir, 'retinotopic')
-    #if not os.path.exists(retino_dir):
-    #    os.mkdir(retino_dir, 0755)
+    #check_path(retino_dir)
     #corr_file = os.path.join(cross_corr_dir, 'train_norm1_corr.npy')
     #retinotopic_mapping(corr_file, retino_dir, vxl_idx, figout=False)
 
@@ -651,14 +651,13 @@ if __name__ == '__main__':
     #vutil.vxl_data2nifti(layer_idx, vxl_idx, layer_file)
 
     #-- Encoding: ridge regression
-    #ridge_dir = os.path.join(subj_dir, 'ridge')
-    #if not os.path.exists(ridge_dir):
-    #    os.mkdir(ridge_dir, 0755)
+    ridge_dir = os.path.join(subj_dir, 'ridge')
+    check_path(ridge_dir)
     
     #-- feature temporal z-score
-    #print 'CNN features temporal z-score ...'
+    print 'CNN features temporal z-score ...'
     #train_feat_m = train_feat_ts.mean(axis=3, keepdims=True)
-    #train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
+    train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
     #train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
     #val_feat_ts = (val_feat_ts-train_feat_m)/(1e-10+train_feat_s)
     #tmp_train_file = os.path.join(feat_dir, 'train_norm1_trs_z.npy')
@@ -742,11 +741,28 @@ if __name__ == '__main__':
     #    l = layer_names[i]
     #    corr_file = os.path.join(ridge_dir, '%s_bootstrap_corr.npy'%l)
     #    cv_acc[:, i] = np.load(corr_file).mean(axis=1)
-    #max_acc_file = os.path.join(ridge_dir, 'max_corr_across_layers.npy')
-    #np.save(max_acc_file, max_acc)
-    #layer_idx = np.argmax(max_acc, axis=1) + 1
+    #cv_acc_file = os.path.join(ridge_dir, 'max_corr_across_layers.npy')
+    #np.save(cv_acc_file, cv_acc)
+    #layer_idx = np.argmax(cv_acc, axis=1) + 1
     #layer_file = os.path.join(ridge_dir, 'layer_mapping.nii.gz')
     #vutil.vxl_data2nifti(layer_idx, vxl_idx, layer_file)
+
+    #-- visualizing cortical representation of each voxel
+    v_idx = 74
+    wt_file = os.path.join(ridge_dir, 'norm1_wt.npy')
+    wt = np.load(wt_file, mmap_mode='r')
+    # rescale weight
+    print train_feat_s.max(), train_feat_s.min()
+    wt = wt[v_idx, :] * train_feat_s.reshape(69984,)
+    # reshape val_feat_ts
+    feat_ts = val_feat_ts.reshape(69984, 540)
+    pred_ts = np.zeros_like(feat_ts)
+    for i in range(feat_ts.shape[1]):
+        pred_ts[:, i] = np.array(np.power(feat_ts[:, i]+1e-10, wt) - 1)
+    pred_ts = np.nan_to_num(pred_ts.reshape(96, 27, 27, 540))
+    pred_file = os.path.join(ridge_dir, 'vxl_%s_pred_norm1.npy'%(v_idx))
+    np.save(pred_file, pred_ts)
+
 
     #-----------------
 
@@ -806,8 +822,7 @@ if __name__ == '__main__':
     
     #-- CNN activation prediction models
     #cnn_pred_dir = os.path.join(subj_dir, 'cnn_pred')
-    #if not os.path.exists(cnn_pred_dir):
-    #    os.mkdir(cnn_pred_dir, 0755)
+    #check_path(cnn_pred_dir)
     #pred_out_prefix = 'pred_norm1'
     #pred_cnn_ridge(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
     #               cnn_pred_dir, pred_out_prefix, with_wt=True, n_cpus=2)
@@ -822,11 +837,9 @@ if __name__ == '__main__':
 
     #-- PLS-CCA
     #pls_dir = os.path.join(subj_dir, 'plscca')
-    #if not os.path.exists(pls_dir):
-    #    os.mkdir(pls_dir, 0755)
+    #check_path(pls_dir)
     #cca_dir = os.path.join(pls_dir, 'layer1')
-    #if not os.path.exists(cca_dir):
-    #    os.mkdir(cca_dir, 0755)
+    #check_path(cca_dir)
     # combine layer1 features and optical flow features together
     #plscorr_eval(train_fmri_ts, train_feat_stack, val_fmri_ts, val_feat_stack,
     #             cca_dir, mask_file)
@@ -839,8 +852,7 @@ if __name__ == '__main__':
     #-- regularized CCA
     # TODO: each feature map can be modeled separately.
     #cca_dir = os.path.join(retino_dir, 'rcca', 'rcca_cc7')
-    #if not os.path.exists(cca_dir):
-    #    os.mkdir(cca_dir, 0755)
+    #check_path(cca_dir)
     #reg_cca(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, cca_dir)
 
     #-- close fmri data
