@@ -566,8 +566,8 @@ if __name__ == '__main__':
     #np.save(val_file, val_fmri_ts)
 
     #-- load cnn activation data
-    #train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
-    #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
+    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
     val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
     val_feat_ts = np.load(val_feat_file, mmap_mode='r')
     # data.shape = (96, 27, 27, 7200/540)
@@ -652,12 +652,12 @@ if __name__ == '__main__':
 
     #-- Encoding: ridge regression
     ridge_dir = os.path.join(subj_dir, 'ridge')
-    ckeck_path(ridge_dir)
+    check_path(ridge_dir)
     
     #-- feature temporal z-score
-    #print 'CNN features temporal z-score ...'
+    print 'CNN features temporal z-score ...'
     #train_feat_m = train_feat_ts.mean(axis=3, keepdims=True)
-    #train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
+    train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
     #train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
     #val_feat_ts = (val_feat_ts-train_feat_m)/(1e-10+train_feat_s)
     #tmp_train_file = os.path.join(feat_dir, 'train_norm1_trs_z.npy')
@@ -748,16 +748,18 @@ if __name__ == '__main__':
     #vutil.vxl_data2nifti(layer_idx, vxl_idx, layer_file)
 
     #-- visualizing cortical representation of each voxel
-    v_idx = 100
+    v_idx = 74
     wt_file = os.path.join(ridge_dir, 'norm1_wt.npy')
     wt = np.load(wt_file, mmap_mode='r')
-    wt = wt[v_idx, :]
+    # rescale weight
+    print train_feat_s.max(), train_feat_s.min()
+    wt = wt[v_idx, :] * train_feat_s.reshape(69984,)
     # reshape val_feat_ts
     feat_ts = val_feat_ts.reshape(69984, 540)
     pred_ts = np.zeros_like(feat_ts)
     for i in range(feat_ts.shape[1]):
-        pred_ts[:, i] = np.power(feat_ts[:, i], wt) - 1
-    pred_ts = pred_ts.reshape(96, 27, 27, 540)
+        pred_ts[:, i] = np.array(np.power(feat_ts[:, i]+1e-10, wt) - 1)
+    pred_ts = np.nan_to_num(pred_ts.reshape(96, 27, 27, 540))
     pred_file = os.path.join(ridge_dir, 'vxl_%s_pred_norm1.npy'%(v_idx))
     np.save(pred_file, pred_ts)
 
@@ -820,7 +822,7 @@ if __name__ == '__main__':
     
     #-- CNN activation prediction models
     #cnn_pred_dir = os.path.join(subj_dir, 'cnn_pred')
-    #ckeck_path(cnn_pred_dir)
+    #check_path(cnn_pred_dir)
     #pred_out_prefix = 'pred_norm1'
     #pred_cnn_ridge(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
     #               cnn_pred_dir, pred_out_prefix, with_wt=True, n_cpus=2)
