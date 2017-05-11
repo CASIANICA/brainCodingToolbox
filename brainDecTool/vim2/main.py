@@ -513,7 +513,7 @@ if __name__ == '__main__':
  
     # phrase 'test': analyses were only conducted within V1 for code test
     # phrase 'work': for real analyses
-    phrase = 'test'
+    phrase = 'work'
  
     # subj config
     subj_id = 2
@@ -553,7 +553,7 @@ if __name__ == '__main__':
         vxl_idx = full_vxl_idx
 
     #-- load fmri response
-    #train_fmri_ts = tf.get_node('/rt')[:]
+    train_fmri_ts = tf.get_node('/rt')[:]
     #val_fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
     #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
@@ -566,20 +566,20 @@ if __name__ == '__main__':
     #np.save(val_file, val_fmri_ts)
 
     #-- load cnn activation data
-    train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
-    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
-    val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
-    val_feat_ts = np.load(val_feat_file, mmap_mode='r')
+    #train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
+    #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    #val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
+    #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
     # data.shape = (96, 27, 27, 7200/540)
  
     #-- load optical flow data: mag and ang and stack features
-    #tr_mag_file = os.path.join(feat_dir, 'train_opticalflow_mag_trs_55_55.npy')
-    #tr_mag_ts = np.load(tr_mag_file, mmap_mode='r')
-    #val_mag_file = os.path.join(feat_dir, 'val_opticalflow_mag_trs_55_55.npy')
+    tr_mag_file = os.path.join(feat_dir, 'train_opticalflow_mag_trs.npy')
+    tr_mag_ts = np.load(tr_mag_file, mmap_mode='r')
+    #val_mag_file = os.path.join(feat_dir, 'val_opticalflow_mag_trs.npy')
     #val_mag_ts = np.load(val_mag_file, mmap_mode='r')
-    #tr_ang_file = os.path.join(feat_dir, 'train_opticalflow_ang_trs_55_55.npy')
+    #tr_ang_file = os.path.join(feat_dir, 'train_opticalflow_ang_trs.npy')
     #tr_ang_ts = np.load(tr_ang_file, mmap_mode='r')
-    #val_ang_file = os.path.join(feat_dir, 'val_opticalflow_ang_trs_55_55.npy')
+    #val_ang_file = os.path.join(feat_dir, 'val_opticalflow_ang_trs.npy')
     #val_ang_ts = np.load(val_ang_file, mmap_mode='r')
     # feature temporal z-score
     #print 'optical flow features temporal z-score ...'
@@ -613,17 +613,18 @@ if __name__ == '__main__':
     #val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
 
     #-- Cross-modality mapping: voxel~CNN unit corrlation
-    #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
-    #check_path(cross_corr_dir)
+    cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
+    check_path(cross_corr_dir)
     #corr_file = os.path.join(cross_corr_dir, 'train_norm1_corr.npy')
     #feat_ts = train_feat_ts.reshape(69984, 7200)
     #parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=96)
     #-- random cross-modal correlation
-    #rand_corr_file = os.path.join(cross_corr_dir, 'rand_train_norm1_corr.npy')
-    #random_cross_modal_corr(train_fmri_ts, feat_ts, 10, 1000, rand_corr_file)
+    rand_corr_file = os.path.join(cross_corr_dir, 'rand_train_optic_mag_corr.npy')
+    feat_ts = tr_mag_ts.reshape(16384, 7200)
+    random_cross_modal_corr(train_fmri_ts, feat_ts, 10, 1000, rand_corr_file)
     #-- optical flow
     #corr_file = os.path.join(cross_corr_dir, 'train_optic_mag_corr.npy')
-    #feat_ts = tr_mag_ts.reshape(3025, 7200)
+    #feat_ts = tr_mag_ts.reshape(16384, 7200)
     #parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=55)
  
     #-- retinotopic mapping based on cross-correlation with norm1
@@ -651,13 +652,13 @@ if __name__ == '__main__':
     #vutil.vxl_data2nifti(layer_idx, vxl_idx, layer_file)
 
     #-- Encoding: ridge regression
-    ridge_dir = os.path.join(subj_dir, 'ridge')
-    check_path(ridge_dir)
+    #ridge_dir = os.path.join(subj_dir, 'ridge')
+    #check_path(ridge_dir)
     
     #-- feature temporal z-score
-    print 'CNN features temporal z-score ...'
+    #print 'CNN features temporal z-score ...'
     #train_feat_m = train_feat_ts.mean(axis=3, keepdims=True)
-    train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
+    #train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
     #train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
     #val_feat_ts = (val_feat_ts-train_feat_m)/(1e-10+train_feat_s)
     #tmp_train_file = os.path.join(feat_dir, 'train_norm1_trs_z.npy')
@@ -748,20 +749,20 @@ if __name__ == '__main__':
     #vutil.vxl_data2nifti(layer_idx, vxl_idx, layer_file)
 
     #-- visualizing cortical representation of each voxel
-    v_idx = 74
-    wt_file = os.path.join(ridge_dir, 'norm1_wt.npy')
-    wt = np.load(wt_file, mmap_mode='r')
-    # rescale weight
-    print train_feat_s.max(), train_feat_s.min()
-    wt = wt[v_idx, :] * train_feat_s.reshape(69984,)
-    # reshape val_feat_ts
-    feat_ts = val_feat_ts.reshape(69984, 540)
-    pred_ts = np.zeros_like(feat_ts)
-    for i in range(feat_ts.shape[1]):
-        pred_ts[:, i] = np.array(np.power(feat_ts[:, i]+1e-10, wt) - 1)
-    pred_ts = np.nan_to_num(pred_ts.reshape(96, 27, 27, 540))
-    pred_file = os.path.join(ridge_dir, 'vxl_%s_pred_norm1.npy'%(v_idx))
-    np.save(pred_file, pred_ts)
+    #v_idx = 74
+    #wt_file = os.path.join(ridge_dir, 'norm1_wt.npy')
+    #wt = np.load(wt_file, mmap_mode='r')
+    ## rescale weight
+    #print train_feat_s.max(), train_feat_s.min()
+    #wt = wt[v_idx, :] * train_feat_s.reshape(69984,)
+    ## reshape val_feat_ts
+    #feat_ts = val_feat_ts.reshape(69984, 540)
+    #pred_ts = np.zeros_like(feat_ts)
+    #for i in range(feat_ts.shape[1]):
+    #    pred_ts[:, i] = np.array(np.power(feat_ts[:, i]+1e-10, wt) - 1)
+    #pred_ts = np.nan_to_num(pred_ts.reshape(96, 27, 27, 540))
+    #pred_file = os.path.join(ridge_dir, 'vxl_%s_pred_norm1.npy'%(v_idx))
+    #np.save(pred_file, pred_ts)
 
 
     #-----------------
