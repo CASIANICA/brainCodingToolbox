@@ -556,7 +556,7 @@ if __name__ == '__main__':
     train_fmri_ts = tf.get_node('/rt')[:]
     #val_fmri_ts = tf.get_node('/rv')[:]
     # data.shape = (73728, 540/7200)
-    #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
+    train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
     #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     # data.shape = (994, 7200/540)
     ##-- save masked data as npy file
