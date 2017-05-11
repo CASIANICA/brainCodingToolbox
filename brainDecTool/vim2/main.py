@@ -615,17 +615,18 @@ if __name__ == '__main__':
     #-- Cross-modality mapping: voxel~CNN unit corrlation
     cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
     check_path(cross_corr_dir)
+    # features from CNN
     #corr_file = os.path.join(cross_corr_dir, 'train_norm1_corr.npy')
     #feat_ts = train_feat_ts.reshape(69984, 7200)
     #parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=96)
-    #-- random cross-modal correlation
-    rand_corr_file = os.path.join(cross_corr_dir, 'rand_train_optic_mag_corr.npy')
-    feat_ts = tr_mag_ts.reshape(16384, 7200)
-    random_cross_modal_corr(train_fmri_ts, feat_ts, 10, 1000, rand_corr_file)
-    #-- optical flow
+    # features from optical flow
     #corr_file = os.path.join(cross_corr_dir, 'train_optic_mag_corr.npy')
     #feat_ts = tr_mag_ts.reshape(16384, 7200)
     #parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=55)
+    #-- random cross-modal correlation
+    rand_corr_file = os.path.join(cross_corr_dir, 'rand_train_optic_mag_corr.npy')
+    feat_ts = tr_mag_ts.reshape(16384, 7200)
+    random_cross_modal_corr(train_fmri_ts, feat_ts, 1000, 1000, rand_corr_file)
  
     #-- retinotopic mapping based on cross-correlation with norm1
     #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
