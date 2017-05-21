@@ -22,4 +22,4 @@ for i = 1:s(4)
 end
 % save output
 outfile = fullfile(stim_dir, 'train_stim_salience.mat');
-save(outfile, 'saliences')
+save(outfile, 'saliences', '-v7.3')
