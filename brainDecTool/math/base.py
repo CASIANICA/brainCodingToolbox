@@ -3,6 +3,7 @@
 
 import numpy as np
 from skimage.measure import block_reduce
+from skimage.transform import resize
 from joblib import Parallel, delayed
 
 def corr2_coef(A, B, mode='full'):
@@ -88,6 +89,17 @@ def down_sample(image, block_size, cval=0):
     shape is (5, 5, 8).
     """
     return block_reduce(image, block_size, func=np.mean, cval=cval)
+
+def img_resize(img, out_dim):
+    """Resize image to `out_dim`.
+    img is a 3d array which first 2 dim corresponding image size
+    out_dim is a tuple containing resized image size
+    """
+    im_min, im_max = img.min(), img.max()
+    im_std = (img - im_min) / (im_max - im_min)
+    resized_im = resize(im_std, out_dim, order=1)
+    resized_im = resized_im * (im_max - im_min) + im_min
+    return resized_im
 
 def time_lag_corr(x, y, maxlag):
     """Calculate cross-correlation between x and a lagged y.
