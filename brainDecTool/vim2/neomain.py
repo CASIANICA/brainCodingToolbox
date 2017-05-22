@@ -668,7 +668,7 @@ if __name__ == '__main__':
     for i in range(vxl_num):
         print 'Voxel %s in %s'%(i+1, vxl_num)
         t1 = time.time()
-        lasso_cv = LassoCV(fit_intercept=False, cv=10, n_jobs=10)
+        lasso_cv = LassoCV(fit_intercept=False, cv=10, n_jobs=5)
         model = lasso_cv.fit(train_feat_ts.T, train_fmri_ts[i, :])
         t_lasso_cv = time.time() - t1
         print 'Time for CV: %s'%(t_lasso_cv)
