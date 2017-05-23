@@ -177,7 +177,7 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None,
     if salience_modulated:
         sal_mark = '_salmod'
         salience_name = 'salience_%s_%s_%s.npy'%(dataset, s[1], s[2])
-        salience_file = os.path.join(feat_dir, dataset, salience_name)
+        salience_file = os.path.join(out_dir, salience_name)
         sal_ts = np.load(salience_file, mmap_mode='r')
         sal_ts = sal_ts.reshape(-1, sal_ts.shape[-1])
     else:
@@ -191,7 +191,7 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None,
     feat = np.memmap(out_file, dtype='float64', mode='w+', shape=out_s)
 
     # convolution and down-sampling in a parallel approach
-    Parallel(n_jobs=10)(delayed(stim_pro)(feat_ptr, feat, s, fps, ds_fact,
+    Parallel(n_jobs=8)(delayed(stim_pro)(feat_ptr, feat, s, fps, ds_fact,
                                           sal_ts, i, using_hrf=True)
                         for i in range(ts_shape[1]/(s[1]*s[2])))
 
@@ -221,7 +221,6 @@ def stim_pro(feat_ptr, output, orig_size, fps, fact, sal_ts, i, using_hrf=True):
             ts = np.concatenate([ts, feat_ptr[p][:, i*bsize:(i+1)*bsize]],
                                 axis=0)
     ts = ts.T
-    print ts.shape
     ts = ts * sal_ts
     # log-transform
     ts = np.log(ts+1)
