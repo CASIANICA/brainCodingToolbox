@@ -9,12 +9,11 @@ import cv2
 from joblib import Parallel, delayed
 from skimage.color import rgb2gray
 from skimage.measure import compare_ssim
-from skimage.transform import resize
 
-from brainDecTool.vim2 import util as vutil
 from brainDecTool.util import configParser
 from brainDecTool.timeseries import hrf
 from brainDecTool.math import down_sample, img_resize
+from brainDecTool.vim2 import util as vutil
 
 
 def img_recon(orig_img):
@@ -160,16 +159,6 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None,
         ts_shape = feat_ts.shape
     print 'Original data shape : ', ts_shape
 
-    # salience config
-    if salience_modulated:
-        sal_mark = '_salmod'
-        salience_name = 'salience_%s_%s_%s.npy'%(dataset, s[1], s[2])
-        salience_file = os.path.join(feat_dir, dataset, salience_name)
-        sal_ts = np.load(salience_file, mmap_mode='r')
-        sal_ts = sal_ts.reshape(-1, sal_ts.shape[-1])
-    else:
-        sal_mark = ''
-
     # movie fps
     fps = 15
     
@@ -184,9 +173,19 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None,
         out_s = (s[0], s[1], s[2], ts_shape[0]/fps)
     print 'Down-sampled data shape : ', out_s
  
+    # salience config
+    if salience_modulated:
+        sal_mark = '_salmod'
+        salience_name = 'salience_%s_%s_%s.npy'%(dataset, s[1], s[2])
+        salience_file = os.path.join(feat_dir, dataset, salience_name)
+        sal_ts = np.load(salience_file, mmap_mode='r')
+        sal_ts = sal_ts.reshape(-1, sal_ts.shape[-1])
+    else:
+        sal_mark = ''
+
     # data array for storing time series after convolution and down-sampling
     # to save memory, a memmap is used temporally
-    out_file_name = '%s_%s_trs%s%s.npy'%(layer, dataset, ds_mark, sal_mod_mark)
+    out_file_name = '%s_%s_trs%s%s.npy'%(layer, dataset, ds_mark, sal_mark)
     out_file = os.path.join(out_dir, out_file_name)
     print 'Save TR data into file ', out_file
     feat = np.memmap(out_file, dtype='float64', mode='w+', shape=out_s)
@@ -379,13 +378,16 @@ if __name__ == '__main__':
     #mat2png(stimulus, 'train')
 
     #-- CNN activation pre-processing
-    #cnnfeat_tr_pro(stim_dir, feat_dir, dataset='train',
-    #               layer='conv1', ds_fact=None)
+    #cnnfeat_tr_pro(stim_dir, feat_dir, dataset='train', layer='conv1',
+    #               ds_fact=None, salience_modulated=False)
     
     #-- calculate dense optical flow
     #get_optical_flow(stimulus, 'train', feat_dir)
     #optical_file = os.path.join(feat_dir, 'train_opticalflow_mag.npy')
     #feat_tr_pro(optical_file, feat_dir, out_dim=None, using_hrf=False)
 
-    #-- salience modulation
+    #-- salience processing
+    sal_file = os.path.join(feat_dir, 'salience_train_55_55.npy')
+    feat_tr_pro(sal_file, feat_dir, out_dim=None, using_hrf=True)
+
 
