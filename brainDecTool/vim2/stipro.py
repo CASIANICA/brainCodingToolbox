@@ -196,6 +196,7 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None,
                         for i in range(ts_shape[1]/(s[1]*s[2])))
 
     # save memmap object as a numpy.array
+    print 'Save data as npy file ...'
     narray = np.array(feat)
     np.save(out_file, narray)
 
