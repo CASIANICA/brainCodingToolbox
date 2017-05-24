@@ -523,16 +523,25 @@ if __name__ == '__main__':
 
     #-- load cnn activation data
     # data.shape = (feature_size, x, y, 7200/540)
-    train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
+    train_feat_file = os.path.join(feat_dir, 'conv1_train_trs.npy')
     train_feat_ts = np.load(train_feat_file, mmap_mode='r')
-    val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
-    val_feat_ts = np.load(val_feat_file, mmap_mode='r')
+    #val_feat_file = os.path.join(feat_dir, 'conv1_val_trs.npy')
+    #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
 
     #-- load salience data
     #train_sal_file = os.path.join(feat_dir, 'train_saliences_trs.npy')
     #train_sal_ts = np.load(train_sal_file, mmap_mode='r')
     #val_sal_file = os.path.join(feat_dir, 'val_saliences_trs.npy')
     #val_sal_ts = np.load(val_sal_file, mmap_mode='r')
+
+    #-- Cross-modality mapping: voxel~CNN feature position correlation
+    cross_corr_dir = os.path.join(subj_dir, 'spatial_cross_corr')
+    check_path(cross_corr_dir)
+    # features from CNN
+    corr_file = os.path.join(cross_corr_dir, 'train_conv1_corr.npy')
+    feat_ts = train_feat_ts.sum(axis=0)
+    feat_ts = feat_ts.reshape(3025, 7200)
+    parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=55)
 
     #-- Cross-modality mapping: voxel~CNN unit correlation
     #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
@@ -576,30 +585,30 @@ if __name__ == '__main__':
     #vutil.vxl_data2nifti(layer_idx, vxl_idx, layer_file)
 
     #-- feature temporal z-score
-    print 'CNN features temporal z-score ...'
-    train_feat_m = train_feat_ts.mean(axis=3, keepdims=True)
-    train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
-    train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
-    val_feat_ts = (val_feat_ts-train_feat_m)/(1e-10+train_feat_s)
-    tmp_train_file = os.path.join(feat_dir, 'train_norm1_trs_z.npy')
-    np.save(tmp_train_file, train_feat_ts)
-    del train_feat_ts
-    tmp_val_file = os.path.join(feat_dir, 'val_norm1_trs_z.npy')
-    np.save(tmp_val_file, val_feat_ts)
-    del val_feat_ts
-    train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
-    train_feat_ts = train_feat_ts.reshape(69984, 7200)
-    val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
-    val_feat_ts = val_feat_ts.reshape(69984, 540)
+    #print 'CNN features temporal z-score ...'
+    #train_feat_m = train_feat_ts.mean(axis=3, keepdims=True)
+    #train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
+    #train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
+    #val_feat_ts = (val_feat_ts-train_feat_m)/(1e-10+train_feat_s)
+    #tmp_train_file = os.path.join(feat_dir, 'train_norm1_trs_z.npy')
+    #np.save(tmp_train_file, train_feat_ts)
+    #del train_feat_ts
+    #tmp_val_file = os.path.join(feat_dir, 'val_norm1_trs_z.npy')
+    #np.save(tmp_val_file, val_feat_ts)
+    #del val_feat_ts
+    #train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
+    #train_feat_ts = train_feat_ts.reshape(69984, 7200)
+    #val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
+    #val_feat_ts = val_feat_ts.reshape(69984, 540)
 
     #-- fmri data z-score
-    print 'fmri data temporal z-score'
-    m = np.mean(train_fmri_ts, axis=1, keepdims=True)
-    s = np.std(train_fmri_ts, axis=1, keepdims=True)
-    train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
-    m = np.mean(val_fmri_ts, axis=1, keepdims=True)
-    s = np.std(val_fmri_ts, axis=1, keepdims=True)
-    val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
+    #print 'fmri data temporal z-score'
+    #m = np.mean(train_fmri_ts, axis=1, keepdims=True)
+    #s = np.std(train_fmri_ts, axis=1, keepdims=True)
+    #train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
+    #m = np.mean(val_fmri_ts, axis=1, keepdims=True)
+    #s = np.std(val_fmri_ts, axis=1, keepdims=True)
+    #val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
 
     #-- Encoding: ridge regression
     #ridge_dir = os.path.join(subj_dir, 'ridge')
