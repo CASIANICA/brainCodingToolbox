@@ -105,14 +105,17 @@ def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
 def visual_prf(corr_mtx, vxl_idx, prf_dir):
     """pRF visualization."""
     check_path(prf_dir)
+    prf = np.zeros_like(corr_mtx)
     for i in range(len(vxl_idx)):
         orig_mtx = corr_mtx[i, :].reshape(55, 55)
         orig_file = os.path.join(prf_dir, 'v'+str(vxl_idx[i])+'_orig.png')
         imsave(orig_file, orig_mtx)
         prf_mtx = orig_mtx.copy()
-        prf_mtx[prf_mtx<prf_mtx.max()/2] = 0
+        prf_mtx[prf_mtx<prf_mtx.max()*0.8] = 0
         prf_file = os.path.join(prf_dir, 'v'+str(vxl_idx[i])+'_prf.png')
         imsave(prf_file, prf_mtx)
+        prf[i, :] = prf_mtx.flatten()
+    np.save(os.path.join(prf_dir, 'prf.npy'), prf)
 
 def hrf_estimate(tf, feat_ts):
     """Estimate HRFs."""
