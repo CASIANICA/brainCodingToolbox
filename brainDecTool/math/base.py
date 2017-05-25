@@ -2,6 +2,7 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 
 import numpy as np
+from scipy import stats
 from skimage.measure import block_reduce
 from skimage.transform import resize
 from joblib import Parallel, delayed
@@ -117,4 +118,14 @@ def time_lag_corr(x, y, maxlag):
         lagy = np.array(y[i:].tolist()+[0]*i)
         c[i] = np.correlate(x, lagy) / len(x)
     return c
+
+def r2p(r, sample_size, two_side=True):
+    """Calculate p value from correlation coefficient r.
+    Note: r must be a number or a nd-array.
+    """
+    tt = r / np.sqrt((1-np.square(r))/(sample_size-2))
+    if two_side:
+        return stats.t.sf(np.abs(tt), sample_size-2)*2
+    else:
+        return stats.t.sf(tt, sample_size-2)
 
