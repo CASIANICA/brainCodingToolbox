@@ -7,7 +7,6 @@ import numpy as np
 import tables
 from scipy import ndimage
 from scipy.misc import imsave
-#from sklearn.linear_model import LassoCV
 from sklearn.cross_decomposition import PLSCanonical
 
 from brainDecTool.util import configParser
@@ -51,6 +50,9 @@ def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
             tmp = tmp.reshape(96, 27, 27)
             mmtx = np.max(tmp, axis=0)
             print mmtx.min(), mmtx.max()
+            if figout:
+                fig_file = os.path.join(fig_dir, 'v'+str(vxl_idx[i])+'.png')
+                imsave(fig_file, mmtx)
             # get indices of n maximum values
             max_n = 20
             row_idx, col_idx = np.unravel_index(
@@ -58,9 +60,6 @@ def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
                                         mmtx.shape)
             nmtx = np.zeros(mmtx.shape)
             nmtx[row_idx, col_idx] = mmtx[row_idx, col_idx]
-            if figout:
-                fig_file = os.path.join(fig_dir, 'v'+str(vxl_idx[i])+'.png')
-                imsave(fig_file, nmtx)
             # center of mass
             x, y = ndimage.measurements.center_of_mass(nmtx)
             pos_mtx[vxl_idx[i], :] = [x, y]
@@ -509,15 +508,14 @@ if __name__ == '__main__':
         vxl_idx = full_vxl_idx
 
     #-- load fmri response
-    # original data shape: (73728, 7200/540)
+    # data shape: (selected_voxel, 7200/540)
     train_fmri_ts = tf.get_node('/rt')[:]
-    val_fmri_ts = tf.get_node('/rv')[:]
-    # voxel selection
     train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
-    val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
+    #val_fmri_ts = tf.get_node('/rv')[:]
+    #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     ##-- save masked data as npy file
-    #train_file = os.path.join(subj_dir, 'S%s_train_fmri_V1.npy'%(subj_id))
-    #val_file = os.path.join(subj_dir, 'S%s_val_fmri_V1.npy'%(subj_id))
+    #train_file = os.path.join(subj_dir, 'S%s_train_fmri_lV1.npy'%(subj_id))
+    #val_file = os.path.join(subj_dir, 'S%s_val_fmri_lV1.npy'%(subj_id))
     #np.save(train_file, train_fmri_ts)
     #np.save(val_file, val_fmri_ts)
 
@@ -537,11 +535,17 @@ if __name__ == '__main__':
     #-- Cross-modality mapping: voxel~CNN feature position correlation
     cross_corr_dir = os.path.join(subj_dir, 'spatial_cross_corr')
     check_path(cross_corr_dir)
-    # features from CNN
+    #-- features from CNN
     corr_file = os.path.join(cross_corr_dir, 'train_conv1_corr.npy')
     feat_ts = train_feat_ts.sum(axis=0)
     feat_ts = feat_ts.reshape(3025, 7200)
     parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=55)
+    #-- random cross-modal correlation
+    #rand_corr_file = os.path.join(cross_corr_dir, 'rand_train_conv1_corr.npy')
+    #feat_ts = train_feat_ts.sum(axis=0)
+    #feat_ts = feat_ts.reshape(3025, 7200)
+    #random_cross_modal_corr(train_fmri_ts, feat_ts, 400, 1000, rand_corr_file)
+    #permutation_stats(np.load(rand_corr_file))
 
     #-- Cross-modality mapping: voxel~CNN unit correlation
     #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
@@ -695,40 +699,4 @@ if __name__ == '__main__':
     #pred_ts = np.nan_to_num(pred_ts.reshape(96, 27, 27, 540))
     #pred_file = os.path.join(ridge_dir, 'vxl_%s_pred_norm1.npy'%(v_idx))
     #np.save(pred_file, pred_ts)
-
-    ##-- Encoding: Lasso regression
-    #lasso_dir = os.path.join(subj_dir, 'lasso')
-    #check_path(lasso_dir)
-    ##-- layer-wise lasso regression
-    ### output config
-    #feat_num = train_feat_ts.shape[0]
-    #vxl_num = len(vxl_idx)
-    #wt_mtx = np.zeros((vxl_num, feat_num))
-    #alpha_mtx = np.zeros(vxl_num)
-    #val_corr_mtx = np.zeros(vxl_num)
-    ## perform regression analysis for each voxel
-    #for i in range(vxl_num):
-    #    print 'Voxel %s in %s'%(i+1, vxl_num)
-    #    t1 = time.time()
-    #    lasso_cv = LassoCV(fit_intercept=False, cv=10, n_jobs=5)
-    #    model = lasso_cv.fit(train_feat_ts.T, train_fmri_ts[i, :])
-    #    t_lasso_cv = time.time() - t1
-    #    print 'Time for CV: %s'%(t_lasso_cv)
-    #    print 'Alphas: ',
-    #    print model.alphas_
-    #    print 'Select alpha value: %s'%(model.alpha_)
-    #    pred_fmri = model.predict(val_feat_ts.T)
-    #    pred_corr = np.corrcoef(pred_fmri, val_fmri_ts[i, :])
-    #    print 'Val Corr: %s'%(pred_corr)
-    #    print 'Val R^2: %s'%(model.score(val_feat_ts.T, val_fmri_ts[i, :]))
-    #    wt_mtx[i, :] = model.coef_
-    #    val_corr_mtx[i] = pred_corr
-    #    alpha_mtx[i] = model.alpha_
-    ## save output
-    #wt_file = os.path.join(lasso_dir, 'norm1_wt.npy')
-    #alpha_file = os.path.join(lasso_dir, 'norm1_alpha.npy')
-    #val_corr_file = os.path.join(lasso_dir, 'norm1_val_corr.npy')
-    #np.save(wt_file, wt_mtx)
-    #np.save(alpha_file, alpha_mtx)
-    #np.save(val_corr_file, val_corr_mtx)
 
