@@ -12,6 +12,7 @@ from sklearn.cross_decomposition import PLSCanonical
 from brainDecTool.util import configParser
 from brainDecTool.math import parallel_corr2_coef, corr2_coef, ridge
 from brainDecTool.math import get_pls_components, rcca
+from brainDecTool.math import LinearRegression
 from brainDecTool.math.norm import zero_one_norm
 from brainDecTool.pipeline import retinotopy
 from brainDecTool.pipeline.base import random_cross_modal_corr
@@ -38,6 +39,7 @@ def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
         return
     else:
         print 'voxel index loaded.'
+    img_size = 55.0
     pos_mtx = np.zeros((73728, 2))
     pos_mtx[:] = np.nan
     for i in range(len(vxl_idx)):
@@ -47,8 +49,9 @@ def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
         # significant threshold for one-tail test
         tmp[tmp <= 0.019257] = 0
         if np.sum(tmp):
-            tmp = tmp.reshape(96, 27, 27)
-            mmtx = np.max(tmp, axis=0)
+            mmtx = tmp.reshape(55, 55)
+            #tmp = tmp.reshape(96, 27, 27)
+            #mmtx = np.max(tmp, axis=0)
             print mmtx.min(), mmtx.max()
             if figout:
                 fig_file = os.path.join(fig_dir, 'v'+str(vxl_idx[i])+'.png')
@@ -69,7 +72,7 @@ def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
     #np.save(receptive_field_file, pos_mtx)
     #pos_mtx = np.load(receptive_field_file)
     # eccentricity
-    dist = retinotopy.coord2ecc(pos_mtx, (27, 27))
+    dist = retinotopy.coord2ecc(pos_mtx, (img_size, img_size))
     # convert distance into degree
     # 0-4 degree -> d < 5.5
     # 4-8 degree -> d < 11
@@ -80,13 +83,13 @@ def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
     for i in range(len(dist)):
         if np.isnan(dist[i]):
             ecc[i] = np.nan
-        elif dist[i] < 2.7:
+        elif dist[i] < img_size/10:
             ecc[i] = 1
-        elif dist[i] < 5.4:
+        elif dist[i] < img_size/5:
             ecc[i] = 2
-        elif dist[i] < 8.1:
+        elif dist[i] < img_size/10*3:
             ecc[i] = 3
-        elif dist[i] < 10.8:
+        elif dist[i] < img_size/10*4:
             ecc[i] = 4
         else:
             ecc[i] = 5
@@ -96,7 +99,7 @@ def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
     vutil.save2nifti(vol, os.path.join(data_dir,
                                 'train_max' + str(max_n) + '_ecc.nii.gz'))
     # angle
-    angle_vec = retinotopy.coord2angle(pos_mtx, (27, 27))
+    angle_vec = retinotopy.coord2angle(pos_mtx, (img_size, img_size))
     #angle_vec = np.nan_to_num(angle_vec)
     vol = angle_vec.reshape(18, 64, 64)
     vutil.save2nifti(vol, os.path.join(data_dir,
@@ -460,10 +463,10 @@ if __name__ == '__main__':
 
     #-- load fmri response
     # data shape: (selected_voxel, 7200/540)
-    #train_fmri_ts = tf.get_node('/rt')[:]
-    #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
-    #val_fmri_ts = tf.get_node('/rv')[:]
-    #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
+    train_fmri_ts = tf.get_node('/rt')[:]
+    train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
+    val_fmri_ts = tf.get_node('/rv')[:]
+    val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     ##-- save masked data as npy file
     #train_file = os.path.join(subj_dir, 'S%s_train_fmri_lV1.npy'%(subj_id))
     #val_file = os.path.join(subj_dir, 'S%s_val_fmri_lV1.npy'%(subj_id))
@@ -472,37 +475,126 @@ if __name__ == '__main__':
 
     #-- load cnn activation data
     # data.shape = (feature_size, x, y, 7200/540)
-    #train_feat_file = os.path.join(feat_dir, 'conv1_train_trs.npy')
-    #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
-    #val_feat_file = os.path.join(feat_dir, 'conv1_val_trs.npy')
-    #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
+    train_feat_file = os.path.join(feat_dir, 'conv1_train_trs.npy')
+    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    val_feat_file = os.path.join(feat_dir, 'conv1_val_trs.npy')
+    val_feat_ts = np.load(val_feat_file, mmap_mode='r')
 
     #-- load salience data
-    #train_sal_file = os.path.join(feat_dir, 'train_saliences_trs.npy')
-    #train_sal_ts = np.load(train_sal_file, mmap_mode='r')
-    #val_sal_file = os.path.join(feat_dir, 'val_saliences_trs.npy')
-    #val_sal_ts = np.load(val_sal_file, mmap_mode='r')
+    train_sal_file = os.path.join(feat_dir, 'salience_train_55_55_trs.npy')
+    train_sal_ts = np.load(train_sal_file, mmap_mode='r')
+    val_sal_file = os.path.join(feat_dir, 'salience_val_55_55_trs.npy')
+    val_sal_ts = np.load(val_sal_file, mmap_mode='r')
+
+    #-- load salience-modulated cnn features
+    train_salfeat_file = os.path.join(feat_dir, 'conv1_train_trs_salmod.npy')
+    train_salfeat_ts = np.load(train_salfeat_file, mmap_mode='r')
+    val_salfeat_file = os.path.join(feat_dir, 'conv1_val_trs_salmod.npy')
+    val_salfeat_ts = np.load(val_salfeat_file, mmap_mode='r')
+
+    #-- feature temporal z-score
+    print 'CNN features temporal z-score ...'
+    # summary features across channels
+    train_feat_ts = train_feat_ts.mean(axis=0)
+    train_feat_m = train_feat_ts.mean(axis=2, keepdims=True)
+    train_feat_s = train_feat_ts.std(axis=2, keepdims=True)
+    train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
+    val_feat_ts = val_feat_ts.mean(axis=0)
+    val_feat_m = val_feat_ts.mean(axis=2, keepdims=True)
+    val_feat_s = val_feat_ts.std(axis=2, keepdims=True)
+    val_feat_ts = (val_feat_ts-val_feat_m)/(1e-10+val_feat_s)
+    print 'Salience features temporal z-score ...'
+    train_sal_m = train_sal_ts.mean(axis=2, keepdims=True)
+    train_sal_s = train_sal_ts.std(axis=2, keepdims=True)
+    train_sal_ts = (train_sal_ts-train_sal_m)/(1e-10+train_sal_s)
+    val_sal_m = val_sal_ts.mean(axis=2, keepdims=True)
+    val_sal_s = val_sal_ts.std(axis=2, keepdims=True)
+    val_sal_ts = (val_sal_ts-val_sal_m)/(1e-10+val_sal_s)
+    print 'Salience modulated features temporal z-score ...'
+    train_salfeat_ts = train_salfeat_ts.mean(axis=0)
+    train_salfeat_m = train_salfeat_ts.mean(axis=2, keepdims=True)
+    train_salfeat_s = train_salfeat_ts.std(axis=2, keepdims=True)
+    train_salfeat_ts=(train_salfeat_ts-train_salfeat_m)/(1e-10+train_salfeat_s)
+    val_salfeat_ts = val_salfeat_ts.mean(axis=0)
+    val_salfeat_m = val_salfeat_ts.mean(axis=2, keepdims=True)
+    val_salfeat_s = val_salfeat_ts.std(axis=2, keepdims=True)
+    val_salfeat_ts = (val_salfeat_ts-val_salfeat_m)/(1e-10+val_salfeat_s)
+
+    #-- voxel-wise linear regression
+    cross_corr_dir = os.path.join(subj_dir, 'spatial_cross_corr', 'lv1')
+    reg_dir = os.path.join(cross_corr_dir, 'linreg')
+    check_path(reg_dir)
+    corr_mtx = np.load(os.path.join(cross_corr_dir, 'train_conv1_corr.npy'))
+    corr_mtx = corr_mtx.reshape(470, 55, 55)
+    # voxel-wise linear regression
+    wts = np.zeros((470, 55, 55, 3))
+    train_corr = np.zeros((470, 55, 55))
+    val_corr = np.zeros((470, 55, 55))
+    wts_mask = np.zeros((470, 3))
+    statsp_mask = np.zeros((470, 3))
+    train_corr_mask = np.zeros(470,)
+    val_corr_mask = np.zeros(470, )
+    for i in range(len(vxl_idx)):
+        print 'Voxel %s of %s ...'%(i+1, len(vxl_idx))
+        prf = corr_mtx[i, ...].copy()
+        prf = prf > prf.max()*0.8
+        print '%s voxels selected'%(prf.sum())
+        if not prf.sum():
+            continue
+        pos = np.nonzero(prf)
+        wts_tmp = np.zeros((pos[0].shape[0], 3))
+        statsp_tmp = np.zeros((pos[0].shape[0], 3))
+        train_corr_tmp = np.zeros(pos[0].shape[0],)
+        val_corr_tmp = np.zeros(pos[0].shape[0],)
+        for j in range(pos[0].shape[0]):
+            train_Y = train_fmri_ts[i, :]
+            val_Y = val_fmri_ts[i, :]
+            train_X = np.zeros((7200, 3))
+            train_X[:, 0] = train_feat_ts[pos[0][j], pos[1][j], :]
+            train_X[:, 1] = train_sal_ts[pos[0][j], pos[1][j], :]
+            train_X[:, 2] = train_salfeat_ts[pos[0][j], pos[1][j], :]
+            val_X = np.zeros((540, 3))
+            val_X[:, 0] = val_feat_ts[pos[0][j], pos[1][j], :]
+            val_X[:, 1] = val_sal_ts[pos[0][j], pos[1][j], :]
+            val_X[:, 2] = val_salfeat_ts[pos[0][j], pos[1][j], :]
+            model = LinearRegression(fit_intercept=False)
+            model.fit(train_X, train_Y)
+            wts[i, pos[0][j], pos[1][j], :] = model.coef_
+            ptrain_Y = model.predict(train_X)
+            tcorr = np.corrcoef(ptrain_Y, train_Y)[0][1]
+            train_corr[i, pos[0][j], pos[1][j]] = tcorr
+            pval_Y = model.predict(val_X)
+            vcorr = np.corrcoef(pval_Y, val_Y)[0][1]
+            val_corr[i, pos[0][j], pos[1][j]] = vcorr
+            wts_tmp[j, :] = model.coef_
+            statsp_tmp[j, :] = model.p
+            train_corr_tmp[j] = tcorr
+            val_corr_tmp[j] = vcorr
+        wts_mask[i, :] = wts_tmp.mean(axis=0)
+        statsp_mask[i, :] = statsp_tmp.mean(axis=0)
+        train_corr_mask[i] = train_corr_tmp.mean()
+        val_corr_mask[i] = val_corr_tmp.mean()
+    np.save(os.path.join(reg_dir, 'wts.npy'), wts)
+    np.save(os.path.join(reg_dir, 'train_corr.npy'), train_corr)
+    np.save(os.path.join(reg_dir, 'val_corr.npy'), val_corr)
+    np.save(os.path.join(reg_dir, 'wts_mask.npy'), wts_mask)
+    np.save(os.path.join(reg_dir, 'stats_p_mask.npy'), statsp_mask)
+    np.save(os.path.join(reg_dir, 'train_corr_mask.npy'), train_corr_mask)
+    np.save(os.path.join(reg_dir, 'val_corr_mask.npy'), val_corr_mask)
 
     #-- Cross-modality mapping: voxel~CNN feature position correlation
-    cross_corr_dir = os.path.join(subj_dir, 'spatial_cross_corr', 'lv1')
-    check_path(cross_corr_dir)
+    #cross_corr_dir = os.path.join(subj_dir, 'spatial_cross_corr', 'lv1')
+    #check_path(cross_corr_dir)
     #-- features from CNN
-    corr_file = os.path.join(cross_corr_dir, 'train_conv1_corr.npy')
+    #corr_file = os.path.join(cross_corr_dir, 'train_conv1_corr.npy')
     #feat_ts = train_feat_ts.sum(axis=0)
     #feat_ts = feat_ts.reshape(3025, 7200)
     #parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=55)
     #-- pRF visualization
     #-- select pixels which cross-modality greater than 1/2 maximum
-    corr_mtx = np.load(corr_file)
-    prf_dir = os.path.join(cross_corr_dir, 'prf')
-    visual_prf(corr_mtx, vxl_idx, prf_dir)
-
-    #-- random cross-modal correlation
-    #rand_corr_file = os.path.join(cross_corr_dir, 'rand_train_conv1_corr.npy')
-    #feat_ts = train_feat_ts.sum(axis=0)
-    #feat_ts = feat_ts.reshape(3025, 7200)
-    #random_cross_modal_corr(train_fmri_ts, feat_ts, 400, 1000, rand_corr_file)
-    #permutation_stats(np.load(rand_corr_file))
+    #corr_mtx = np.load(corr_file)
+    #prf_dir = os.path.join(cross_corr_dir, 'prf')
+    #visual_prf(corr_mtx, vxl_idx, prf_dir)
 
     #-- Cross-modality mapping: voxel~CNN unit correlation
     #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
@@ -551,7 +643,7 @@ if __name__ == '__main__':
     #train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
     #train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
     #val_feat_ts = (val_feat_ts-train_feat_m)/(1e-10+train_feat_s)
-    #tmp_train_file = os.path.join(feat_dir, 'train_norm1_trs_z.npy')
+    #tmp_train_file = os.path.join(feat_dir, 'train_conv1_trs_z.npy')
     #np.save(tmp_train_file, train_feat_ts)
     #del train_feat_ts
     #tmp_val_file = os.path.join(feat_dir, 'val_norm1_trs_z.npy')
