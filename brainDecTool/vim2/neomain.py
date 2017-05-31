@@ -500,21 +500,22 @@ if __name__ == '__main__':
     prf_num = gaussian_prfs.shape[2]
     fwhms = np.arange(1, 11)
     # feat processing
-    train_feat_ts = train_feat_ts.mean(axis=0)
-    train_feat_ts = train_feat_ts.reshape(3025, 7200)
+    train_feat_ts = train_feat_ts.mean(axis=0).reshape(3025, 7200)
     vxl_prf = np.zeros((len(vxl_idx), 3))
     for i in range(len(vxl_idx)):
         print 'Voxel %s of %s'%(i+1, len(vxl_idx))
         vxl_ts = train_feat_ts[i, :]
         corr_tmp = np.zeros(prf_num)
         for j in range(prf_num):
+            print 'pRF candidate %s'%(j)
             prf_tmp = gaussian_prfs[..., j]
             feat_ts = prf_tmp.reshape(3025, ).T.dot(train_feat_ts)
             corr_tmp[j] = np.corrcoef(vxl_ts, feat_ts)[0][1]
         max_idx = np.argmax(corr_tmp)
         vxl_prf[i, 0] = max_idx % (55*prf_num) / prf_num
         vxl_prf[i, 1] = max_idx / (55*prf_num)
-        vxl_prf[i, 2] = max_idx % prf_num
+        vxl_prf[i, 2] = fwhms[int(max_idx % prf_num)]
+        print vxl_prf[i, :]
     np.save(os.path.join(prf_dir, 'lv1_vxl_prf.npy'), vxl_prf)
 
     #-- feature temporal z-score
