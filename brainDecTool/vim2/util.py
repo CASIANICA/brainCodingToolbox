@@ -8,7 +8,7 @@ import nibabel as nib
 import matplotlib.pylab as plt
 import matplotlib.image as mpimg
 
-from brainDecTool.math import corr2_coef
+from brainDecTool.math import corr2_coef, make_2d_gaussian
 
 def idx2coord(vec_idx):
     """Convert row index in response data matrix into 3D coordinate in
@@ -339,4 +339,22 @@ def spatial_sim_seq(fmri_data):
         ndata = fmri_data[:, i]
         ssim_seq[i] = np.corrcoef(pdata, ndata)[0, 1]
     return ssim_seq
+
+def make_gaussian_prf(size):
+    """Generate various pRFs based on 2d Gaussian kernel with different
+    parameters.
+    Return a pRF matrixs which shape is (size, size, size*size*fwhm#)
+
+    """
+    fwhm_num = 10
+    fwhms = np.arange(1, fwhm_num+1)
+    prfs = np.zeros((size, size, size*size*fwhm_num))
+    
+    for i in range(size):
+        for j in range(size):
+            for k in range(fwhm_num):
+                idx = i*size*fwhm_num + j*fwhm_num + k
+                prfs[:, :, idx] = make_2d_gaussian(size, fwhm=fwhms[k],
+                                                   center=(i, j))
+    return prfs
 

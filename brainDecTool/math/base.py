@@ -136,7 +136,7 @@ def make_2d_gaussian(size, fwhm=3, center=None):
     `fwhm` is full-width-half-maximum, which can be thought of an as effective
     radius;
     `center` is the center of the gaussian curve, None: default in center of
-    the square, a cell of (x0, y0) for a specific location.
+    the square, a cell of (x0, y0) for a specific location; x0 - col, y0 - row.
     """
     x = np.arange(0, size, 1, float)
     y = x[:, np.newaxis]
