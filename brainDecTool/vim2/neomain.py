@@ -465,8 +465,8 @@ if __name__ == '__main__':
     # data shape: (selected_voxel, 7200/540)
     train_fmri_ts = tf.get_node('/rt')[:]
     train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
-    val_fmri_ts = tf.get_node('/rv')[:]
-    val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
+    #val_fmri_ts = tf.get_node('/rv')[:]
+    #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     ##-- save masked data as npy file
     #train_file = os.path.join(subj_dir, 'S%s_train_fmri_lV1.npy'%(subj_id))
     #val_file = os.path.join(subj_dir, 'S%s_val_fmri_lV1.npy'%(subj_id))
@@ -477,110 +477,135 @@ if __name__ == '__main__':
     # data.shape = (feature_size, x, y, 7200/540)
     train_feat_file = os.path.join(feat_dir, 'conv1_train_trs.npy')
     train_feat_ts = np.load(train_feat_file, mmap_mode='r')
-    val_feat_file = os.path.join(feat_dir, 'conv1_val_trs.npy')
-    val_feat_ts = np.load(val_feat_file, mmap_mode='r')
+    #val_feat_file = os.path.join(feat_dir, 'conv1_val_trs.npy')
+    #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
 
     #-- load salience data
-    train_sal_file = os.path.join(feat_dir, 'salience_train_55_55_trs.npy')
-    train_sal_ts = np.load(train_sal_file, mmap_mode='r')
-    val_sal_file = os.path.join(feat_dir, 'salience_val_55_55_trs.npy')
-    val_sal_ts = np.load(val_sal_file, mmap_mode='r')
+    #train_sal_file = os.path.join(feat_dir, 'salience_train_55_55_trs.npy')
+    #train_sal_ts = np.load(train_sal_file, mmap_mode='r')
+    #val_sal_file = os.path.join(feat_dir, 'salience_val_55_55_trs.npy')
+    #val_sal_ts = np.load(val_sal_file, mmap_mode='r')
 
     #-- load salience-modulated cnn features
-    train_salfeat_file = os.path.join(feat_dir, 'conv1_train_trs_salmod.npy')
-    train_salfeat_ts = np.load(train_salfeat_file, mmap_mode='r')
-    val_salfeat_file = os.path.join(feat_dir, 'conv1_val_trs_salmod.npy')
-    val_salfeat_ts = np.load(val_salfeat_file, mmap_mode='r')
+    #train_salfeat_file = os.path.join(feat_dir, 'conv1_train_trs_salmod.npy')
+    #train_salfeat_ts = np.load(train_salfeat_file, mmap_mode='r')
+    #val_salfeat_file = os.path.join(feat_dir, 'conv1_val_trs_salmod.npy')
+    #val_salfeat_ts = np.load(val_salfeat_file, mmap_mode='r')
+
+    #-- 2d gaussian kernel based pRF estimate
+    prf_dir = os.path.join(subj_dir, 'prf')
+    check_path(prf_dir)
+    gaussian_prf_file = os.path.join(feat_dir, 'gaussian_prfs.npy')
+    gaussian_prfs = np.load(gaussian_prf_file, mmap_mode='r')
+    prf_num = gaussian_prfs.shape[2]
+    fwhms = np.arange(1, 11)
+    # feat processing
+    train_feat_ts = train_feat_ts.mean(axis=0)
+    train_feat_ts.reshape(3025, 7200)
+    vxl_prf = np.zeros((len(vxl_idx), 3))
+    for i in range(len(vxl_idx)):
+        print 'Voxel %s of %s'%(i+1, len(vxl_idx))
+        vxl_ts = train_feat_ts[i, :]
+        corr_tmp = np.zeros(rpf_num)
+        for j in range(prf_num):
+            prf_tmp = gaussian_prfs[..., j]
+            feat_ts = prf_tmp.reshape(3025, ).T.dot(train_feat_ts)
+            corr_tmp[j] = np.corrcoef(vxl_ts, feat_ts)[0][1]
+        max_idx = np.argmax(corr_tmp)
+        vxl_prf[i, 0] = max_idx % (55*prf_num) / prf_num
+        vxl_prf[i, 1] = max_idx / (55*prf_num)
+        vxl_prf[i, 2] = max_idx % prf_num
+    np.save(os.path.join(prf_dir, 'lv1_vxl_prf.npy'), vxl_prf)
 
     #-- feature temporal z-score
-    print 'CNN features temporal z-score ...'
-    # summary features across channels
-    train_feat_ts = train_feat_ts.mean(axis=0)
-    train_feat_m = train_feat_ts.mean(axis=2, keepdims=True)
-    train_feat_s = train_feat_ts.std(axis=2, keepdims=True)
-    train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
-    val_feat_ts = val_feat_ts.mean(axis=0)
-    val_feat_m = val_feat_ts.mean(axis=2, keepdims=True)
-    val_feat_s = val_feat_ts.std(axis=2, keepdims=True)
-    val_feat_ts = (val_feat_ts-val_feat_m)/(1e-10+val_feat_s)
-    print 'Salience features temporal z-score ...'
-    train_sal_m = train_sal_ts.mean(axis=2, keepdims=True)
-    train_sal_s = train_sal_ts.std(axis=2, keepdims=True)
-    train_sal_ts = (train_sal_ts-train_sal_m)/(1e-10+train_sal_s)
-    val_sal_m = val_sal_ts.mean(axis=2, keepdims=True)
-    val_sal_s = val_sal_ts.std(axis=2, keepdims=True)
-    val_sal_ts = (val_sal_ts-val_sal_m)/(1e-10+val_sal_s)
-    print 'Salience modulated features temporal z-score ...'
-    train_salfeat_ts = train_salfeat_ts.mean(axis=0)
-    train_salfeat_m = train_salfeat_ts.mean(axis=2, keepdims=True)
-    train_salfeat_s = train_salfeat_ts.std(axis=2, keepdims=True)
-    train_salfeat_ts=(train_salfeat_ts-train_salfeat_m)/(1e-10+train_salfeat_s)
-    val_salfeat_ts = val_salfeat_ts.mean(axis=0)
-    val_salfeat_m = val_salfeat_ts.mean(axis=2, keepdims=True)
-    val_salfeat_s = val_salfeat_ts.std(axis=2, keepdims=True)
-    val_salfeat_ts = (val_salfeat_ts-val_salfeat_m)/(1e-10+val_salfeat_s)
+    #print 'CNN features temporal z-score ...'
+    ## summary features across channels
+    #train_feat_ts = train_feat_ts.mean(axis=0)
+    #train_feat_m = train_feat_ts.mean(axis=2, keepdims=True)
+    #train_feat_s = train_feat_ts.std(axis=2, keepdims=True)
+    #train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
+    #val_feat_ts = val_feat_ts.mean(axis=0)
+    #val_feat_m = val_feat_ts.mean(axis=2, keepdims=True)
+    #val_feat_s = val_feat_ts.std(axis=2, keepdims=True)
+    #val_feat_ts = (val_feat_ts-val_feat_m)/(1e-10+val_feat_s)
+    #print 'Salience features temporal z-score ...'
+    #train_sal_m = train_sal_ts.mean(axis=2, keepdims=True)
+    #train_sal_s = train_sal_ts.std(axis=2, keepdims=True)
+    #train_sal_ts = (train_sal_ts-train_sal_m)/(1e-10+train_sal_s)
+    #val_sal_m = val_sal_ts.mean(axis=2, keepdims=True)
+    #val_sal_s = val_sal_ts.std(axis=2, keepdims=True)
+    #val_sal_ts = (val_sal_ts-val_sal_m)/(1e-10+val_sal_s)
+    #print 'Salience modulated features temporal z-score ...'
+    #train_salfeat_ts = train_salfeat_ts.mean(axis=0)
+    #train_salfeat_m = train_salfeat_ts.mean(axis=2, keepdims=True)
+    #train_salfeat_s = train_salfeat_ts.std(axis=2, keepdims=True)
+    #train_salfeat_ts=(train_salfeat_ts-train_salfeat_m)/(1e-10+train_salfeat_s)
+    #val_salfeat_ts = val_salfeat_ts.mean(axis=0)
+    #val_salfeat_m = val_salfeat_ts.mean(axis=2, keepdims=True)
+    #val_salfeat_s = val_salfeat_ts.std(axis=2, keepdims=True)
+    #val_salfeat_ts = (val_salfeat_ts-val_salfeat_m)/(1e-10+val_salfeat_s)
 
     #-- voxel-wise linear regression
-    cross_corr_dir = os.path.join(subj_dir, 'spatial_cross_corr', 'lv1')
-    reg_dir = os.path.join(cross_corr_dir, 'linreg')
-    check_path(reg_dir)
-    corr_mtx = np.load(os.path.join(cross_corr_dir, 'train_conv1_corr.npy'))
-    corr_mtx = corr_mtx.reshape(470, 55, 55)
-    # voxel-wise linear regression
-    wts = np.zeros((470, 55, 55, 3))
-    train_corr = np.zeros((470, 55, 55))
-    val_corr = np.zeros((470, 55, 55))
-    wts_mask = np.zeros((470, 3))
-    statsp_mask = np.zeros((470, 3))
-    train_corr_mask = np.zeros(470,)
-    val_corr_mask = np.zeros(470, )
-    for i in range(len(vxl_idx)):
-        print 'Voxel %s of %s ...'%(i+1, len(vxl_idx))
-        prf = corr_mtx[i, ...].copy()
-        prf = prf > prf.max()*0.8
-        print '%s voxels selected'%(prf.sum())
-        if not prf.sum():
-            continue
-        pos = np.nonzero(prf)
-        wts_tmp = np.zeros((pos[0].shape[0], 3))
-        statsp_tmp = np.zeros((pos[0].shape[0], 3))
-        train_corr_tmp = np.zeros(pos[0].shape[0],)
-        val_corr_tmp = np.zeros(pos[0].shape[0],)
-        for j in range(pos[0].shape[0]):
-            train_Y = train_fmri_ts[i, :]
-            val_Y = val_fmri_ts[i, :]
-            train_X = np.zeros((7200, 3))
-            train_X[:, 0] = train_feat_ts[pos[0][j], pos[1][j], :]
-            train_X[:, 1] = train_sal_ts[pos[0][j], pos[1][j], :]
-            train_X[:, 2] = train_salfeat_ts[pos[0][j], pos[1][j], :]
-            val_X = np.zeros((540, 3))
-            val_X[:, 0] = val_feat_ts[pos[0][j], pos[1][j], :]
-            val_X[:, 1] = val_sal_ts[pos[0][j], pos[1][j], :]
-            val_X[:, 2] = val_salfeat_ts[pos[0][j], pos[1][j], :]
-            model = LinearRegression(fit_intercept=False)
-            model.fit(train_X, train_Y)
-            wts[i, pos[0][j], pos[1][j], :] = model.coef_
-            ptrain_Y = model.predict(train_X)
-            tcorr = np.corrcoef(ptrain_Y, train_Y)[0][1]
-            train_corr[i, pos[0][j], pos[1][j]] = tcorr
-            pval_Y = model.predict(val_X)
-            vcorr = np.corrcoef(pval_Y, val_Y)[0][1]
-            val_corr[i, pos[0][j], pos[1][j]] = vcorr
-            wts_tmp[j, :] = model.coef_
-            statsp_tmp[j, :] = model.p
-            train_corr_tmp[j] = tcorr
-            val_corr_tmp[j] = vcorr
-        wts_mask[i, :] = wts_tmp.mean(axis=0)
-        statsp_mask[i, :] = statsp_tmp.mean(axis=0)
-        train_corr_mask[i] = train_corr_tmp.mean()
-        val_corr_mask[i] = val_corr_tmp.mean()
-    np.save(os.path.join(reg_dir, 'wts.npy'), wts)
-    np.save(os.path.join(reg_dir, 'train_corr.npy'), train_corr)
-    np.save(os.path.join(reg_dir, 'val_corr.npy'), val_corr)
-    np.save(os.path.join(reg_dir, 'wts_mask.npy'), wts_mask)
-    np.save(os.path.join(reg_dir, 'stats_p_mask.npy'), statsp_mask)
-    np.save(os.path.join(reg_dir, 'train_corr_mask.npy'), train_corr_mask)
-    np.save(os.path.join(reg_dir, 'val_corr_mask.npy'), val_corr_mask)
+    #cross_corr_dir = os.path.join(subj_dir, 'spatial_cross_corr', 'lv1')
+    #reg_dir = os.path.join(cross_corr_dir, 'linreg')
+    #check_path(reg_dir)
+    #corr_mtx = np.load(os.path.join(cross_corr_dir, 'train_conv1_corr.npy'))
+    #corr_mtx = corr_mtx.reshape(470, 55, 55)
+    ## voxel-wise linear regression
+    #wts = np.zeros((470, 55, 55, 3))
+    #train_corr = np.zeros((470, 55, 55))
+    #val_corr = np.zeros((470, 55, 55))
+    #wts_mask = np.zeros((470, 3))
+    #statsp_mask = np.zeros((470, 3))
+    #train_corr_mask = np.zeros(470,)
+    #val_corr_mask = np.zeros(470, )
+    #for i in range(len(vxl_idx)):
+    #    print 'Voxel %s of %s ...'%(i+1, len(vxl_idx))
+    #    prf = corr_mtx[i, ...].copy()
+    #    prf = prf > prf.max()*0.8
+    #    print '%s voxels selected'%(prf.sum())
+    #    if not prf.sum():
+    #        continue
+    #    pos = np.nonzero(prf)
+    #    wts_tmp = np.zeros((pos[0].shape[0], 3))
+    #    statsp_tmp = np.zeros((pos[0].shape[0], 3))
+    #    train_corr_tmp = np.zeros(pos[0].shape[0],)
+    #    val_corr_tmp = np.zeros(pos[0].shape[0],)
+    #    for j in range(pos[0].shape[0]):
+    #        train_Y = train_fmri_ts[i, :]
+    #        val_Y = val_fmri_ts[i, :]
+    #        train_X = np.zeros((7200, 3))
+    #        train_X[:, 0] = train_feat_ts[pos[0][j], pos[1][j], :]
+    #        train_X[:, 1] = train_sal_ts[pos[0][j], pos[1][j], :]
+    #        train_X[:, 2] = train_salfeat_ts[pos[0][j], pos[1][j], :]
+    #        val_X = np.zeros((540, 3))
+    #        val_X[:, 0] = val_feat_ts[pos[0][j], pos[1][j], :]
+    #        val_X[:, 1] = val_sal_ts[pos[0][j], pos[1][j], :]
+    #        val_X[:, 2] = val_salfeat_ts[pos[0][j], pos[1][j], :]
+    #        model = LinearRegression(fit_intercept=False)
+    #        model.fit(train_X, train_Y)
+    #        wts[i, pos[0][j], pos[1][j], :] = model.coef_
+    #        ptrain_Y = model.predict(train_X)
+    #        tcorr = np.corrcoef(ptrain_Y, train_Y)[0][1]
+    #        train_corr[i, pos[0][j], pos[1][j]] = tcorr
+    #        pval_Y = model.predict(val_X)
+    #        vcorr = np.corrcoef(pval_Y, val_Y)[0][1]
+    #        val_corr[i, pos[0][j], pos[1][j]] = vcorr
+    #        wts_tmp[j, :] = model.coef_
+    #        statsp_tmp[j, :] = model.p
+    #        train_corr_tmp[j] = tcorr
+    #        val_corr_tmp[j] = vcorr
+    #    wts_mask[i, :] = wts_tmp.mean(axis=0)
+    #    statsp_mask[i, :] = statsp_tmp.mean(axis=0)
+    #    train_corr_mask[i] = train_corr_tmp.mean()
+    #    val_corr_mask[i] = val_corr_tmp.mean()
+    #np.save(os.path.join(reg_dir, 'wts.npy'), wts)
+    #np.save(os.path.join(reg_dir, 'train_corr.npy'), train_corr)
+    #np.save(os.path.join(reg_dir, 'val_corr.npy'), val_corr)
+    #np.save(os.path.join(reg_dir, 'wts_mask.npy'), wts_mask)
+    #np.save(os.path.join(reg_dir, 'stats_p_mask.npy'), statsp_mask)
+    #np.save(os.path.join(reg_dir, 'train_corr_mask.npy'), train_corr_mask)
+    #np.save(os.path.join(reg_dir, 'val_corr_mask.npy'), val_corr_mask)
 
     #-- Cross-modality mapping: voxel~CNN feature position correlation
     #cross_corr_dir = os.path.join(subj_dir, 'spatial_cross_corr', 'lv1')
