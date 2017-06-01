@@ -422,7 +422,7 @@ if __name__ == '__main__':
  
     # phrase 'test': analyses were only conducted within lV1 for code test
     # phrase 'work': for real analyses
-    phrase = 'test'
+    phrase = 'work'
  
     # subj config
     subj_id = 2
@@ -495,27 +495,31 @@ if __name__ == '__main__':
     #-- 2d gaussian kernel based pRF estimate
     prf_dir = os.path.join(subj_dir, 'prf')
     check_path(prf_dir)
-    gaussian_prf_file = os.path.join(feat_dir, 'gaussian_prfs.npy')
-    gaussian_prfs = np.load(gaussian_prf_file, mmap_mode='r')
-    prf_num = gaussian_prfs.shape[2]
+    # parameter config
     fwhms = np.arange(1, 11)
     # feat processing
-    train_feat_ts = train_feat_ts.mean(axis=0).reshape(3025, 7200)
+    gaussian_prf_file = os.path.join(feat_dir, 'gaussian_prfs.npy')
+    gaussian_prfs = np.load(gaussian_prf_file, mmap_mode='r')
+    feat_ts = train_feat_ts.mean(axis=0).reshape(3025, 7200)
+    prf_feat_ts = gaussian_prfs.reshape(3025, 30250).T.dot(feat_ts)
+    # voxel~feat corr
+    corr_file = os.path.join(prf_dir, 'vxl_prf_corr.npy')
+    parallel_corr2_coef(train_fmri_ts, prf_feat_ts, corr_file, block_size=550,
+                        n_jobs=2)
+    #corr_mtx = corr2_coef(train_fmri_ts, prf_feat_ts, mode='full')
+    #np.save(os.path.join(prf_dir, 'corr_mtx.npy'), corr_mtx)
+    corr_mtx = np.load(corr_file, mmap_mode='r')
+    # parameter estimate
     vxl_prf = np.zeros((len(vxl_idx), 3))
     for i in range(len(vxl_idx)):
         print 'Voxel %s of %s'%(i+1, len(vxl_idx))
-        vxl_ts = train_feat_ts[i, :]
-        corr_tmp = np.zeros(prf_num)
-        for j in range(prf_num):
-            prf_tmp = gaussian_prfs[..., j]
-            feat_ts = prf_tmp.reshape(3025, ).T.dot(train_feat_ts)
-            corr_tmp[j] = np.corrcoef(vxl_ts, feat_ts)[0][1]
-        max_idx = np.argmax(corr_tmp)
+        vxl_corr = corr_mtx[i, :]
+        max_idx = np.argmax(vxl_corr)
         vxl_prf[i, 0] = max_idx % 550 / 10
         vxl_prf[i, 1] = max_idx / 550
         vxl_prf[i, 2] = fwhms[int(max_idx % 10)]
         print vxl_prf[i, :]
-    np.save(os.path.join(prf_dir, 'lv1_vxl_prf.npy'), vxl_prf)
+    np.save(os.path.join(prf_dir, 'vxl_prf.npy'), vxl_prf)
 
     #-- feature temporal z-score
     #print 'CNN features temporal z-score ...'
