@@ -71,14 +71,67 @@ def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
     #receptive_field_file = os.path.join(data_dir, 'receptive_field_pos.npy')
     #np.save(receptive_field_file, pos_mtx)
     #pos_mtx = np.load(receptive_field_file)
+    # generate retinotopic mapping
+    base_name = 'train_max' + str(max_n)
+    prf2retinotopy(pos_mtx, img_size, data_dir, base_name)
+    ## eccentricity
+    #dist = retinotopy.coord2ecc(pos_mtx, (img_size, img_size))
+    ## convert distance into degree
+    ## 0-4 degree -> d < 5.5
+    ## 4-8 degree -> d < 11
+    ## 8-12 degree -> d < 16.5
+    ## 12-16 degree -> d < 22
+    ## else > 16 degree
+    #ecc = np.zeros(dist.shape)
+    #for i in range(len(dist)):
+    #    if np.isnan(dist[i]):
+    #        ecc[i] = np.nan
+    #    elif dist[i] < img_size/10:
+    #        ecc[i] = 1
+    #    elif dist[i] < img_size/5:
+    #        ecc[i] = 2
+    #    elif dist[i] < img_size/10*3:
+    #        ecc[i] = 3
+    #    elif dist[i] < img_size/10*4:
+    #        ecc[i] = 4
+    #    else:
+    #        ecc[i] = 5
+    ##dist_vec = np.nan_to_num(ecc)
+    ##vol = dist_vec.reshape(18, 64, 64)
+    #vol = ecc.reshape(18, 64, 64)
+    #vutil.save2nifti(vol, os.path.join(data_dir,
+    #                            'train_max' + str(max_n) + '_ecc.nii.gz'))
+    ## angle
+    #angle_vec = retinotopy.coord2angle(pos_mtx, (img_size, img_size))
+    ##angle_vec = np.nan_to_num(angle_vec)
+    #vol = angle_vec.reshape(18, 64, 64)
+    #vutil.save2nifti(vol, os.path.join(data_dir,
+    #                            'train_max'+ str(max_n) + '_angle.nii.gz'))
+
+def prf2retinotopy(prf_mtx, vxl_idx, img_size, out_dir, base_name):
+    """Generate retinotopic mapping based on voxels' pRF parameters.
+    `prf_mtx` is a #voxel x pRF-features matrix, pRF features can be 2 columns
+    (row, col) of image or 3 columns which adding a third pRF size parameters.
+
+    """
+    feature_size = len(prf_mtx.shape)
+    pos_mtx = np.zeros((73728, 2))
+    pos_mtx[:] = np.nan
+    if feature_size > 2:
+        size_mtx = np.zeros(73728)
+        size_mtx[:] = np.nan
+    for i in range(len(vxl_idx)):
+        pos_mtx[vxl_idx[i], :] = prf_mtx[i, :2]
+        if feature_size > 2:
+            size_mtx[vxl_idx[i]] = prf_mtx[i, 2]
     # eccentricity
     dist = retinotopy.coord2ecc(pos_mtx, (img_size, img_size))
     # convert distance into degree
-    # 0-4 degree -> d < 5.5
-    # 4-8 degree -> d < 11
-    # 8-12 degree -> d < 16.5
-    # 12-16 degree -> d < 22
-    # else > 16 degree
+    # 0-4 degree -> 1
+    # 4-8 degree -> 2
+    # 8-12 degree -> 3
+    # 12-16 degree -> 4
+    # > 16 degree -> 5
     ecc = np.zeros(dist.shape)
     for i in range(len(dist)):
         if np.isnan(dist[i]):
@@ -93,17 +146,16 @@ def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
             ecc[i] = 4
         else:
             ecc[i] = 5
-    #dist_vec = np.nan_to_num(ecc)
-    #vol = dist_vec.reshape(18, 64, 64)
     vol = ecc.reshape(18, 64, 64)
-    vutil.save2nifti(vol, os.path.join(data_dir,
-                                'train_max' + str(max_n) + '_ecc.nii.gz'))
+    vutil.save2nifti(vol, os.path.join(out_dir, base_name+'_ecc.nii.gz'))
     # angle
     angle_vec = retinotopy.coord2angle(pos_mtx, (img_size, img_size))
-    #angle_vec = np.nan_to_num(angle_vec)
     vol = angle_vec.reshape(18, 64, 64)
-    vutil.save2nifti(vol, os.path.join(data_dir,
-                                'train_max'+ str(max_n) + '_angle.nii.gz'))
+    vutil.save2nifti(vol, os.path.join(out_dir, base_name+'_angle.nii.gz'))
+    # pRF size
+    if feature_size > 2:
+        vol = size_mtx.reshape(18, 64, 64)
+        vutil.save2nifti(vol, os.path.join(out_dir, base_name+'_size.nii.gz'))
 
 def visual_prf(corr_mtx, vxl_idx, prf_dir):
     """pRF visualization."""
@@ -463,8 +515,8 @@ if __name__ == '__main__':
 
     #-- load fmri response
     # data shape: (selected_voxel, 7200/540)
-    train_fmri_ts = tf.get_node('/rt')[:]
-    train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
+    #train_fmri_ts = tf.get_node('/rt')[:]
+    #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
     #val_fmri_ts = tf.get_node('/rv')[:]
     #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     ##-- save masked data as npy file
@@ -475,8 +527,8 @@ if __name__ == '__main__':
 
     #-- load cnn activation data
     # data.shape = (feature_size, x, y, 7200/540)
-    train_feat_file = os.path.join(feat_dir, 'conv1_train_trs.npy')
-    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    #train_feat_file = os.path.join(feat_dir, 'conv1_train_trs.npy')
+    #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
     #val_feat_file = os.path.join(feat_dir, 'conv1_val_trs.npy')
     #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
 
@@ -495,31 +547,35 @@ if __name__ == '__main__':
     #-- 2d gaussian kernel based pRF estimate
     prf_dir = os.path.join(subj_dir, 'prf')
     check_path(prf_dir)
-    # parameter config
-    fwhms = np.arange(1, 11)
-    # feat processing
-    gaussian_prf_file = os.path.join(feat_dir, 'gaussian_prfs.npy')
-    gaussian_prfs = np.load(gaussian_prf_file, mmap_mode='r')
-    feat_ts = train_feat_ts.mean(axis=0).reshape(3025, 7200)
-    prf_feat_ts = gaussian_prfs.reshape(3025, 30250).T.dot(feat_ts)
-    # voxel~feat corr
-    corr_file = os.path.join(prf_dir, 'vxl_prf_corr.npy')
-    parallel_corr2_coef(train_fmri_ts, prf_feat_ts, corr_file, block_size=550,
-                        n_jobs=2)
-    #corr_mtx = corr2_coef(train_fmri_ts, prf_feat_ts, mode='full')
-    #np.save(os.path.join(prf_dir, 'corr_mtx.npy'), corr_mtx)
-    corr_mtx = np.load(corr_file, mmap_mode='r')
-    # parameter estimate
-    vxl_prf = np.zeros((len(vxl_idx), 3))
-    for i in range(len(vxl_idx)):
-        print 'Voxel %s of %s'%(i+1, len(vxl_idx))
-        vxl_corr = corr_mtx[i, :]
-        max_idx = np.argmax(vxl_corr)
-        vxl_prf[i, 0] = max_idx % 550 / 10
-        vxl_prf[i, 1] = max_idx / 550
-        vxl_prf[i, 2] = fwhms[int(max_idx % 10)]
-        print vxl_prf[i, :]
-    np.save(os.path.join(prf_dir, 'vxl_prf.npy'), vxl_prf)
+    ## parameter config
+    #fwhms = np.arange(1, 11)
+    ## feat processing
+    #gaussian_prf_file = os.path.join(feat_dir, 'gaussian_prfs.npy')
+    #gaussian_prfs = np.load(gaussian_prf_file, mmap_mode='r')
+    #feat_ts = train_feat_ts.mean(axis=0).reshape(3025, 7200)
+    #prf_feat_ts = gaussian_prfs.reshape(3025, 30250).T.dot(feat_ts)
+    ## voxel~feat corr
+    #corr_file = os.path.join(prf_dir, 'vxl_prf_corr.npy')
+    #parallel_corr2_coef(train_fmri_ts, prf_feat_ts, corr_file, block_size=550,
+    #                    n_jobs=2)
+    ##corr_mtx = corr2_coef(train_fmri_ts, prf_feat_ts, mode='full')
+    ##np.save(os.path.join(prf_dir, 'corr_mtx.npy'), corr_mtx)
+    #corr_mtx = np.load(corr_file, mmap_mode='r')
+    ## parameter estimate
+    #vxl_prf = np.zeros((len(vxl_idx), 3))
+    #for i in range(len(vxl_idx)):
+    #    print 'Voxel %s of %s'%(i+1, len(vxl_idx))
+    #    vxl_corr = corr_mtx[i, :]
+    #    max_idx = np.argmax(vxl_corr)
+    #    vxl_prf[i, 0] = max_idx % 550 / 10
+    #    vxl_prf[i, 1] = max_idx / 550
+    #    vxl_prf[i, 2] = fwhms[int(max_idx % 10)]
+    #    print vxl_prf[i, :]
+    #np.save(os.path.join(prf_dir, 'vxl_prf.npy'), vxl_prf)
+
+    #-- pRF to retinotopy
+    prf_mtx = np.load(os.path.join(prf_dir, 'vxl_prf.npy'))
+    prf2retinotopy(prf_mtx, vxl_idx, 55, prf_dir, 'retinotopy'):
 
     #-- feature temporal z-score
     #print 'CNN features temporal z-score ...'
