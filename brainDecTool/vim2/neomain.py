@@ -114,7 +114,7 @@ def prf2retinotopy(prf_mtx, img_size, out_dir, base_name):
     (row, col) of image or 3 columns which adding a third pRF size parameters.
 
     """
-    feature_size = len(prf_mtx.shape)
+    feature_size = prf_mtx.shape[1]
     pos_mtx = prf_mtx[:, :2]
     if feature_size>2:
         size_mtx = prf_mtx[:, 2]
@@ -573,7 +573,7 @@ if __name__ == '__main__':
     full_prf_mtx = np.zeros((73728, 3))
     full_prf_mtx[:] = np.nan
     for i in range(len(vxl_idx)):
-        pos_mtx[vxl_idx[i], :] = prf_mtx[i, :]
+        full_prf_mtx[vxl_idx[i], :] = prf_mtx[i, :]
     prf2retinotopy(full_prf_mtx, 55, prf_dir, 'retinotopy')
 
     #-- feature temporal z-score
