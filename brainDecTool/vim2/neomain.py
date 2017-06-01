@@ -74,39 +74,6 @@ def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
     # generate retinotopic mapping
     base_name = 'train_max' + str(max_n)
     prf2retinotopy(pos_mtx, img_size, data_dir, base_name)
-    ## eccentricity
-    #dist = retinotopy.coord2ecc(pos_mtx, (img_size, img_size))
-    ## convert distance into degree
-    ## 0-4 degree -> d < 5.5
-    ## 4-8 degree -> d < 11
-    ## 8-12 degree -> d < 16.5
-    ## 12-16 degree -> d < 22
-    ## else > 16 degree
-    #ecc = np.zeros(dist.shape)
-    #for i in range(len(dist)):
-    #    if np.isnan(dist[i]):
-    #        ecc[i] = np.nan
-    #    elif dist[i] < img_size/10:
-    #        ecc[i] = 1
-    #    elif dist[i] < img_size/5:
-    #        ecc[i] = 2
-    #    elif dist[i] < img_size/10*3:
-    #        ecc[i] = 3
-    #    elif dist[i] < img_size/10*4:
-    #        ecc[i] = 4
-    #    else:
-    #        ecc[i] = 5
-    ##dist_vec = np.nan_to_num(ecc)
-    ##vol = dist_vec.reshape(18, 64, 64)
-    #vol = ecc.reshape(18, 64, 64)
-    #vutil.save2nifti(vol, os.path.join(data_dir,
-    #                            'train_max' + str(max_n) + '_ecc.nii.gz'))
-    ## angle
-    #angle_vec = retinotopy.coord2angle(pos_mtx, (img_size, img_size))
-    ##angle_vec = np.nan_to_num(angle_vec)
-    #vol = angle_vec.reshape(18, 64, 64)
-    #vutil.save2nifti(vol, os.path.join(data_dir,
-    #                            'train_max'+ str(max_n) + '_angle.nii.gz'))
 
 def prf2retinotopy(prf_mtx, img_size, out_dir, base_name):
     """Generate retinotopic mapping based on voxels' pRF parameters.
