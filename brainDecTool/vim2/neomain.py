@@ -108,22 +108,16 @@ def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
     #vutil.save2nifti(vol, os.path.join(data_dir,
     #                            'train_max'+ str(max_n) + '_angle.nii.gz'))
 
-def prf2retinotopy(prf_mtx, vxl_idx, img_size, out_dir, base_name):
+def prf2retinotopy(prf_mtx, img_size, out_dir, base_name):
     """Generate retinotopic mapping based on voxels' pRF parameters.
     `prf_mtx` is a #voxel x pRF-features matrix, pRF features can be 2 columns
     (row, col) of image or 3 columns which adding a third pRF size parameters.
 
     """
     feature_size = len(prf_mtx.shape)
-    pos_mtx = np.zeros((73728, 2))
-    pos_mtx[:] = np.nan
-    if feature_size > 2:
-        size_mtx = np.zeros(73728)
-        size_mtx[:] = np.nan
-    for i in range(len(vxl_idx)):
-        pos_mtx[vxl_idx[i], :] = prf_mtx[i, :2]
-        if feature_size > 2:
-            size_mtx[vxl_idx[i]] = prf_mtx[i, 2]
+    pos_mtx = prf_mtx[:, :2]
+    if feature_size>2:
+        size_mtx = prf_mtx[:, 2]
     # eccentricity
     dist = retinotopy.coord2ecc(pos_mtx, (img_size, img_size))
     # convert distance into degree
@@ -575,7 +569,12 @@ if __name__ == '__main__':
 
     #-- pRF to retinotopy
     prf_mtx = np.load(os.path.join(prf_dir, 'vxl_prf.npy'))
-    prf2retinotopy(prf_mtx, vxl_idx, 55, prf_dir, 'retinotopy'):
+    # generate full voxel feature matrix
+    full_prf_mtx = np.zeros((73728, 3))
+    full_prf_mtx[:] = np.nan
+    for i in range(len(vxl_idx)):
+        pos_mtx[vxl_idx[i], :] = prf_mtx[i, :]
+    prf2retinotopy(full_prf_mtx, 55, prf_dir, 'retinotopy')
 
     #-- feature temporal z-score
     #print 'CNN features temporal z-score ...'
