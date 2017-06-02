@@ -349,12 +349,12 @@ def make_gaussian_prf(size):
     fwhm_num = 10
     fwhms = np.arange(1, fwhm_num+1)
     prfs = np.zeros((size, size, size*size*fwhm_num))
-    
-    for i in range(size):
-        for j in range(size):
-            for k in range(fwhm_num):
-                idx = i*size*fwhm_num + j*fwhm_num + k
+
+    for k in range(fwhm_num):
+        for i in range(size):
+            for j in range(size):
+                idx = k*size*size + i*size + j
                 prfs[:, :, idx] = make_2d_gaussian(size, fwhm=fwhms[k],
-                                                   center=(i, j))
+                                                   center=(j, i))
     return prfs
 

@@ -476,8 +476,8 @@ if __name__ == '__main__':
 
     #-- load fmri response
     # data shape: (selected_voxel, 7200/540)
-    #train_fmri_ts = tf.get_node('/rt')[:]
-    #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
+    train_fmri_ts = tf.get_node('/rt')[:]
+    train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
     #val_fmri_ts = tf.get_node('/rv')[:]
     #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     ##-- save masked data as npy file
@@ -488,8 +488,8 @@ if __name__ == '__main__':
 
     #-- load cnn activation data
     # data.shape = (feature_size, x, y, 7200/540)
-    #train_feat_file = os.path.join(feat_dir, 'conv1_train_trs.npy')
-    #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    train_feat_file = os.path.join(feat_dir, 'conv1_train_trs.npy')
+    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
     #val_feat_file = os.path.join(feat_dir, 'conv1_val_trs.npy')
     #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
 
@@ -508,31 +508,29 @@ if __name__ == '__main__':
     #-- 2d gaussian kernel based pRF estimate
     prf_dir = os.path.join(subj_dir, 'prf')
     check_path(prf_dir)
-    ## parameter config
-    #fwhms = np.arange(1, 11)
-    ## feat processing
-    #gaussian_prf_file = os.path.join(feat_dir, 'gaussian_prfs.npy')
-    #gaussian_prfs = np.load(gaussian_prf_file, mmap_mode='r')
-    #feat_ts = train_feat_ts.mean(axis=0).reshape(3025, 7200)
-    #prf_feat_ts = gaussian_prfs.reshape(3025, 30250).T.dot(feat_ts)
-    ## voxel~feat corr
-    #corr_file = os.path.join(prf_dir, 'vxl_prf_corr.npy')
-    #parallel_corr2_coef(train_fmri_ts, prf_feat_ts, corr_file, block_size=550,
-    #                    n_jobs=2)
-    ##corr_mtx = corr2_coef(train_fmri_ts, prf_feat_ts, mode='full')
-    ##np.save(os.path.join(prf_dir, 'corr_mtx.npy'), corr_mtx)
-    #corr_mtx = np.load(corr_file, mmap_mode='r')
-    ## parameter estimate
-    #vxl_prf = np.zeros((len(vxl_idx), 3))
-    #for i in range(len(vxl_idx)):
-    #    print 'Voxel %s of %s'%(i+1, len(vxl_idx))
-    #    vxl_corr = corr_mtx[i, :]
-    #    max_idx = np.argmax(vxl_corr)
-    #    vxl_prf[i, 0] = max_idx % 550 / 10
-    #    vxl_prf[i, 1] = max_idx / 550
-    #    vxl_prf[i, 2] = fwhms[int(max_idx % 10)]
-    #    print vxl_prf[i, :]
-    #np.save(os.path.join(prf_dir, 'vxl_prf.npy'), vxl_prf)
+    # parameter config
+    fwhms = np.arange(1, 11)
+    # feat processing
+    gaussian_prf_file = os.path.join(feat_dir, 'gaussian_prfs.npy')
+    gaussian_prfs = np.load(gaussian_prf_file, mmap_mode='r')
+    feat_ts = train_feat_ts.mean(axis=0).reshape(3025, 7200)
+    prf_feat_ts = gaussian_prfs.reshape(3025, 30250).T.dot(feat_ts)
+    # voxel~feat corr
+    corr_file = os.path.join(prf_dir, 'vxl_prf_corr.npy')
+    parallel_corr2_coef(train_fmri_ts, prf_feat_ts, corr_file, block_size=550,
+                        n_jobs=2)
+    corr_mtx = np.load(corr_file, mmap_mode='r')
+    # parameter estimate
+    vxl_prf = np.zeros((len(vxl_idx), 3))
+    for i in range(len(vxl_idx)):
+        print 'Voxel %s of %s'%(i+1, len(vxl_idx))
+        vxl_corr = corr_mtx[i, :]
+        max_idx = np.argmax(vxl_corr)
+        vxl_prf[i, 0] = (max_idx % 3025) / 55
+        vxl_prf[i, 1] = max_idx % 55
+        vxl_prf[i, 2] = fwhms[int(max_idx / 3025)] 
+        print vxl_prf[i, :]
+    np.save(os.path.join(prf_dir, 'vxl_prf.npy'), vxl_prf)
 
     #-- pRF to retinotopy
     prf_mtx = np.load(os.path.join(prf_dir, 'vxl_prf.npy'))
