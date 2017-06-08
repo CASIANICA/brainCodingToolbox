@@ -133,6 +133,20 @@ def visual_prf(corr_mtx, vxl_idx, prf_dir):
         prf[i, :] = prf_mtx.flatten()
     np.save(os.path.join(prf_dir, 'prf.npy'), prf)
 
+def get_roi_idx(fmri_table, vxl_idx):
+    """Get ROI label for each voxel."""
+    rois = ['v1lh', 'v1rh', 'v2lh', 'v2rh', 'v3lh', 'v3rh', 'v3alh', 'v3arh',
+            'v3blh', 'v3brh', 'v4lh', 'v4rh', 'MTlh', 'MTrh']
+    roi_dict = {}
+    for roi in rois:
+        roi_mask = fmri_table.get_node('/roi/%s'%(roi))[:].flatten()
+        roi_idx = np.nonzero(roi_mask==1)[0]
+        roi_idx = np.intersect1d(roi_idx, vxl_idx)
+        roi_ptr = np.array([np.where(vxl_idx==roi_idx[i])[0][0]
+                            for i in range(len(roi_idx))])
+        roi_dict[roi] = roi_ptr
+    return roi_dict
+
 def hrf_estimate(tf, feat_ts):
     """Estimate HRFs."""
     # voxel coordinates for test
@@ -473,11 +487,15 @@ if __name__ == '__main__':
         vxl_idx = np.intersect1d(vxl_idx, non_nan_idx)
     else:
         vxl_idx = full_vxl_idx
+    #np.save(os.path.join(subj_dir, 'full_vxl_idx.npy'), vxl_idx)
+    roi_dict = get_roi_idx(tf, vxl_idx)
+    #np.save(os.path.join(subj_dir, 'roi_idx_pointer.npy'), roi_dict)
+    #roi_dict = np.load(os.path.join(subj_dir, 'roi_idx_pointer.npy')).item()
 
     #-- load fmri response
     # data shape: (selected_voxel, 7200/540)
-    train_fmri_ts = tf.get_node('/rt')[:]
-    train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
+    #train_fmri_ts = tf.get_node('/rt')[:]
+    #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
     #val_fmri_ts = tf.get_node('/rv')[:]
     #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     ##-- save masked data as npy file
@@ -488,8 +506,8 @@ if __name__ == '__main__':
 
     #-- load cnn activation data
     # data.shape = (feature_size, x, y, 7200/540)
-    train_feat_file = os.path.join(feat_dir, 'conv1_train_trs.npy')
-    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    #train_feat_file = os.path.join(feat_dir, 'conv1_train_trs.npy')
+    #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
     #val_feat_file = os.path.join(feat_dir, 'conv1_val_trs.npy')
     #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
 
@@ -506,40 +524,40 @@ if __name__ == '__main__':
     #val_salfeat_ts = np.load(val_salfeat_file, mmap_mode='r')
 
     #-- 2d gaussian kernel based pRF estimate
-    prf_dir = os.path.join(subj_dir, 'prf')
-    check_path(prf_dir)
-    # parameter config
-    fwhms = np.arange(1, 11)
-    # feat processing
-    gaussian_prf_file = os.path.join(feat_dir, 'gaussian_prfs.npy')
-    gaussian_prfs = np.load(gaussian_prf_file, mmap_mode='r')
-    feat_ts = train_feat_ts.mean(axis=0).reshape(3025, 7200)
-    prf_feat_ts = gaussian_prfs.reshape(3025, 30250).T.dot(feat_ts)
-    # voxel~feat corr
-    corr_file = os.path.join(prf_dir, 'vxl_prf_corr.npy')
-    parallel_corr2_coef(train_fmri_ts, prf_feat_ts, corr_file, block_size=550,
-                        n_jobs=2)
-    corr_mtx = np.load(corr_file, mmap_mode='r')
-    # parameter estimate
-    vxl_prf = np.zeros((len(vxl_idx), 3))
-    for i in range(len(vxl_idx)):
-        print 'Voxel %s of %s'%(i+1, len(vxl_idx))
-        vxl_corr = corr_mtx[i, :]
-        max_idx = np.argmax(vxl_corr)
-        vxl_prf[i, 0] = (max_idx % 3025) / 55
-        vxl_prf[i, 1] = max_idx % 55
-        vxl_prf[i, 2] = fwhms[int(max_idx / 3025)] 
-        print vxl_prf[i, :]
-    np.save(os.path.join(prf_dir, 'vxl_prf.npy'), vxl_prf)
+    #prf_dir = os.path.join(subj_dir, 'prf')
+    #check_path(prf_dir)
+    ## parameter config
+    #fwhms = np.arange(1, 11)
+    ## feat processing
+    #gaussian_prf_file = os.path.join(feat_dir, 'gaussian_prfs.npy')
+    #gaussian_prfs = np.load(gaussian_prf_file, mmap_mode='r')
+    #feat_ts = train_feat_ts.mean(axis=0).reshape(3025, 7200)
+    #prf_feat_ts = gaussian_prfs.reshape(3025, 30250).T.dot(feat_ts)
+    ## voxel~feat corr
+    #corr_file = os.path.join(prf_dir, 'vxl_prf_corr.npy')
+    #parallel_corr2_coef(train_fmri_ts, prf_feat_ts, corr_file, block_size=550,
+    #                    n_jobs=2)
+    #corr_mtx = np.load(corr_file, mmap_mode='r')
+    ## parameter estimate
+    #vxl_prf = np.zeros((len(vxl_idx), 3))
+    #for i in range(len(vxl_idx)):
+    #    print 'Voxel %s of %s'%(i+1, len(vxl_idx))
+    #    vxl_corr = corr_mtx[i, :]
+    #    max_idx = np.argmax(vxl_corr)
+    #    vxl_prf[i, 0] = (max_idx % 3025) / 55
+    #    vxl_prf[i, 1] = max_idx % 55
+    #    vxl_prf[i, 2] = fwhms[int(max_idx / 3025)] 
+    #    print vxl_prf[i, :]
+    #np.save(os.path.join(prf_dir, 'vxl_prf.npy'), vxl_prf)
 
     #-- pRF to retinotopy
-    prf_mtx = np.load(os.path.join(prf_dir, 'vxl_prf.npy'))
-    # generate full voxel feature matrix
-    full_prf_mtx = np.zeros((73728, 3))
-    full_prf_mtx[:] = np.nan
-    for i in range(len(vxl_idx)):
-        full_prf_mtx[vxl_idx[i], :] = prf_mtx[i, :]
-    prf2retinotopy(full_prf_mtx, 55, prf_dir, 'retinotopy')
+    #prf_mtx = np.load(os.path.join(prf_dir, 'vxl_prf.npy'))
+    ## generate full voxel feature matrix
+    #full_prf_mtx = np.zeros((73728, 3))
+    #full_prf_mtx[:] = np.nan
+    #for i in range(len(vxl_idx)):
+    #    full_prf_mtx[vxl_idx[i], :] = prf_mtx[i, :]
+    #prf2retinotopy(full_prf_mtx, 55, prf_dir, 'retinotopy')
 
     #-- feature temporal z-score
     #print 'CNN features temporal z-score ...'
@@ -632,18 +650,58 @@ if __name__ == '__main__':
     #np.save(os.path.join(reg_dir, 'val_corr_mask.npy'), val_corr_mask)
 
     #-- Cross-modality mapping: voxel~CNN feature position correlation
-    #cross_corr_dir = os.path.join(subj_dir, 'spatial_cross_corr', 'lv1')
-    #check_path(cross_corr_dir)
+    cross_corr_dir = os.path.join(subj_dir, 'spatial_cross_corr')
+    check_path(cross_corr_dir)
     #-- features from CNN
     #corr_file = os.path.join(cross_corr_dir, 'train_conv1_corr.npy')
-    #feat_ts = train_feat_ts.sum(axis=0)
-    #feat_ts = feat_ts.reshape(3025, 7200)
+    #feat_ts = train_feat_ts.sum(axis=0).reshape(3025, 7200)
     #parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=55)
-    #-- pRF visualization
-    #-- select pixels which cross-modality greater than 1/2 maximum
+    #-- visual-pRF: select pixels which corr-coef greater than 1/2 maximum
     #corr_mtx = np.load(corr_file)
     #prf_dir = os.path.join(cross_corr_dir, 'prf')
     #visual_prf(corr_mtx, vxl_idx, prf_dir)
+    #-- categorize voxels based on pRF types
+    corr_file = os.path.join(cross_corr_dir, 'train_conv1_corr.npy')
+    corr_mtx = np.load(corr_file)
+    # get pRF by remove non-significant pixels
+    # two-tailed p < 0.01: r > 0.0302 and r < -0.0302
+    ncorr_mtx = corr_mtx.copy()
+    ncorr_mtx[(corr_mtx<=0.0302)&(corr_mtx>=-0.0302)] = 0
+    prf_max = ncorr_mtx.max(axis=1)
+    prf_min = ncorr_mtx.min(axis=1)
+    prf_type = np.zeros(corr_mtx.shape[0])
+    prf_type[(prf_max>0)&(prf_min>0)] = 1
+    prf_type[(prf_max>0)&(prf_min==0)] = 2
+    prf_type[(prf_max>0)&(prf_min<0)] = 3
+    prf_type[(prf_max==0)&(prf_min<0)] = 4
+    prf_type[(prf_max<0)&(prf_min<0)] = 5
+    np.save(os.path.join(cross_corr_dir, 'prf_type.npy'), prf_type)
+    nii_file = os.path.join(cross_corr_dir, 'prf_type.nii.gz')
+    vutil.vxl_data2nifti(prf_type, vxl_idx, nii_file)
+    #-- pRF stats and visualization for each ROI
+    prf_dir = os.path.join(cross_corr_dir, 'prf_figs')
+    check_path(prf_dir)
+    for roi in roi_dict:
+        print '------%s------'%(roi)
+        roi_idx = roi_dict[roi]
+        # pRF type stats in each ROI
+        roi_prf_type = prf_type[roi_idx]
+        print 'Voxel number: %s'%(roi_prf_type.shape[0])
+        for i in range(5):
+            vxl_num = np.sum(roi_prf_type==(i+1))
+            vxl_ratio = vxl_num * 100.0 / roi_prf_type.shape[0]
+            print '%s, %0.2f'%(vxl_num, vxl_ratio)
+        # save pRF as figs
+        roi_dir = os.path.join(prf_dir, roi)
+        check_path(roi_dir)
+        roi_corr_mtx = corr_mtx[roi_idx, :]
+        roi_min = roi_corr_mtx.min()
+        roi_max = roi_corr_mtx.max()
+        for i in roi_idx:
+            vxl_prf = corr_mtx[i, :].reshape(55, 55)
+            filename = 'v'+str(vxl_idx[i])+'_'+str(int(prf_type[i]))+'.png'
+            out_file = os.path.join(roi_dir, filename)
+            vutil.save_imshow(vxl_prf, out_file, val_range=(roi_min, roi_max))
 
     #-- Cross-modality mapping: voxel~CNN unit correlation
     #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')

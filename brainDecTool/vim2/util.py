@@ -234,10 +234,16 @@ def plot_kernerls(in_dir, basename, filename):
         axs[n/12][n%12].get_yaxis().set_visible(False)
     fig.savefig(os.path.join(in_dir, filename))
 
-def save_imshow(data, filename):
+def save_imshow(data, filename, val_range=None):
     """Save `imshow` figure as file."""
     fig, ax = plt.subplots()
-    cax = ax.imshow(data.astype(np.float64))
+    if val_range:
+        vmin = val_range[0]
+        vmax = val_range[1]
+    else:
+        vmin = data.min()
+        vmax = data.max()
+    cax = ax.imshow(data.astype(np.float64), vmin=vmin, vmax=vmax)
     fig.colorbar(cax)
     fig.savefig(filename)
     plt.close()
