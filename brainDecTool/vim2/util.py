@@ -364,3 +364,9 @@ def make_gaussian_prf(size):
                                                    center=(j, i))
     return prfs
 
+def sugar_gaussian_f(size, x0, y0, fwhm, offset, amplitude):
+    """Sugar function for model fitting."""
+    g = make_2d_gaussian(size, fwhm=fwhm, center=(y0, x0))
+    g = offset + amplitude * g
+    return g.ravel()
+

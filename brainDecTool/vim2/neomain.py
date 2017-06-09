@@ -7,6 +7,7 @@ import numpy as np
 import tables
 from scipy import ndimage
 from scipy.misc import imsave
+import scipy.optimize as opt
 from sklearn.cross_decomposition import PLSCanonical
 
 from brainDecTool.util import configParser
@@ -663,45 +664,64 @@ if __name__ == '__main__':
     #-- categorize voxels based on pRF types
     corr_file = os.path.join(cross_corr_dir, 'train_conv1_corr.npy')
     corr_mtx = np.load(corr_file)
-    # get pRF by remove non-significant pixels
-    # two-tailed p < 0.01: r > 0.0302 and r < -0.0302
-    ncorr_mtx = corr_mtx.copy()
-    ncorr_mtx[(corr_mtx<=0.0302)&(corr_mtx>=-0.0302)] = 0
-    prf_max = ncorr_mtx.max(axis=1)
-    prf_min = ncorr_mtx.min(axis=1)
-    prf_type = np.zeros(corr_mtx.shape[0])
-    prf_type[(prf_max>0)&(prf_min>0)] = 1
-    prf_type[(prf_max>0)&(prf_min==0)] = 2
-    prf_type[(prf_max>0)&(prf_min<0)] = 3
-    prf_type[(prf_max==0)&(prf_min<0)] = 4
-    prf_type[(prf_max<0)&(prf_min<0)] = 5
-    np.save(os.path.join(cross_corr_dir, 'prf_type.npy'), prf_type)
-    nii_file = os.path.join(cross_corr_dir, 'prf_type.nii.gz')
-    vutil.vxl_data2nifti(prf_type, vxl_idx, nii_file)
-    #-- pRF stats and visualization for each ROI
-    prf_dir = os.path.join(cross_corr_dir, 'prf_figs')
-    check_path(prf_dir)
-    for roi in roi_dict:
-        print '------%s------'%(roi)
-        roi_idx = roi_dict[roi]
-        # pRF type stats in each ROI
-        roi_prf_type = prf_type[roi_idx]
-        print 'Voxel number: %s'%(roi_prf_type.shape[0])
-        for i in range(5):
-            vxl_num = np.sum(roi_prf_type==(i+1))
-            vxl_ratio = vxl_num * 100.0 / roi_prf_type.shape[0]
-            print '%s, %0.2f'%(vxl_num, vxl_ratio)
-        # save pRF as figs
-        roi_dir = os.path.join(prf_dir, roi)
-        check_path(roi_dir)
-        roi_corr_mtx = corr_mtx[roi_idx, :]
-        roi_min = roi_corr_mtx.min()
-        roi_max = roi_corr_mtx.max()
-        for i in roi_idx:
-            vxl_prf = corr_mtx[i, :].reshape(55, 55)
-            filename = 'v'+str(vxl_idx[i])+'_'+str(int(prf_type[i]))+'.png'
-            out_file = os.path.join(roi_dir, filename)
-            vutil.save_imshow(vxl_prf, out_file, val_range=(roi_min, roi_max))
+    ## get pRF by remove non-significant pixels
+    ## two-tailed p < 0.01: r > 0.0302 and r < -0.0302
+    #ncorr_mtx = corr_mtx.copy()
+    #ncorr_mtx[(corr_mtx<=0.0302)&(corr_mtx>=-0.0302)] = 0
+    #prf_max = ncorr_mtx.max(axis=1)
+    #prf_min = ncorr_mtx.min(axis=1)
+    #prf_type = np.zeros(corr_mtx.shape[0])
+    #prf_type[(prf_max>0)&(prf_min>0)] = 1
+    #prf_type[(prf_max>0)&(prf_min==0)] = 2
+    #prf_type[(prf_max>0)&(prf_min<0)] = 3
+    #prf_type[(prf_max==0)&(prf_min<0)] = 4
+    #prf_type[(prf_max<0)&(prf_min<0)] = 5
+    #np.save(os.path.join(cross_corr_dir, 'prf_type.npy'), prf_type)
+    #nii_file = os.path.join(cross_corr_dir, 'prf_type.nii.gz')
+    #vutil.vxl_data2nifti(prf_type, vxl_idx, nii_file)
+    ##-- pRF stats and visualization for each ROI
+    #prf_dir = os.path.join(cross_corr_dir, 'prf_figs')
+    #check_path(prf_dir)
+    #for roi in roi_dict:
+    #    print '------%s------'%(roi)
+    #    roi_idx = roi_dict[roi]
+    #    # pRF type stats in each ROI
+    #    roi_prf_type = prf_type[roi_idx]
+    #    print 'Voxel number: %s'%(roi_prf_type.shape[0])
+    #    for i in range(5):
+    #        vxl_num = np.sum(roi_prf_type==(i+1))
+    #        vxl_ratio = vxl_num * 100.0 / roi_prf_type.shape[0]
+    #        print '%s, %0.2f'%(vxl_num, vxl_ratio)
+    #    # save pRF as figs
+    #    roi_dir = os.path.join(prf_dir, roi)
+    #    check_path(roi_dir)
+    #    roi_corr_mtx = corr_mtx[roi_idx, :]
+    #    roi_min = roi_corr_mtx.min()
+    #    roi_max = roi_corr_mtx.max()
+    #    for i in roi_idx:
+    #        vxl_prf = corr_mtx[i, :].reshape(55, 55)
+    #        filename = 'v'+str(vxl_idx[i])+'_'+str(int(prf_type[i]))+'.png'
+    #        out_file = os.path.join(roi_dir, filename)
+    #        vutil.save_imshow(vxl_prf, out_file, val_range=(roi_min, roi_max))
+    #-- get pRF parameters based on 2D Gaussian curve using model fitting
+    paras = np.zeros((corr_mtx.shape[0], 5))
+    for i in range(corr_mtx.shape[0]):
+        print i,
+        y = corr_mtx[i, :]
+        if y.max() >= abs(y.min()):
+            x0, y0 = np.unravel_index(np.argmax(y.reshape(55, 55)), (55, 55))
+        else:
+            x0, y0 = np.unravel_index(np.argmin(y.reshape(55, 55)), (55, 55))
+        initial_guess = (x0, y0, 3, 0, 2)
+        try:
+            popt, pcov = opt.curve_fit(vutil.sugar_gaussian_f, 55, y,
+                                       p0=initial_guess)
+            print popt
+            paras[i, :] = popt
+        except RuntimeError:
+            print 'Error - curve_fit failed'
+            paras[i, :] = np.nan
+    np.save(os.path.join(cross_corr_dir, 'curve_fit_paras.npy'), paras)
 
     #-- Cross-modality mapping: voxel~CNN unit correlation
     #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
