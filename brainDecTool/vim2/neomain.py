@@ -662,8 +662,8 @@ if __name__ == '__main__':
     #prf_dir = os.path.join(cross_corr_dir, 'prf')
     #visual_prf(corr_mtx, vxl_idx, prf_dir)
     #-- categorize voxels based on pRF types
-    corr_file = os.path.join(cross_corr_dir, 'train_conv1_corr.npy')
-    corr_mtx = np.load(corr_file)
+    #corr_file = os.path.join(cross_corr_dir, 'train_conv1_corr.npy')
+    #corr_mtx = np.load(corr_file)
     ## get pRF by remove non-significant pixels
     ## two-tailed p < 0.01: r > 0.0302 and r < -0.0302
     #ncorr_mtx = corr_mtx.copy()
@@ -704,24 +704,32 @@ if __name__ == '__main__':
     #        out_file = os.path.join(roi_dir, filename)
     #        vutil.save_imshow(vxl_prf, out_file, val_range=(roi_min, roi_max))
     #-- get pRF parameters based on 2D Gaussian curve using model fitting
-    paras = np.zeros((corr_mtx.shape[0], 5))
-    for i in range(corr_mtx.shape[0]):
-        print i,
-        y = corr_mtx[i, :]
-        if y.max() >= abs(y.min()):
-            x0, y0 = np.unravel_index(np.argmax(y.reshape(55, 55)), (55, 55))
-        else:
-            x0, y0 = np.unravel_index(np.argmin(y.reshape(55, 55)), (55, 55))
-        initial_guess = (x0, y0, 3, 0, 2)
-        try:
-            popt, pcov = opt.curve_fit(vutil.sugar_gaussian_f, 55, y,
-                                       p0=initial_guess)
-            print popt
-            paras[i, :] = popt
-        except RuntimeError:
-            print 'Error - curve_fit failed'
-            paras[i, :] = np.nan
-    np.save(os.path.join(cross_corr_dir, 'curve_fit_paras.npy'), paras)
+    #paras = np.zeros((corr_mtx.shape[0], 5))
+    #for i in range(corr_mtx.shape[0]):
+    #    print i,
+    #    y = corr_mtx[i, :]
+    #    if y.max() >= abs(y.min()):
+    #        x0, y0 = np.unravel_index(np.argmax(y.reshape(55, 55)), (55, 55))
+    #    else:
+    #        x0, y0 = np.unravel_index(np.argmin(y.reshape(55, 55)), (55, 55))
+    #    initial_guess = (x0, y0, 3, 0, 2)
+    #    try:
+    #        popt, pcov = opt.curve_fit(vutil.sugar_gaussian_f, 55, y,
+    #                                   p0=initial_guess)
+    #        print popt
+    #        paras[i, :] = popt
+    #    except RuntimeError:
+    #        print 'Error - curve_fit failed'
+    #        paras[i, :] = np.nan
+    #np.save(os.path.join(cross_corr_dir, 'curve_fit_paras.npy'), paras)
+    #-- show pRF parameters on cortical surface
+    paras = np.load(os.path.join(cross_corr_dir, 'curve_fit_paras.npy'))
+    full_prf_mtx = np.zeros((73728, 3))
+    full_prf_mtx[:] = np.nan
+    for i in range(len(vxl_idx)):
+        full_prf_mtx[vxl_idx[i], :] = paras[i, :3]
+    prf2retinotopy(full_prf_mtx, 55, cross_corr_dir, 'curve_fit')
+    
 
     #-- Cross-modality mapping: voxel~CNN unit correlation
     #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
