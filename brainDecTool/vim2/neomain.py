@@ -684,7 +684,7 @@ if __name__ == '__main__':
     #        vutil.save_imshow(vxl_prf, out_file, val_range=(roi_min, roi_max))
     #-- get pRF parameters based on 2D Gaussian curve using model fitting
     corr_mtx = np.load(os.path.join(cross_corr_dir, 'train_conv1_corr.npy'))
-    # last column is curve fitting error based on 
+    # last column is curve fitting error based on squared-differnece
     paras = np.zeros((corr_mtx.shape[0], 6))
     for i in range(corr_mtx.shape[0]):
         print i,
@@ -698,7 +698,9 @@ if __name__ == '__main__':
             popt, pcov = opt.curve_fit(vutil.sugar_gaussian_f, 55, y,
                                        p0=initial_guess)
             print popt
-            paras[i, :] = popt
+            paras[i, :5] = popt
+            pred_y = vutil.sugar_gaussian_f(55, *popt)
+            paras[i, 5] = np.square(y-pred_y).sum()
         except RuntimeError:
             print 'Error - curve_fit failed'
             paras[i, :] = np.nan
