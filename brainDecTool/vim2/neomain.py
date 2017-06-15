@@ -74,9 +74,9 @@ def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
     #pos_mtx = np.load(receptive_field_file)
     # generate retinotopic mapping
     base_name = 'train_max' + str(max_n)
-    prf2retinotopy(pos_mtx, img_size, data_dir, base_name)
+    prf2visual_angle(pos_mtx, img_size, data_dir, base_name)
 
-def prf2retinotopy(prf_mtx, img_size, out_dir, base_name):
+def prf2visual_angle(prf_mtx, img_size, out_dir, base_name):
     """Generate retinotopic mapping based on voxels' pRF parameters.
     `prf_mtx` is a #voxel x pRF-features matrix, pRF features can be 2 columns
     (row, col) of image or 3 columns which adding a third pRF size parameters.
@@ -84,39 +84,18 @@ def prf2retinotopy(prf_mtx, img_size, out_dir, base_name):
     """
     feature_size = prf_mtx.shape[1]
     pos_mtx = prf_mtx[:, :2]
-    if feature_size>2:
-        size_mtx = prf_mtx[:, 2]
     # eccentricity
-    dist = retinotopy.coord2ecc(pos_mtx, (img_size, img_size))
-    # convert distance into degree
-    # 0-4 degree -> 1
-    # 4-8 degree -> 2
-    # 8-12 degree -> 3
-    # 12-16 degree -> 4
-    # > 16 degree -> 5
-    ecc = np.zeros(dist.shape)
-    for i in range(len(dist)):
-        if np.isnan(dist[i]):
-            ecc[i] = np.nan
-        elif dist[i] < img_size/10:
-            ecc[i] = 1
-        elif dist[i] < img_size/5:
-            ecc[i] = 2
-        elif dist[i] < img_size/10*3:
-            ecc[i] = 3
-        elif dist[i] < img_size/10*4:
-            ecc[i] = 4
-        else:
-            ecc[i] = 5
+    ecc = retinotopy.coord2ecc(pos_mtx, img_size, 20)
     vol = ecc.reshape(18, 64, 64)
     vutil.save2nifti(vol, os.path.join(out_dir, base_name+'_ecc.nii.gz'))
     # angle
-    angle_vec = retinotopy.coord2angle(pos_mtx, (img_size, img_size))
-    vol = angle_vec.reshape(18, 64, 64)
+    angle = retinotopy.coord2angle(pos_mtx, img_size)
+    vol = angle.reshape(18, 64, 64)
     vutil.save2nifti(vol, os.path.join(out_dir, base_name+'_angle.nii.gz'))
     # pRF size
     if feature_size > 2:
-        vol = size_mtx.reshape(18, 64, 64)
+        size_angle = retinotopy.get_prf_size(prf_mtx, 55, 20)
+        vol = size_angle.reshape(18, 64, 64)
         vutil.save2nifti(vol, os.path.join(out_dir, base_name+'_size.nii.gz'))
 
 def visual_prf(corr_mtx, vxl_idx, prf_dir):
@@ -558,7 +537,7 @@ if __name__ == '__main__':
     #full_prf_mtx[:] = np.nan
     #for i in range(len(vxl_idx)):
     #    full_prf_mtx[vxl_idx[i], :] = prf_mtx[i, :]
-    #prf2retinotopy(full_prf_mtx, 55, prf_dir, 'retinotopy')
+    #prf2visual_angle(full_prf_mtx, 55, prf_dir, 'retinotopy')
 
     #-- feature temporal z-score
     #print 'CNN features temporal z-score ...'
@@ -654,11 +633,11 @@ if __name__ == '__main__':
     cross_corr_dir = os.path.join(subj_dir, 'spatial_cross_corr')
     check_path(cross_corr_dir)
     #-- features from CNN
-    corr_file = os.path.join(cross_corr_dir, 'train_conv1_corr.npy')
+    #corr_file = os.path.join(cross_corr_dir, 'train_conv1_corr.npy')
     #feat_ts = train_feat_ts.sum(axis=0).reshape(3025, 7200)
     #parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=55)
     #-- visual-pRF: select pixels which corr-coef greater than 1/2 maximum
-    corr_mtx = np.load(corr_file)
+    #corr_mtx = np.load(corr_file)
     #prf_dir = os.path.join(cross_corr_dir, 'prf')
     #visual_prf(corr_mtx, vxl_idx, prf_dir)
     #-- categorize voxels based on pRF types
@@ -679,7 +658,7 @@ if __name__ == '__main__':
     #np.save(os.path.join(cross_corr_dir, 'prf_type.npy'), prf_type)
     #nii_file = os.path.join(cross_corr_dir, 'prf_type.nii.gz')
     #vutil.vxl_data2nifti(prf_type, vxl_idx, nii_file)
-    ##-- pRF stats and visualization for each ROI
+    #-- pRF stats and visualization for each ROI
     #prf_dir = os.path.join(cross_corr_dir, 'prf_figs')
     #check_path(prf_dir)
     #for roi in roi_dict:
@@ -704,54 +683,56 @@ if __name__ == '__main__':
     #        out_file = os.path.join(roi_dir, filename)
     #        vutil.save_imshow(vxl_prf, out_file, val_range=(roi_min, roi_max))
     #-- get pRF parameters based on 2D Gaussian curve using model fitting
-    #paras = np.zeros((corr_mtx.shape[0], 5))
-    #for i in range(corr_mtx.shape[0]):
-    #    print i,
-    #    y = corr_mtx[i, :]
-    #    if y.max() >= abs(y.min()):
-    #        x0, y0 = np.unravel_index(np.argmax(y.reshape(55, 55)), (55, 55))
-    #    else:
-    #        x0, y0 = np.unravel_index(np.argmin(y.reshape(55, 55)), (55, 55))
-    #    initial_guess = (x0, y0, 3, 0, 2)
-    #    try:
-    #        popt, pcov = opt.curve_fit(vutil.sugar_gaussian_f, 55, y,
-    #                                   p0=initial_guess)
-    #        print popt
-    #        paras[i, :] = popt
-    #    except RuntimeError:
-    #        print 'Error - curve_fit failed'
-    #        paras[i, :] = np.nan
-    #np.save(os.path.join(cross_corr_dir, 'curve_fit_paras.npy'), paras)
+    corr_mtx = np.load(os.path.join(cross_corr_dir, 'train_conv1_corr.npy'))
+    # last column is curve fitting error based on 
+    paras = np.zeros((corr_mtx.shape[0], 6))
+    for i in range(corr_mtx.shape[0]):
+        print i,
+        y = corr_mtx[i, :]
+        if y.max() >= abs(y.min()):
+            x0, y0 = np.unravel_index(np.argmax(y.reshape(55, 55)), (55, 55))
+        else:
+            x0, y0 = np.unravel_index(np.argmin(y.reshape(55, 55)), (55, 55))
+        initial_guess = (x0, y0, 3, 0, 2)
+        try:
+            popt, pcov = opt.curve_fit(vutil.sugar_gaussian_f, 55, y,
+                                       p0=initial_guess)
+            print popt
+            paras[i, :] = popt
+        except RuntimeError:
+            print 'Error - curve_fit failed'
+            paras[i, :] = np.nan
+    np.save(os.path.join(cross_corr_dir, 'curve_fit_paras.npy'), paras)
     #-- curve-fit pRF visualization for each ROI
-    prf_dir = os.path.join(cross_corr_dir, 'fit_prf_figs')
-    check_path(prf_dir)
-    paras = np.load(os.path.join(cross_corr_dir, 'curve_fit_paras.npy'))
-    prf_type = np.load(os.path.join(cross_corr_dir, 'prf_type.npy'))
-    for roi in roi_dict:
-        print '------%s------'%(roi)
-        roi_idx = roi_dict[roi]
-        # save pRF as figs
-        roi_dir = os.path.join(prf_dir, roi)
-        check_path(roi_dir)
-        roi_corr_mtx = corr_mtx[roi_idx, :]
-        roi_min = roi_corr_mtx.min()
-        roi_max = roi_corr_mtx.max()
-        for i in roi_idx:
-            if np.isnan(paras[i, 0]):
-                continue
-            p = paras[i, :]
-            vxl_prf = vutil.sugar_gaussian_f(55, *p).reshape(55, 55)
-            filename = 'v'+str(vxl_idx[i])+'_'+str(int(prf_type[i]))+'.png'
-            out_file = os.path.join(roi_dir, filename)
-            vutil.save_imshow(vxl_prf, out_file, val_range=(roi_min, roi_max))
-    #-- show pRF parameters on cortical surface
+    #prf_dir = os.path.join(cross_corr_dir, 'fit_prf_figs')
+    #check_path(prf_dir)
     #paras = np.load(os.path.join(cross_corr_dir, 'curve_fit_paras.npy'))
-    #full_prf_mtx = np.zeros((73728, 3))
-    #full_prf_mtx[:] = np.nan
-    #for i in range(len(vxl_idx)):
-    #    full_prf_mtx[vxl_idx[i], :] = paras[i, :3]
-    #prf2retinotopy(full_prf_mtx, 55, cross_corr_dir, 'curve_fit')
-    
+    #corr_mtx = np.load(os.path.join(cross_corr_dir, 'train_conv1_corr.npy'))
+    #prf_type = np.load(os.path.join(cross_corr_dir, 'prf_type.npy'))
+    #for roi in roi_dict:
+    #    print '------%s------'%(roi)
+    #    roi_idx = roi_dict[roi]
+    #    # save pRF as figs
+    #    roi_dir = os.path.join(prf_dir, roi)
+    #    check_path(roi_dir)
+    #    roi_corr_mtx = corr_mtx[roi_idx, :]
+    #    roi_min = roi_corr_mtx.min()
+    #    roi_max = roi_corr_mtx.max()
+    #    for i in roi_idx:
+    #        if np.isnan(paras[i, 0]):
+    #            continue
+    #        p = paras[i, :]
+    #        vxl_prf = vutil.sugar_gaussian_f(55, *p).reshape(55, 55)
+    #        filename = 'v'+str(vxl_idx[i])+'_'+str(int(prf_type[i]))+'.png'
+    #        out_file = os.path.join(roi_dir, filename)
+    #        vutil.save_imshow(vxl_prf, out_file, val_range=(roi_min, roi_max))
+    #-- show pRF parameters on cortical surface
+    paras = np.load(os.path.join(cross_corr_dir, 'curve_fit_paras.npy'))
+    full_prf_mtx = np.zeros((73728, 3))
+    full_prf_mtx[:] = np.nan
+    for i in range(len(vxl_idx)):
+        full_prf_mtx[vxl_idx[i], :] = paras[i, :3]
+    prf2visual_angle(full_prf_mtx, 55, cross_corr_dir, 'curve_fit')
 
     #-- Cross-modality mapping: voxel~CNN unit correlation
     #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')

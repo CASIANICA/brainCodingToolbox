@@ -55,6 +55,7 @@ def get_prf_size(pos_mtx, img_size, max_visual_angle):
     A = np.tan(max_visual_angle/360.0*np.pi)
     max_ecc = np.arctan(A*max_dist/L) / np.pi * 180
     min_ecc = np.arctan(A*min_dist/L) / np.pi * 180
-    return max_ecc - min_ecc
-
+    # due to the size was defined as FWHM in curve-fitting, the size of
+    # pRF was be divided by 2.3548 to convert to sigma.
+    return (max_ecc - min_ecc)/2.3548
 
