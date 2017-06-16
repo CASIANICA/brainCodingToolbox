@@ -683,28 +683,28 @@ if __name__ == '__main__':
     #        out_file = os.path.join(roi_dir, filename)
     #        vutil.save_imshow(vxl_prf, out_file, val_range=(roi_min, roi_max))
     #-- get pRF parameters based on 2D Gaussian curve using model fitting
-    corr_mtx = np.load(os.path.join(cross_corr_dir, 'train_conv1_corr.npy'))
-    # last column is curve fitting error based on squared-differnece
-    paras = np.zeros((corr_mtx.shape[0], 6))
-    for i in range(corr_mtx.shape[0]):
-        print i,
-        y = corr_mtx[i, :]
-        if y.max() >= abs(y.min()):
-            x0, y0 = np.unravel_index(np.argmax(y.reshape(55, 55)), (55, 55))
-        else:
-            x0, y0 = np.unravel_index(np.argmin(y.reshape(55, 55)), (55, 55))
-        initial_guess = (x0, y0, 3, 0, 2)
-        try:
-            popt, pcov = opt.curve_fit(vutil.sugar_gaussian_f, 55, y,
-                                       p0=initial_guess)
-            print popt
-            paras[i, :5] = popt
-            pred_y = vutil.sugar_gaussian_f(55, *popt)
-            paras[i, 5] = np.square(y-pred_y).sum()
-        except RuntimeError:
-            print 'Error - curve_fit failed'
-            paras[i, :] = np.nan
-    np.save(os.path.join(cross_corr_dir, 'curve_fit_paras.npy'), paras)
+    #corr_mtx = np.load(os.path.join(cross_corr_dir, 'train_conv1_corr.npy'))
+    ## last column is curve fitting error based on squared-differnece
+    #paras = np.zeros((corr_mtx.shape[0], 6))
+    #for i in range(corr_mtx.shape[0]):
+    #    print i,
+    #    y = corr_mtx[i, :]
+    #    if y.max() >= abs(y.min()):
+    #        x0, y0 = np.unravel_index(np.argmax(y.reshape(55, 55)), (55, 55))
+    #    else:
+    #        x0, y0 = np.unravel_index(np.argmin(y.reshape(55, 55)), (55, 55))
+    #    initial_guess = (x0, y0, 3, 0, 2)
+    #    try:
+    #        popt, pcov = opt.curve_fit(vutil.sugar_gaussian_f, 55, y,
+    #                                   p0=initial_guess)
+    #        #print popt
+    #        paras[i, :5] = popt
+    #        pred_y = vutil.sugar_gaussian_f(55, *popt)
+    #        paras[i, 5] = np.square(y-pred_y).sum()
+    #    except RuntimeError:
+    #        print 'Error - curve_fit failed'
+    #        paras[i, :] = np.nan
+    #np.save(os.path.join(cross_corr_dir, 'curve_fit_paras.npy'), paras)
     #-- curve-fit pRF visualization for each ROI
     #prf_dir = os.path.join(cross_corr_dir, 'fit_prf_figs')
     #check_path(prf_dir)
@@ -735,6 +735,8 @@ if __name__ == '__main__':
     for i in range(len(vxl_idx)):
         full_prf_mtx[vxl_idx[i], :] = paras[i, :3]
     prf2visual_angle(full_prf_mtx, 55, cross_corr_dir, 'curve_fit')
+    err_file = os.path.join(cross_corr_dir, 'curve_fit_err.nii.gz')
+    vutil.vxl_data2nifti(paras[:, 5], vxl_idx, err_file)
 
     #-- Cross-modality mapping: voxel~CNN unit correlation
     #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
