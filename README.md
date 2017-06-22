@@ -1,2 +1,2 @@
 # brainDecodingToolbox
-Toolbox for brain activity decoding analysis
+Python toolbox for brain activity decoding analysis

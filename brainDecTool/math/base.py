@@ -2,7 +2,9 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 
 import numpy as np
+from scipy import stats
 from skimage.measure import block_reduce
+from skimage.transform import resize
 from joblib import Parallel, delayed
 
 def corr2_coef(A, B, mode='full'):
@@ -89,6 +91,17 @@ def down_sample(image, block_size, cval=0):
     """
     return block_reduce(image, block_size, func=np.mean, cval=cval)
 
+def img_resize(img, out_dim):
+    """Resize image to `out_dim`.
+    img is a 3d array which first 2 dim corresponding image size
+    out_dim is a tuple containing resized image size
+    """
+    im_min, im_max = img.min(), img.max()
+    im_std = (img - im_min) / (im_max - im_min)
+    resized_im = resize(im_std, out_dim, order=1)
+    resized_im = resized_im * (im_max - im_min) + im_min
+    return resized_im
+
 def time_lag_corr(x, y, maxlag):
     """Calculate cross-correlation between x and a lagged y.
     `x` and `y` are two 1-D vector, `maxlag` refers to the maximum lag value.
@@ -105,4 +118,34 @@ def time_lag_corr(x, y, maxlag):
         lagy = np.array(y[i:].tolist()+[0]*i)
         c[i] = np.correlate(x, lagy) / len(x)
     return c
+
+def r2p(r, sample_size, two_side=True):
+    """Calculate p value from correlation coefficient r.
+    Note: r must be a number or a nd-array.
+    """
+    tt = r / np.sqrt((1-np.square(r))/(sample_size-2))
+    if two_side:
+        return stats.t.sf(np.abs(tt), sample_size-2)*2
+    else:
+        return stats.t.sf(tt, sample_size-2)
+
+def make_2d_gaussian(size, fwhm=3, center=None):
+    """Make a square gaussian kernel.
+
+    `size` is the length of a side of the square;
+    `fwhm` is full-width-half-maximum, which can be thought of an as effective
+    radius;
+    `center` is the center of the gaussian curve, None: default in center of
+    the square, a cell of (x0, y0) for a specific location; x0 - col, y0 - row.
+    """
+    x = np.arange(0, size, 1, float)
+    y = x[:, np.newaxis]
+
+    if center is None:
+        x0 = y0 = size // 2
+    else:
+        x0 = center[0]
+        y0 = center[1]
+
+    return np.exp(-4*np.log(2) * ((x-x0)**2 + (y-y0)**2) / fwhm**2)
 

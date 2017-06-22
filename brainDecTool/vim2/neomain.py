@@ -2,22 +2,21 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 
 import os
+import time
 import numpy as np
 import tables
 from scipy import ndimage
 from scipy.misc import imsave
+import scipy.optimize as opt
 from sklearn.cross_decomposition import PLSCanonical
 
 from brainDecTool.util import configParser
 from brainDecTool.math import parallel_corr2_coef, corr2_coef, ridge
 from brainDecTool.math import get_pls_components, rcca
+from brainDecTool.math import LinearRegression
 from brainDecTool.math.norm import zero_one_norm
 from brainDecTool.pipeline import retinotopy
 from brainDecTool.pipeline.base import random_cross_modal_corr
-from brainDecTool.pipeline.base import multiple_regression
-from brainDecTool.pipeline.base import ridge_regression,random_ridge_regression
-from brainDecTool.pipeline.base import layer_ridge_regression
-from brainDecTool.pipeline.base import pred_cnn_ridge
 from brainDecTool.vim2 import util as vutil
 
 
@@ -41,6 +40,7 @@ def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
         return
     else:
         print 'voxel index loaded.'
+    img_size = 55.0
     pos_mtx = np.zeros((73728, 2))
     pos_mtx[:] = np.nan
     for i in range(len(vxl_idx)):
@@ -50,9 +50,13 @@ def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
         # significant threshold for one-tail test
         tmp[tmp <= 0.019257] = 0
         if np.sum(tmp):
-            tmp = tmp.reshape(96, 27, 27)
-            mmtx = np.max(tmp, axis=0)
+            mmtx = tmp.reshape(55, 55)
+            #tmp = tmp.reshape(96, 27, 27)
+            #mmtx = np.max(tmp, axis=0)
             print mmtx.min(), mmtx.max()
+            if figout:
+                fig_file = os.path.join(fig_dir, 'v'+str(vxl_idx[i])+'.png')
+                imsave(fig_file, mmtx)
             # get indices of n maximum values
             max_n = 20
             row_idx, col_idx = np.unravel_index(
@@ -60,9 +64,6 @@ def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
                                         mmtx.shape)
             nmtx = np.zeros(mmtx.shape)
             nmtx[row_idx, col_idx] = mmtx[row_idx, col_idx]
-            if figout:
-                fig_file = os.path.join(fig_dir, 'v'+str(vxl_idx[i])+'.png')
-                imsave(fig_file, nmtx)
             # center of mass
             x, y = ndimage.measurements.center_of_mass(nmtx)
             pos_mtx[vxl_idx[i], :] = [x, y]
@@ -71,143 +72,60 @@ def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
     #receptive_field_file = os.path.join(data_dir, 'receptive_field_pos.npy')
     #np.save(receptive_field_file, pos_mtx)
     #pos_mtx = np.load(receptive_field_file)
+    # generate retinotopic mapping
+    base_name = 'train_max' + str(max_n)
+    prf2visual_angle(pos_mtx, img_size, data_dir, base_name)
+
+def prf2visual_angle(prf_mtx, img_size, out_dir, base_name):
+    """Generate retinotopic mapping based on voxels' pRF parameters.
+    `prf_mtx` is a #voxel x pRF-features matrix, pRF features can be 2 columns
+    (row, col) of image or 3 columns which adding a third pRF size parameters.
+
+    """
+    feature_size = prf_mtx.shape[1]
+    pos_mtx = prf_mtx[:, :2]
     # eccentricity
-    dist = retinotopy.coord2ecc(pos_mtx, (27, 27))
-    # convert distance into degree
-    # 0-4 degree -> d < 5.5
-    # 4-8 degree -> d < 11
-    # 8-12 degree -> d < 16.5
-    # 12-16 degree -> d < 22
-    # else > 16 degree
-    ecc = np.zeros(dist.shape)
-    for i in range(len(dist)):
-        if np.isnan(dist[i]):
-            ecc[i] = np.nan
-        elif dist[i] < 2.7:
-            ecc[i] = 1
-        elif dist[i] < 5.4:
-            ecc[i] = 2
-        elif dist[i] < 8.1:
-            ecc[i] = 3
-        elif dist[i] < 10.8:
-            ecc[i] = 4
-        else:
-            ecc[i] = 5
-    #dist_vec = np.nan_to_num(ecc)
-    #vol = dist_vec.reshape(18, 64, 64)
+    ecc = retinotopy.coord2ecc(pos_mtx, img_size, 20)
     vol = ecc.reshape(18, 64, 64)
-    vutil.save2nifti(vol, os.path.join(data_dir,
-                                'train_max' + str(max_n) + '_ecc.nii.gz'))
+    vutil.save2nifti(vol, os.path.join(out_dir, base_name+'_ecc.nii.gz'))
     # angle
-    angle_vec = retinotopy.coord2angle(pos_mtx, (27, 27))
-    #angle_vec = np.nan_to_num(angle_vec)
-    vol = angle_vec.reshape(18, 64, 64)
-    vutil.save2nifti(vol, os.path.join(data_dir,
-                                'train_max'+ str(max_n) + '_angle.nii.gz'))
+    angle = retinotopy.coord2angle(pos_mtx, img_size)
+    vol = angle.reshape(18, 64, 64)
+    vutil.save2nifti(vol, os.path.join(out_dir, base_name+'_angle.nii.gz'))
+    # pRF size
+    if feature_size > 2:
+        size_angle = retinotopy.get_prf_size(prf_mtx, 55, 20)
+        vol = size_angle.reshape(18, 64, 64)
+        vutil.save2nifti(vol, os.path.join(out_dir, base_name+'_size.nii.gz'))
 
-def inter_subj_cca(db_dir):
-    """Inter-subject CCA to extract stimulus-related brain areas"""
-    subj_num = 3
-    subjects = ['S1', 'S2', 'S3']
-    
-    # training stack data
-    tdata = []
-    # validation stack data
-    vdata = []
-
-    for subj in subjects:
-        subj_dir = os.path.join(db_dir, 'v%s'%subj)
-        tf = tables.open_file(os.path.join(subj_dir, 'VoxelResponses.mat'))
-        # generate mask
-        train_fmri_ts = tf.get_node('/rt')[:]
-        fmri_s = train_fmri_ts.sum(axis=1)
-        non_nan_idx = np.nonzero(np.logical_not(np.isnan(fmri_s)))[0]
-        mask_file = os.path.join(subj_dir, '%s_mask.nii.gz'%(subj))
-        mask = vutil.data_swap(mask_file).flatten()
-        vxl_idx = np.nonzero(mask==1)[0]
-        vxl_idx = np.intersect1d(vxl_idx, non_nan_idx)
-        #-- load fmri response
-        zscore = lambda d: (d-d.mean(1, keepdims=True))/d.std(1, keepdims=True)
-        train_ts = np.nan_to_num(zscore(np.nan_to_num(tf.get_node('/rt')[:])))
-        val_ts = np.nan_to_num(zscore(np.nan_to_num(tf.get_node('/rv')[:])))
-        # data.shape = (73728, 540/7200)
-        print train_ts[vxl_idx].T.shape
-        print val_ts[vxl_idx].T.shape
-        tdata.append(train_ts[vxl_idx].T)
-        vdata.append(val_ts[vxl_idx].T)
-
-    # CCA
-    regs = np.array(np.logspace(-4, 2, 10))
-    numCCs = np.arange(3, 6)
-    cca = rcca.CCACrossValidate(numCCs=numCCs, regs=regs)
-    cca.train(tdata)
-    cca.validate(vdata)
-    cca.compute_ev(vdata)
-    cca.save('inter_subj_cca_results.hdf5')
-
-def ridge_retinotopic_mapping(corr_file, vxl_idx=None, top_n=None):
-    """Make the retinotopic mapping using activation map from CNN."""
-    data_dir = os.path.dirname(corr_file)
-    # load the cross-correlation matrix from file
-    corr_mtx = np.load(corr_file, mmap_mode='r')
-    # corr_mtx.shape = (3025, vxl_num)
-    if not isinstance(vxl_idx, np.ndarray):
-        vxl_idx = np.arange(corr_mtx.shape[1])
-    if not top_n:
-        top_n = 20
-    pos_mtx = np.zeros((73728, 2))
-    pos_mtx[:] = np.nan
+def visual_prf(corr_mtx, vxl_idx, prf_dir):
+    """pRF visualization."""
+    check_path(prf_dir)
+    prf = np.zeros_like(corr_mtx)
     for i in range(len(vxl_idx)):
-        print 'Iter %s of %s' %(i, len(vxl_idx)),
-        tmp = corr_mtx[:, i]
-        tmp = np.nan_to_num(np.array(tmp))
-        # significant threshold
-        # one-tail test
-        #tmp[tmp <= 0.17419] = 0
-        if np.sum(tmp):
-            tmp = tmp.reshape(55, 55)
-            print tmp.min(), tmp.max()
-            # get indices of n maximum values
-            row, col = np.unravel_index(np.argsort(tmp.ravel())[-1*top_n:],
-                                        tmp.shape)
-            mtx = np.zeros(tmp.shape)
-            mtx[row, col] = tmp[row, col]
-            # center of mass
-            x, y = ndimage.measurements.center_of_mass(mtx)
-            pos_mtx[vxl_idx[i], :] = [x, y]
-        else:
-            print ' '
-    #receptive_field_file = os.path.join(data_dir, 'receptive_field_pos.npy')
-    #np.save(receptive_field_file, pos_mtx)
-    #pos_mtx = np.load(receptive_field_file)
-    # eccentricity
-    dist = retinotopy.coord2ecc(pos_mtx, (55, 55))
-    # convert distance into degree
-    # 0-4 degree -> d < 5.5
-    # 4-8 degree -> d < 11
-    # 8-12 degree -> d < 16.5
-    # 12-16 degree -> d < 22
-    # else > 16 degree
-    ecc = np.zeros(dist.shape)
-    for i in range(len(dist)):
-        if np.isnan(dist[i]):
-            ecc[i] = np.nan
-        elif dist[i] < 5.445:
-            ecc[i] = 1
-        elif dist[i] < 10.91:
-            ecc[i] = 2
-        elif dist[i] < 16.39:
-            ecc[i] = 3
-        elif dist[i] < 21.92:
-            ecc[i] = 4
-        else:
-            ecc[i] = 5
-    vol = ecc.reshape(18, 64, 64)
-    vutil.save2nifti(vol, os.path.join(data_dir, 'ecc_max%s.nii.gz'%(top_n)))
-    # angle
-    angle_vec = retinotopy.coord2angle(pos_mtx, (55, 55))
-    vol = angle_vec.reshape(18, 64, 64)
-    vutil.save2nifti(vol, os.path.join(data_dir, 'angle_max%s.nii.gz'%(top_n)))
+        orig_mtx = corr_mtx[i, :].reshape(55, 55)
+        orig_file = os.path.join(prf_dir, 'v'+str(vxl_idx[i])+'_orig.png')
+        imsave(orig_file, orig_mtx)
+        prf_mtx = orig_mtx.copy()
+        prf_mtx[prf_mtx<prf_mtx.max()*0.8] = 0
+        prf_file = os.path.join(prf_dir, 'v'+str(vxl_idx[i])+'_prf.png')
+        imsave(prf_file, prf_mtx)
+        prf[i, :] = prf_mtx.flatten()
+    np.save(os.path.join(prf_dir, 'prf.npy'), prf)
+
+def get_roi_idx(fmri_table, vxl_idx):
+    """Get ROI label for each voxel."""
+    rois = ['v1lh', 'v1rh', 'v2lh', 'v2rh', 'v3lh', 'v3rh', 'v3alh', 'v3arh',
+            'v3blh', 'v3brh', 'v4lh', 'v4rh', 'MTlh', 'MTrh']
+    roi_dict = {}
+    for roi in rois:
+        roi_mask = fmri_table.get_node('/roi/%s'%(roi))[:].flatten()
+        roi_idx = np.nonzero(roi_mask==1)[0]
+        roi_idx = np.intersect1d(roi_idx, vxl_idx)
+        roi_ptr = np.array([np.where(vxl_idx==roi_idx[i])[0][0]
+                            for i in range(len(roi_idx))])
+        roi_dict[roi] = roi_ptr
+    return roi_dict
 
 def hrf_estimate(tf, feat_ts):
     """Estimate HRFs."""
@@ -485,18 +403,19 @@ def roi_info(corr_mtx, wt_mtx, fmri_table, mask_idx, out_dir):
 
 def permutation_stats(random_corr_mtx):
     """Get statistical estimate of `true` correlation coefficient."""
-    vxl_num = random_corr_mtx.shape[2]
-    maxv = random_corr_mtx.max(axis=0)
-    for i in range(vxl_num):
-        print maxv[:, i].max()
-        print maxv[:, i].min()
-        print '----------------'
+    #vxl_num = random_corr_mtx.shape[2]
+    #for i in range(vxl_num):
+    #    print maxv[:, i].max()
+    #    print maxv[:, i].min()
+    #    print '----------------'
+    maxv = random_corr_mtx.max(axis=1)
     # get 95% corr coef across voxels
-    maxv = maxv.flatten()
+    #maxv = maxv.flatten()
     maxv.sort()
     quar = maxv.shape[0]*0.95 - 1
     # 95% - 0.17224
     # 99% - 0.19019
+    print 'Correlation threshold for permutation test: ',
     print maxv[int(np.rint(quar))]
 
 
@@ -507,11 +426,8 @@ if __name__ == '__main__':
     root_dir = cf.get('base', 'path')
     feat_dir = os.path.join(root_dir, 'sfeatures')
     db_dir = os.path.join(root_dir, 'subjects')
-
-    #-- inter-subject CCA
-    #inter_subj_cca(db_dir)
  
-    # phrase 'test': analyses were only conducted within V1 for code test
+    # phrase 'test': analyses were only conducted within lV1 for code test
     # phrase 'work': for real analyses
     phrase = 'work'
  
@@ -551,70 +467,280 @@ if __name__ == '__main__':
         vxl_idx = np.intersect1d(vxl_idx, non_nan_idx)
     else:
         vxl_idx = full_vxl_idx
+    #np.save(os.path.join(subj_dir, 'full_vxl_idx.npy'), vxl_idx)
+    roi_dict = get_roi_idx(tf, vxl_idx)
+    #np.save(os.path.join(subj_dir, 'roi_idx_pointer.npy'), roi_dict)
+    #roi_dict = np.load(os.path.join(subj_dir, 'roi_idx_pointer.npy')).item()
 
     #-- load fmri response
-    train_fmri_ts = tf.get_node('/rt')[:]
+    # data shape: (selected_voxel, 7200/540)
+    #train_fmri_ts = tf.get_node('/rt')[:]
+    #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
     #val_fmri_ts = tf.get_node('/rv')[:]
-    # data.shape = (73728, 540/7200)
-    train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
     #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
-    # data.shape = (994, 7200/540)
     ##-- save masked data as npy file
-    #train_file = os.path.join(subj_dir, 'S%s_train_fmri_V1.npy'%(subj_id))
-    #val_file = os.path.join(subj_dir, 'S%s_val_fmri_V1.npy'%(subj_id))
+    #train_file = os.path.join(subj_dir, 'S%s_train_fmri_lV1.npy'%(subj_id))
+    #val_file = os.path.join(subj_dir, 'S%s_val_fmri_lV1.npy'%(subj_id))
     #np.save(train_file, train_fmri_ts)
     #np.save(val_file, val_fmri_ts)
 
     #-- load cnn activation data
-    #train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
+    # data.shape = (feature_size, x, y, 7200/540)
+    #train_feat_file = os.path.join(feat_dir, 'conv1_train_trs.npy')
     #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
-    #val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
+    #val_feat_file = os.path.join(feat_dir, 'conv1_val_trs.npy')
     #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
-    # data.shape = (96, 27, 27, 7200/540)
- 
-    #-- load optical flow data: mag and ang and stack features
-    tr_mag_file = os.path.join(feat_dir, 'train_opticalflow_mag_trs.npy')
-    tr_mag_ts = np.load(tr_mag_file, mmap_mode='r')
-    #val_mag_file = os.path.join(feat_dir, 'val_opticalflow_mag_trs.npy')
-    #val_mag_ts = np.load(val_mag_file, mmap_mode='r')
-    #tr_ang_file = os.path.join(feat_dir, 'train_opticalflow_ang_trs.npy')
-    #tr_ang_ts = np.load(tr_ang_file, mmap_mode='r')
-    #val_ang_file = os.path.join(feat_dir, 'val_opticalflow_ang_trs.npy')
-    #val_ang_ts = np.load(val_ang_file, mmap_mode='r')
-    # feature temporal z-score
-    #print 'optical flow features temporal z-score ...'
-    #tr_mag_m = tr_mag_ts.mean(axis=2, keepdims=True)
-    #tr_mag_s = tr_mag_ts.std(axis=2, keepdims=True)
-    #tr_mag_ts = (tr_mag_ts-tr_mag_m)/(1e-10+tr_mag_s)
-    #val_mag_ts = (val_mag_ts-tr_mag_m)/(1e-10+tr_mag_s)
-    #tr_ang_m = tr_ang_ts.mean(axis=2, keepdims=True)
-    #tr_ang_s = tr_ang_ts.std(axis=2, keepdims=True)
-    #tr_ang_ts = (tr_ang_ts-tr_ang_m)/(1e-10+tr_ang_s)
-    #val_ang_ts = (val_ang_ts-tr_ang_m)/(1e-10+tr_ang_s)
-    # data.shape = (11, 11, 540/7200)
-    #- feature stack
-    #print 'training dataset feature stack ...'
-    #train_feat_stack = np.vstack((train_feat_ts,
-    #                              np.expand_dims(tr_mag_ts, axis=0),
-    #                              np.expand_dims(tr_ang_ts, axis=0)))
-    #del train_feat_ts, tr_mag_ts, tr_ang_ts
-    #tmp_train_file = os.path.join(feat_dir, 'train_conv1_optic_trs.npy')
-    #np.save(tmp_train_file, train_feat_stack)
-    #del train_feat_stack
-    #print 'val dataset feature stack ...'
-    #val_feat_stack = np.vstack((val_feat_ts,
-    #                            np.expand_dims(val_mag_ts, axis=0),
-    #                            np.expand_dims(val_ang_ts, axis=0)))
-    #del val_feat_ts, val_mag_ts, val_ang_ts
-    #tmp_val_file = os.path.join(feat_dir, 'val_conv1_optic_trs.npy')
-    #np.save(tmp_val_file, val_feat_stack)
-    #del val_feat_stack
-    #train_feat_ts = np.load(tmp_train_file, mmap_mode='r')
-    #val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
 
-    #-- Cross-modality mapping: voxel~CNN unit corrlation
-    cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
+    #-- load salience data
+    #train_sal_file = os.path.join(feat_dir, 'salience_train_55_55_trs.npy')
+    #train_sal_ts = np.load(train_sal_file, mmap_mode='r')
+    #val_sal_file = os.path.join(feat_dir, 'salience_val_55_55_trs.npy')
+    #val_sal_ts = np.load(val_sal_file, mmap_mode='r')
+
+    #-- load salience-modulated cnn features
+    #train_salfeat_file = os.path.join(feat_dir, 'conv1_train_trs_salmod.npy')
+    #train_salfeat_ts = np.load(train_salfeat_file, mmap_mode='r')
+    #val_salfeat_file = os.path.join(feat_dir, 'conv1_val_trs_salmod.npy')
+    #val_salfeat_ts = np.load(val_salfeat_file, mmap_mode='r')
+
+    #-- 2d gaussian kernel based pRF estimate
+    #prf_dir = os.path.join(subj_dir, 'prf')
+    #check_path(prf_dir)
+    ## parameter config
+    #fwhms = np.arange(1, 11)
+    ## feat processing
+    #gaussian_prf_file = os.path.join(feat_dir, 'gaussian_prfs.npy')
+    #gaussian_prfs = np.load(gaussian_prf_file, mmap_mode='r')
+    #feat_ts = train_feat_ts.mean(axis=0).reshape(3025, 7200)
+    #prf_feat_ts = gaussian_prfs.reshape(3025, 30250).T.dot(feat_ts)
+    ## voxel~feat corr
+    #corr_file = os.path.join(prf_dir, 'vxl_prf_corr.npy')
+    #parallel_corr2_coef(train_fmri_ts, prf_feat_ts, corr_file, block_size=550,
+    #                    n_jobs=2)
+    #corr_mtx = np.load(corr_file, mmap_mode='r')
+    ## parameter estimate
+    #vxl_prf = np.zeros((len(vxl_idx), 3))
+    #for i in range(len(vxl_idx)):
+    #    print 'Voxel %s of %s'%(i+1, len(vxl_idx))
+    #    vxl_corr = corr_mtx[i, :]
+    #    max_idx = np.argmax(vxl_corr)
+    #    vxl_prf[i, 0] = (max_idx % 3025) / 55
+    #    vxl_prf[i, 1] = max_idx % 55
+    #    vxl_prf[i, 2] = fwhms[int(max_idx / 3025)] 
+    #    print vxl_prf[i, :]
+    #np.save(os.path.join(prf_dir, 'vxl_prf.npy'), vxl_prf)
+
+    #-- pRF to retinotopy
+    #prf_mtx = np.load(os.path.join(prf_dir, 'vxl_prf.npy'))
+    ## generate full voxel feature matrix
+    #full_prf_mtx = np.zeros((73728, 3))
+    #full_prf_mtx[:] = np.nan
+    #for i in range(len(vxl_idx)):
+    #    full_prf_mtx[vxl_idx[i], :] = prf_mtx[i, :]
+    #prf2visual_angle(full_prf_mtx, 55, prf_dir, 'retinotopy')
+
+    #-- feature temporal z-score
+    #print 'CNN features temporal z-score ...'
+    ## summary features across channels
+    #train_feat_ts = train_feat_ts.mean(axis=0)
+    #train_feat_m = train_feat_ts.mean(axis=2, keepdims=True)
+    #train_feat_s = train_feat_ts.std(axis=2, keepdims=True)
+    #train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
+    #val_feat_ts = val_feat_ts.mean(axis=0)
+    #val_feat_m = val_feat_ts.mean(axis=2, keepdims=True)
+    #val_feat_s = val_feat_ts.std(axis=2, keepdims=True)
+    #val_feat_ts = (val_feat_ts-val_feat_m)/(1e-10+val_feat_s)
+    #print 'Salience features temporal z-score ...'
+    #train_sal_m = train_sal_ts.mean(axis=2, keepdims=True)
+    #train_sal_s = train_sal_ts.std(axis=2, keepdims=True)
+    #train_sal_ts = (train_sal_ts-train_sal_m)/(1e-10+train_sal_s)
+    #val_sal_m = val_sal_ts.mean(axis=2, keepdims=True)
+    #val_sal_s = val_sal_ts.std(axis=2, keepdims=True)
+    #val_sal_ts = (val_sal_ts-val_sal_m)/(1e-10+val_sal_s)
+    #print 'Salience modulated features temporal z-score ...'
+    #train_salfeat_ts = train_salfeat_ts.mean(axis=0)
+    #train_salfeat_m = train_salfeat_ts.mean(axis=2, keepdims=True)
+    #train_salfeat_s = train_salfeat_ts.std(axis=2, keepdims=True)
+    #train_salfeat_ts=(train_salfeat_ts-train_salfeat_m)/(1e-10+train_salfeat_s)
+    #val_salfeat_ts = val_salfeat_ts.mean(axis=0)
+    #val_salfeat_m = val_salfeat_ts.mean(axis=2, keepdims=True)
+    #val_salfeat_s = val_salfeat_ts.std(axis=2, keepdims=True)
+    #val_salfeat_ts = (val_salfeat_ts-val_salfeat_m)/(1e-10+val_salfeat_s)
+
+    #-- voxel-wise linear regression
+    #cross_corr_dir = os.path.join(subj_dir, 'spatial_cross_corr', 'lv1')
+    #reg_dir = os.path.join(cross_corr_dir, 'linreg')
+    #check_path(reg_dir)
+    #corr_mtx = np.load(os.path.join(cross_corr_dir, 'train_conv1_corr.npy'))
+    #corr_mtx = corr_mtx.reshape(470, 55, 55)
+    ## voxel-wise linear regression
+    #wts = np.zeros((470, 55, 55, 3))
+    #train_corr = np.zeros((470, 55, 55))
+    #val_corr = np.zeros((470, 55, 55))
+    #wts_mask = np.zeros((470, 3))
+    #statsp_mask = np.zeros((470, 3))
+    #train_corr_mask = np.zeros(470,)
+    #val_corr_mask = np.zeros(470, )
+    #for i in range(len(vxl_idx)):
+    #    print 'Voxel %s of %s ...'%(i+1, len(vxl_idx))
+    #    prf = corr_mtx[i, ...].copy()
+    #    prf = prf > prf.max()*0.8
+    #    print '%s voxels selected'%(prf.sum())
+    #    if not prf.sum():
+    #        continue
+    #    pos = np.nonzero(prf)
+    #    wts_tmp = np.zeros((pos[0].shape[0], 3))
+    #    statsp_tmp = np.zeros((pos[0].shape[0], 3))
+    #    train_corr_tmp = np.zeros(pos[0].shape[0],)
+    #    val_corr_tmp = np.zeros(pos[0].shape[0],)
+    #    for j in range(pos[0].shape[0]):
+    #        train_Y = train_fmri_ts[i, :]
+    #        val_Y = val_fmri_ts[i, :]
+    #        train_X = np.zeros((7200, 3))
+    #        train_X[:, 0] = train_feat_ts[pos[0][j], pos[1][j], :]
+    #        train_X[:, 1] = train_sal_ts[pos[0][j], pos[1][j], :]
+    #        train_X[:, 2] = train_salfeat_ts[pos[0][j], pos[1][j], :]
+    #        val_X = np.zeros((540, 3))
+    #        val_X[:, 0] = val_feat_ts[pos[0][j], pos[1][j], :]
+    #        val_X[:, 1] = val_sal_ts[pos[0][j], pos[1][j], :]
+    #        val_X[:, 2] = val_salfeat_ts[pos[0][j], pos[1][j], :]
+    #        model = LinearRegression(fit_intercept=False)
+    #        model.fit(train_X, train_Y)
+    #        wts[i, pos[0][j], pos[1][j], :] = model.coef_
+    #        ptrain_Y = model.predict(train_X)
+    #        tcorr = np.corrcoef(ptrain_Y, train_Y)[0][1]
+    #        train_corr[i, pos[0][j], pos[1][j]] = tcorr
+    #        pval_Y = model.predict(val_X)
+    #        vcorr = np.corrcoef(pval_Y, val_Y)[0][1]
+    #        val_corr[i, pos[0][j], pos[1][j]] = vcorr
+    #        wts_tmp[j, :] = model.coef_
+    #        statsp_tmp[j, :] = model.p
+    #        train_corr_tmp[j] = tcorr
+    #        val_corr_tmp[j] = vcorr
+    #    wts_mask[i, :] = wts_tmp.mean(axis=0)
+    #    statsp_mask[i, :] = statsp_tmp.mean(axis=0)
+    #    train_corr_mask[i] = train_corr_tmp.mean()
+    #    val_corr_mask[i] = val_corr_tmp.mean()
+    #np.save(os.path.join(reg_dir, 'wts.npy'), wts)
+    #np.save(os.path.join(reg_dir, 'train_corr.npy'), train_corr)
+    #np.save(os.path.join(reg_dir, 'val_corr.npy'), val_corr)
+    #np.save(os.path.join(reg_dir, 'wts_mask.npy'), wts_mask)
+    #np.save(os.path.join(reg_dir, 'stats_p_mask.npy'), statsp_mask)
+    #np.save(os.path.join(reg_dir, 'train_corr_mask.npy'), train_corr_mask)
+    #np.save(os.path.join(reg_dir, 'val_corr_mask.npy'), val_corr_mask)
+
+    #-- Cross-modality mapping: voxel~CNN feature position correlation
+    cross_corr_dir = os.path.join(subj_dir, 'spatial_cross_corr')
     check_path(cross_corr_dir)
+    #-- features from CNN
+    #corr_file = os.path.join(cross_corr_dir, 'train_conv1_corr.npy')
+    #feat_ts = train_feat_ts.sum(axis=0).reshape(3025, 7200)
+    #parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=55)
+    #-- visual-pRF: select pixels which corr-coef greater than 1/2 maximum
+    #corr_mtx = np.load(corr_file)
+    #prf_dir = os.path.join(cross_corr_dir, 'prf')
+    #visual_prf(corr_mtx, vxl_idx, prf_dir)
+    #-- categorize voxels based on pRF types
+    #corr_file = os.path.join(cross_corr_dir, 'train_conv1_corr.npy')
+    #corr_mtx = np.load(corr_file)
+    ## get pRF by remove non-significant pixels
+    ## two-tailed p < 0.01: r > 0.0302 and r < -0.0302
+    #ncorr_mtx = corr_mtx.copy()
+    #ncorr_mtx[(corr_mtx<=0.0302)&(corr_mtx>=-0.0302)] = 0
+    #prf_max = ncorr_mtx.max(axis=1)
+    #prf_min = ncorr_mtx.min(axis=1)
+    #prf_type = np.zeros(corr_mtx.shape[0])
+    #prf_type[(prf_max>0)&(prf_min>0)] = 1
+    #prf_type[(prf_max>0)&(prf_min==0)] = 2
+    #prf_type[(prf_max>0)&(prf_min<0)] = 3
+    #prf_type[(prf_max==0)&(prf_min<0)] = 4
+    #prf_type[(prf_max<0)&(prf_min<0)] = 5
+    #np.save(os.path.join(cross_corr_dir, 'prf_type.npy'), prf_type)
+    #nii_file = os.path.join(cross_corr_dir, 'prf_type.nii.gz')
+    #vutil.vxl_data2nifti(prf_type, vxl_idx, nii_file)
+    #-- pRF stats and visualization for each ROI
+    #prf_dir = os.path.join(cross_corr_dir, 'prf_figs')
+    #check_path(prf_dir)
+    #for roi in roi_dict:
+    #    print '------%s------'%(roi)
+    #    roi_idx = roi_dict[roi]
+    #    # pRF type stats in each ROI
+    #    roi_prf_type = prf_type[roi_idx]
+    #    print 'Voxel number: %s'%(roi_prf_type.shape[0])
+    #    for i in range(5):
+    #        vxl_num = np.sum(roi_prf_type==(i+1))
+    #        vxl_ratio = vxl_num * 100.0 / roi_prf_type.shape[0]
+    #        print '%s, %0.2f'%(vxl_num, vxl_ratio)
+    #    # save pRF as figs
+    #    roi_dir = os.path.join(prf_dir, roi)
+    #    check_path(roi_dir)
+    #    roi_corr_mtx = corr_mtx[roi_idx, :]
+    #    roi_min = roi_corr_mtx.min()
+    #    roi_max = roi_corr_mtx.max()
+    #    for i in roi_idx:
+    #        vxl_prf = corr_mtx[i, :].reshape(55, 55)
+    #        filename = 'v'+str(vxl_idx[i])+'_'+str(int(prf_type[i]))+'.png'
+    #        out_file = os.path.join(roi_dir, filename)
+    #        vutil.save_imshow(vxl_prf, out_file, val_range=(roi_min, roi_max))
+    #-- get pRF parameters based on 2D Gaussian curve using model fitting
+    #corr_mtx = np.load(os.path.join(cross_corr_dir, 'train_conv1_corr.npy'))
+    ## last column is curve fitting error based on squared-differnece
+    #paras = np.zeros((corr_mtx.shape[0], 6))
+    #for i in range(corr_mtx.shape[0]):
+    #    print i,
+    #    y = corr_mtx[i, :]
+    #    if y.max() >= abs(y.min()):
+    #        x0, y0 = np.unravel_index(np.argmax(y.reshape(55, 55)), (55, 55))
+    #    else:
+    #        x0, y0 = np.unravel_index(np.argmin(y.reshape(55, 55)), (55, 55))
+    #    initial_guess = (x0, y0, 3, 0, 2)
+    #    try:
+    #        popt, pcov = opt.curve_fit(vutil.sugar_gaussian_f, 55, y,
+    #                                   p0=initial_guess)
+    #        #print popt
+    #        paras[i, :5] = popt
+    #        pred_y = vutil.sugar_gaussian_f(55, *popt)
+    #        paras[i, 5] = np.square(y-pred_y).sum()
+    #    except RuntimeError:
+    #        print 'Error - curve_fit failed'
+    #        paras[i, :] = np.nan
+    #np.save(os.path.join(cross_corr_dir, 'curve_fit_paras.npy'), paras)
+    #-- curve-fit pRF visualization for each ROI
+    #prf_dir = os.path.join(cross_corr_dir, 'fit_prf_figs')
+    #check_path(prf_dir)
+    #paras = np.load(os.path.join(cross_corr_dir, 'curve_fit_paras.npy'))
+    #corr_mtx = np.load(os.path.join(cross_corr_dir, 'train_conv1_corr.npy'))
+    #prf_type = np.load(os.path.join(cross_corr_dir, 'prf_type.npy'))
+    #for roi in roi_dict:
+    #    print '------%s------'%(roi)
+    #    roi_idx = roi_dict[roi]
+    #    # save pRF as figs
+    #    roi_dir = os.path.join(prf_dir, roi)
+    #    check_path(roi_dir)
+    #    roi_corr_mtx = corr_mtx[roi_idx, :]
+    #    roi_min = roi_corr_mtx.min()
+    #    roi_max = roi_corr_mtx.max()
+    #    for i in roi_idx:
+    #        if np.isnan(paras[i, 0]):
+    #            continue
+    #        p = paras[i, :]
+    #        vxl_prf = vutil.sugar_gaussian_f(55, *p).reshape(55, 55)
+    #        filename = 'v'+str(vxl_idx[i])+'_'+str(int(prf_type[i]))+'.png'
+    #        out_file = os.path.join(roi_dir, filename)
+    #        vutil.save_imshow(vxl_prf, out_file, val_range=(roi_min, roi_max))
+    #-- show pRF parameters on cortical surface
+    paras = np.load(os.path.join(cross_corr_dir, 'curve_fit_paras.npy'))
+    full_prf_mtx = np.zeros((73728, 3))
+    full_prf_mtx[:] = np.nan
+    for i in range(len(vxl_idx)):
+        full_prf_mtx[vxl_idx[i], :] = paras[i, :3]
+    prf2visual_angle(full_prf_mtx, 55, cross_corr_dir, 'curve_fit')
+    err_file = os.path.join(cross_corr_dir, 'curve_fit_err.nii.gz')
+    vutil.vxl_data2nifti(paras[:, 5], vxl_idx, err_file)
+
+    #-- Cross-modality mapping: voxel~CNN unit correlation
+    #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
+    #check_path(cross_corr_dir)
     # features from CNN
     #corr_file = os.path.join(cross_corr_dir, 'train_norm1_corr.npy')
     #feat_ts = train_feat_ts.reshape(69984, 7200)
@@ -624,9 +750,10 @@ if __name__ == '__main__':
     #feat_ts = tr_mag_ts.reshape(16384, 7200)
     #parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=55)
     #-- random cross-modal correlation
-    rand_corr_file = os.path.join(cross_corr_dir, 'rand_train_optic_mag_corr.npy')
-    feat_ts = tr_mag_ts.reshape(16384, 7200)
-    random_cross_modal_corr(train_fmri_ts, feat_ts, 1000, 1000, rand_corr_file)
+    #rand_corr_file = os.path.join(cross_corr_dir, 'rand_train_conv1_corr.npy')
+    #feat_ts = tr_mag_ts.reshape(16384, 7200)
+    #random_cross_modal_corr(train_fmri_ts, feat_ts, 1000, 1000, rand_corr_file)
+    #permutation_stats(np.load(rand_corr_file))
  
     #-- retinotopic mapping based on cross-correlation with norm1
     #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
@@ -652,17 +779,13 @@ if __name__ == '__main__':
     #layer_file = os.path.join(cross_corr_dir, 'layer_mapping.nii.gz')
     #vutil.vxl_data2nifti(layer_idx, vxl_idx, layer_file)
 
-    #-- Encoding: ridge regression
-    #ridge_dir = os.path.join(subj_dir, 'ridge')
-    #check_path(ridge_dir)
-    
     #-- feature temporal z-score
     #print 'CNN features temporal z-score ...'
     #train_feat_m = train_feat_ts.mean(axis=3, keepdims=True)
     #train_feat_s = train_feat_ts.std(axis=3, keepdims=True)
     #train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
     #val_feat_ts = (val_feat_ts-train_feat_m)/(1e-10+train_feat_s)
-    #tmp_train_file = os.path.join(feat_dir, 'train_norm1_trs_z.npy')
+    #tmp_train_file = os.path.join(feat_dir, 'train_conv1_trs_z.npy')
     #np.save(tmp_train_file, train_feat_ts)
     #del train_feat_ts
     #tmp_val_file = os.path.join(feat_dir, 'val_norm1_trs_z.npy')
@@ -682,6 +805,9 @@ if __name__ == '__main__':
     #s = np.std(val_fmri_ts, axis=1, keepdims=True)
     #val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
 
+    #-- Encoding: ridge regression
+    #ridge_dir = os.path.join(subj_dir, 'ridge')
+    #check_path(ridge_dir)
     #-- layer-wise ridge regression: select cnn units whose correlation with
     #-- the given voxel exceeded the half of the maximal correlation within
     #-- the layer.
@@ -764,99 +890,4 @@ if __name__ == '__main__':
     #pred_ts = np.nan_to_num(pred_ts.reshape(96, 27, 27, 540))
     #pred_file = os.path.join(ridge_dir, 'vxl_%s_pred_norm1.npy'%(v_idx))
     #np.save(pred_file, pred_ts)
-
-
-    #-----------------
-
-    #-- pixel-wise regression
-    #ridge_prefix = 'norm1_pixel_wise'
-    #ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts, val_fmri_ts,
-    #                 ridge_dir, ridge_prefix, with_wt=True, n_cpus=4)
-    
-    #-- layer-wise ridge regression
-    #-- remember to modify the data type of wt in ridge function!
-    #ridge_prefix = 'layer_wise_norm1'
-    #print 'layer-wise regression'
-    #layer_ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts,
-    #                       val_fmri_ts, ridge_dir, ridge_prefix,
-    #                       with_wt=True)
-    #-- predicted voxel activity to nifti
-    #corr_file = os.path.join(ridge_dir, 'norm1_layer_wise_corr.npy')
-    #corr_data = np.load(corr_file)
-    #nii_file = os.path.join(ridge_dir, 'norm1_vxl_corr.nii.gz')
-    #vutil.vxl_data2nifti(corr_data, vxl_idx, nii_file)
-    #vxl_assign_layer(ridge_dir, vxl_idx)
-    
-    #-- roi_stats
-    #corr_file = os.path.join(ridge_dir, 'conv3_pixel_wise_corr.npy')
-    #wt_file = os.path.join(ridge_dir, 'conv3_pixel_wise_weights.npy')
-    #corr_mtx = np.load(corr_file, mmap_mode='r')
-    #wt_mtx = np.load(wt_file, mmap_mode='r')
-    #roi_info(corr_mtx, wt_mtx, tf, vxl_idx, ridge_dir)
-    #-- retinotopic mapping
-    #ridge_retinotopic_mapping(corr_file, vxl_idx, 5)
-
-    #-- multiple regression voxel ~ channels from each location
-    #regress_file = os.path.join(retino_dir, 'val_fmri_feat1_regress.npy')
-    #roi_mask = get_roi_mask(tf)
-    #multiple_regression(fmri_ts, feat_ts, regress_file)
-
-    
-    #-- pixel-wise random regression
-    #selected_vxl_idx = [5666, 9697, 5533, 5597, 5285, 5538, 5273, 5465, 38695,
-    #                    38826, 42711, 46873, 30444, 34474, 38548, 42581, 5097,
-    #                    5224, 5205, 9238, 9330, 13169, 17748, 21780]
-    #train_fmri_ts = np.nan_to_num(train_fmri_ts[selected_vxl_idx])
-    #val_fmri_ts = np.nan_to_num(val_fmri_ts[selected_vxl_idx])
-    #print 'fmri data temporal z-score'
-    #m = np.mean(train_fmri_ts, axis=1, keepdims=True)
-    #s = np.std(train_fmri_ts, axis=1, keepdims=True)
-    #train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
-    #val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
-    #ridge_prefix = 'random_conv3_pixel_wise'
-    #random_ridge_regression(train_feat_ts, train_fmri_ts,
-    #                        val_feat_ts, val_fmri_ts,
-    #                        1000, ridge_dir, ridge_prefix)
-    #-- permutation stats
-    #rand_f = os.path.join(ridge_dir,'random_conv3_pixel_wise_corr.npy')
-    #random_corr_mtx = np.load(rand_f)
-    #permutation_stats(random_corr_mtx)
-    
-    #-- CNN activation prediction models
-    #cnn_pred_dir = os.path.join(subj_dir, 'cnn_pred')
-    #check_path(cnn_pred_dir)
-    #pred_out_prefix = 'pred_norm1'
-    #pred_cnn_ridge(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
-    #               cnn_pred_dir, pred_out_prefix, with_wt=True, n_cpus=2)
-    #-- cnn features reconstruction
-    #wt_file = os.path.join(cnn_pred_dir, pred_out_prefix+'_weights.npy')
-    #wts = np.load(wt_file, mmap_mode='r')
-    #pred_val_feat_ts_z = wts.dot(val_fmri_ts)
-    #print pred_val_feat_ts_z.shape
-    #pred_val_feat_ts = pred_val_feat_ts_z*(1e-10+train_feat_s) + train_feat_m
-    #out_file = os.path.join(cnn_pred_dir, pred_out_prefix+'_val_feat_ts.npy')
-    #np.save(out_file, np.array(pred_val_feat_ts))
-
-    #-- PLS-CCA
-    #pls_dir = os.path.join(subj_dir, 'plscca')
-    #check_path(pls_dir)
-    #cca_dir = os.path.join(pls_dir, 'layer1')
-    #check_path(cca_dir)
-    # combine layer1 features and optical flow features together
-    #plscorr_eval(train_fmri_ts, train_feat_stack, val_fmri_ts, val_feat_stack,
-    #             cca_dir, mask_file)
-    #plscorr_eval(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
-    #             cca_dir, mask_file)
-    #mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
-    #plscorr_viz(cca_dir, mask_file)
-    #inter_subj_cc_sim(1, 2, db_dir)
-
-    #-- regularized CCA
-    # TODO: each feature map can be modeled separately.
-    #cca_dir = os.path.join(retino_dir, 'rcca', 'rcca_cc7')
-    #check_path(cca_dir)
-    #reg_cca(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts, cca_dir)
-
-    #-- close fmri data
-    #tf.close()
 

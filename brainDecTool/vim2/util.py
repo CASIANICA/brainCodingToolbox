@@ -8,7 +8,7 @@ import nibabel as nib
 import matplotlib.pylab as plt
 import matplotlib.image as mpimg
 
-from brainDecTool.math import corr2_coef
+from brainDecTool.math import corr2_coef, make_2d_gaussian
 
 def idx2coord(vec_idx):
     """Convert row index in response data matrix into 3D coordinate in
@@ -234,10 +234,16 @@ def plot_kernerls(in_dir, basename, filename):
         axs[n/12][n%12].get_yaxis().set_visible(False)
     fig.savefig(os.path.join(in_dir, filename))
 
-def save_imshow(data, filename):
+def save_imshow(data, filename, val_range=None):
     """Save `imshow` figure as file."""
     fig, ax = plt.subplots()
-    cax = ax.imshow(data.astype(np.float64))
+    if val_range:
+        vmin = val_range[0]
+        vmax = val_range[1]
+    else:
+        vmin = data.min()
+        vmax = data.max()
+    cax = ax.imshow(data.astype(np.float64), vmin=vmin, vmax=vmax)
     fig.colorbar(cax)
     fig.savefig(filename)
     plt.close()
@@ -339,4 +345,28 @@ def spatial_sim_seq(fmri_data):
         ndata = fmri_data[:, i]
         ssim_seq[i] = np.corrcoef(pdata, ndata)[0, 1]
     return ssim_seq
+
+def make_gaussian_prf(size):
+    """Generate various pRFs based on 2d Gaussian kernel with different
+    parameters.
+    Return a pRF matrixs which shape is (size, size, size*size*fwhm#)
+
+    """
+    fwhm_num = 10
+    fwhms = np.arange(1, fwhm_num+1)
+    prfs = np.zeros((size, size, size*size*fwhm_num))
+
+    for k in range(fwhm_num):
+        for i in range(size):
+            for j in range(size):
+                idx = k*size*size + i*size + j
+                prfs[:, :, idx] = make_2d_gaussian(size, fwhm=fwhms[k],
+                                                   center=(j, i))
+    return prfs
+
+def sugar_gaussian_f(size, x0, y0, fwhm, offset, amplitude):
+    """Sugar function for model fitting."""
+    g = make_2d_gaussian(size, fwhm=fwhm, center=(y0, x0))
+    g = offset + amplitude * g
+    return g.ravel()
 

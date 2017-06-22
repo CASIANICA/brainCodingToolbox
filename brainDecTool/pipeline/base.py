@@ -25,6 +25,8 @@ def random_cross_modal_corr(fmri_ts, feat_ts, voxel_num, iter_num, filename):
         for j in range(iter_num):
             fmri_data[j, :] = np.random.permutation(fmri_ts[vxl_idx[i]])
         corr_mtx[i, :] = corr2_coef(feat_data, fmri_data)
+    narray = np.array(corr_mtx)
+    np.save(filename, narray)
 
 def multiple_regression(fmri_ts, feat_ts, filename):
     """Multiple regression between voxel time course and channels from each

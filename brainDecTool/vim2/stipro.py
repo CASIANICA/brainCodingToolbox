@@ -9,12 +9,11 @@ import cv2
 from joblib import Parallel, delayed
 from skimage.color import rgb2gray
 from skimage.measure import compare_ssim
-from skimage.transform import resize
 
-from brainDecTool.vim2 import util as vutil
 from brainDecTool.util import configParser
 from brainDecTool.timeseries import hrf
-from brainDecTool.math import down_sample
+from brainDecTool.math import down_sample, img_resize
+from brainDecTool.vim2 import util as vutil
 
 
 def img_recon(orig_img):
@@ -118,7 +117,8 @@ def get_optical_flow(stimulus, prefix_name, out_dir):
     np.save(os.path.join(out_dir, prefix_name+'_opticalflow_mag.npy'), mag)
     np.save(os.path.join(out_dir, prefix_name+'_opticalflow_ang.npy'), ang)
 
-def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None):
+def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None,
+                   salience_modulated=False):
     """Get TRs from CNN actiavtion datasets.
     
     Input
@@ -139,6 +139,7 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None):
                   'conv4': [384, 13, 13],
                   'conv5': [256, 13, 13],
                   'pool5': [256, 6, 6]}
+    
     # load stimulus time courses
     prefix_name = '%s_sti_%s' % (layer, dataset)
     feat_ptr = []
@@ -156,7 +157,6 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None):
                           mmap_mode='r')
         feat_ptr.append(feat_ts)
         ts_shape = feat_ts.shape
-
     print 'Original data shape : ', ts_shape
 
     # movie fps
@@ -173,23 +173,34 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None):
         out_s = (s[0], s[1], s[2], ts_shape[0]/fps)
     print 'Down-sampled data shape : ', out_s
  
+    # salience config
+    if salience_modulated:
+        sal_mark = '_salmod'
+        salience_name = 'salience_%s_%s_%s.npy'%(dataset, s[1], s[2])
+        salience_file = os.path.join(out_dir, salience_name)
+        sal_ts = np.load(salience_file, mmap_mode='r')
+        sal_ts = sal_ts.reshape(-1, sal_ts.shape[-1])
+    else:
+        sal_mark = ''
+
     # data array for storing time series after convolution and down-sampling
     # to save memory, a memmap is used temporally
-    out_file_name = '%s_%s_trs%s.npy'%(layer, dataset, ds_mark)
+    out_file_name = '%s_%s_trs%s%s.npy'%(layer, dataset, ds_mark, sal_mark)
     out_file = os.path.join(out_dir, out_file_name)
     print 'Save TR data into file ', out_file
     feat = np.memmap(out_file, dtype='float64', mode='w+', shape=out_s)
 
     # convolution and down-sampling in a parallel approach
-    Parallel(n_jobs=10)(delayed(stim_pro)(feat_ptr, feat, s, fps,
-                                          ds_fact, i, using_hrf=True)
+    Parallel(n_jobs=8)(delayed(stim_pro)(feat_ptr, feat, s, fps, ds_fact,
+                                          sal_ts, i, using_hrf=True)
                         for i in range(ts_shape[1]/(s[1]*s[2])))
 
     # save memmap object as a numpy.array
+    print 'Save data as npy file ...'
     narray = np.array(feat)
     np.save(out_file, narray)
 
-def stim_pro(feat_ptr, output, orig_size, fps, fact, i, using_hrf=True):
+def stim_pro(feat_ptr, output, orig_size, fps, fact, sal_ts, i, using_hrf=True):
     """Sugar function for parallel computing."""
     print i
     # scanning parameter
@@ -211,7 +222,7 @@ def stim_pro(feat_ptr, output, orig_size, fps, fact, i, using_hrf=True):
             ts = np.concatenate([ts, feat_ptr[p][:, i*bsize:(i+1)*bsize]],
                                 axis=0)
     ts = ts.T
-    #print ts.shape
+    ts = ts * sal_ts
     # log-transform
     ts = np.log(ts+1)
     if using_hrf:
@@ -294,11 +305,11 @@ def feat_tr_pro(in_file, out_dir, out_dim=None, using_hrf=True):
     # spatial down-sample
     if out_dim:
         ds_mark = '_%s_%s' %(out_dim[0], out_dim[1])
-        im_min, im_max = dconvolved3d.min(), dconvolved3d.max()
-        im_std = (dconvolved3d - im_min) / (im_max - im_min)
-        resized_im = resize(im_std, out_dim, order=1)
-        dconvolved3d = resized_im * (im_max - im_min) + im_min
-        #dconvolved3d = down_sample(dconvolved3d, (ds_fact, ds_fact, 1))
+        dconvolved3d = img_resize(dconvolved3d, out_dim)
+        #im_min, im_max = dconvolved3d.min(), dconvolved3d.max()
+        #im_std = (dconvolved3d - im_min) / (im_max - im_min)
+        #resized_im = resize(im_std, out_dim, order=1)
+        #dconvolved3d = resized_im * (im_max - im_min) + im_min
     else:
         ds_mark = ''
     print 'Output data shape : ', dconvolved3d.shape
@@ -367,11 +378,16 @@ if __name__ == '__main__':
     #mat2png(stimulus, 'train')
 
     #-- CNN activation pre-processing
-    cnnfeat_tr_pro(stim_dir, feat_dir, dataset='train',
-                   layer='conv1', ds_fact=None)
+    #cnnfeat_tr_pro(stim_dir, feat_dir, dataset='train', layer='conv1',
+    #               ds_fact=None, salience_modulated=False)
     
     #-- calculate dense optical flow
     #get_optical_flow(stimulus, 'train', feat_dir)
     #optical_file = os.path.join(feat_dir, 'train_opticalflow_mag.npy')
     #feat_tr_pro(optical_file, feat_dir, out_dim=None, using_hrf=False)
+
+    #-- salience processing
+    sal_file = os.path.join(feat_dir, 'salience_train_55_55.npy')
+    feat_tr_pro(sal_file, feat_dir, out_dim=None, using_hrf=True)
+
 
