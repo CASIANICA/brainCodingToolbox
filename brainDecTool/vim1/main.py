@@ -22,7 +22,8 @@ def get_gabor_features(img):
 
 if __name__ == '__main__':
     """Main function."""
-    db_dir = r'/nfs/public_dataset/publicData/brain_encoding/crcns/vim-1'
+    db_dir = r'/home/huanglijie/workingdir/brainDecoding/vim1'
+    #db_dir = r'/nfs/public_dataset/publicData/brain_encoding/crcns/vim-1'
     prefix = {'train': 'Stimuli_Trn_FullRes', 'val': 'Stimuli_Val_FullRes'}
 
     data_type = 'train'
@@ -30,7 +31,7 @@ if __name__ == '__main__':
     if data_type == 'train':
         for i in range(15):
             s_time = time.time()
-            img_file = os.path.join(db_dir, prefix['train']+'_0%s.mat'%(i+1))
+            img_file = os.path.join(db_dir, prefix['train']+'_%02d.mat'%(i+1))
             print 'Load file %s ...'%(img_file)
             tf = tables.open_file(img_file)
             imgs = tf.get_node('/stimTrn')[:]
@@ -41,7 +42,7 @@ if __name__ == '__main__':
             for j in range(imgs.shape[2]):
                 x = imgs[..., j].T
                 out_features[..., j] = get_gabor_features(x)
-            out_file = prefix['train']+'_0%s_gabor_featuers.npy'%(i+1)
+            out_file = prefix['train']+'_%2d_gabor_featuers.npy'%(i+1)
             np.save(out_file, out_features)
             print 'Iter %s costs %s'%(i+1, time.time()-s_time)
     else:
