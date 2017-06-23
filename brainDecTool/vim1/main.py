@@ -19,9 +19,8 @@ def get_gabor_features(img):
         out_feat[..., i] = np.sqrt(np.square(real_p)+np.square(imag_p))
     return out_feat
 
-
-if __name__ == '__main__':
-    """Main function."""
+def get_stim_features():
+    """Stimuli processing."""
     db_dir = r'/home/huanglijie/workingdir/brainDecoding/vim1'
     #db_dir = r'/nfs/public_dataset/publicData/brain_encoding/crcns/vim-1'
     prefix = {'train': 'Stimuli_Trn_FullRes', 'val': 'Stimuli_Val_FullRes'}
@@ -60,4 +59,39 @@ if __name__ == '__main__':
         np.save(out_file, out_features)
         print 'Val images costs %s'%(time.time()-s_time)
 
+def stim_downsample():
+    """Stimuli processing."""
+    db_dir = r'/home/huanglijie/workingdir/brainDecoding/vim1/gabor_features'
+    prefix = {'train': 'Stimuli_Trn_FullRes', 'val': 'Stimuli_Val_FullRes'}
+
+    data_type = 'val'
+
+    if data_type == 'train':
+        for i in range(15):
+            s_time = time.time()
+            src_file = os.path.join(db_dir,
+                            prefix['train']+'_%02d_gabor_features.npy'%(i+1))
+            print 'Load file %s ...'%(src_file)
+            imgs = np.load(src_file)
+            # output matrix: row x col x image-number
+            print 'image size %s'%(imgs.shape[3])
+            out_imgs = imgs[..., 0:8, :].sum(axis=2)
+            out_file = prefix['train']+'_%02d_smallest_gabor_features.npy'%(i+1)
+            np.save(out_file, out_imgs)
+            print 'Iter %s costs %s'%(i+1, time.time()-s_time)
+    else:
+        s_time = time.time()
+        src_file = os.path.join(db_dir, prefix['val']+'_gabor_features.npy')
+        print 'Load file %s ...'%(src_file)
+        imgs = np.load(src_file)
+        # output matrix: row x col x image-number
+        print 'image size %s'%(imgs.shape[3])
+        out_imgs = imgs[..., 0:8, :].sum(axis=2)
+        out_file = prefix['val']+'smallest_gabor_features.npy'
+        np.save(out_file, out_imgs)
+        print 'Val images costs %s'%(time.time()-s_time)
+
+if __name__ == '__main__':
+    """Main function."""
+    stim_downsample()
 
