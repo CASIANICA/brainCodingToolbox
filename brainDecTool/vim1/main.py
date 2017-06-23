@@ -42,7 +42,7 @@ if __name__ == '__main__':
             for j in range(imgs.shape[2]):
                 x = imgs[..., j].T
                 out_features[..., j] = get_gabor_features(x)
-            out_file = prefix['train']+'_%02d_gabor_featuers.npy'%(i+1)
+            out_file = prefix['train']+'_%02d_gabor_features.npy'%(i+1)
             np.save(out_file, out_features)
             print 'Iter %s costs %s'%(i+1, time.time()-s_time)
     else:
@@ -56,7 +56,7 @@ if __name__ == '__main__':
         for j in range(imgs.shape[2]):
             x = imgs[..., j].T
             out_features[..., j] = get_gabor_features(x)
-        out_file = prefix['val']+'_gabor_featuers.npy'
+        out_file = prefix['val']+'_gabor_features.npy'
         np.save(out_file, out_features)
         print 'Val images costs %s'%(time.time()-s_time)
 
