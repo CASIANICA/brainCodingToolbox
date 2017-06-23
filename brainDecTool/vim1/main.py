@@ -26,7 +26,7 @@ if __name__ == '__main__':
     #db_dir = r'/nfs/public_dataset/publicData/brain_encoding/crcns/vim-1'
     prefix = {'train': 'Stimuli_Trn_FullRes', 'val': 'Stimuli_Val_FullRes'}
 
-    data_type = 'train'
+    data_type = 'val'
 
     if data_type == 'train':
         for i in range(15):
@@ -42,7 +42,7 @@ if __name__ == '__main__':
             for j in range(imgs.shape[2]):
                 x = imgs[..., j].T
                 out_features[..., j] = get_gabor_features(x)
-            out_file = prefix['train']+'_%2d_gabor_featuers.npy'%(i+1)
+            out_file = prefix['train']+'_%02d_gabor_featuers.npy'%(i+1)
             np.save(out_file, out_features)
             print 'Iter %s costs %s'%(i+1, time.time()-s_time)
     else:
