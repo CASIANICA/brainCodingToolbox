@@ -432,7 +432,7 @@ if __name__ == '__main__':
     phrase = 'test'
  
     # subj config
-    subj_id = 2
+    subj_id = 1
     subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
  
     #-- load fmri data
