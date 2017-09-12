@@ -128,6 +128,7 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None,
     dataset : train or val
     layer : index of CNN layers
     ds_fact : spatial down-sample factor
+    salience_modulated : Boolean value
 
     """
     # layer size
@@ -181,6 +182,7 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None,
         sal_ts = np.load(salience_file, mmap_mode='r')
         sal_ts = sal_ts.reshape(-1, sal_ts.shape[-1])
     else:
+        sal_ts = None
         sal_mark = ''
 
     # data array for storing time series after convolution and down-sampling
@@ -222,7 +224,8 @@ def stim_pro(feat_ptr, output, orig_size, fps, fact, sal_ts, i, using_hrf=True):
             ts = np.concatenate([ts, feat_ptr[p][:, i*bsize:(i+1)*bsize]],
                                 axis=0)
     ts = ts.T
-    ts = ts * sal_ts
+    if sal_ts:
+        ts = ts * sal_ts
     # log-transform
     ts = np.log(ts+1)
     if using_hrf:

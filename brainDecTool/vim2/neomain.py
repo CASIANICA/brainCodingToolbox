@@ -429,7 +429,7 @@ if __name__ == '__main__':
  
     # phrase 'test': analyses were only conducted within lV1 for code test
     # phrase 'work': for real analyses
-    phrase = 'work'
+    phrase = 'test'
  
     # subj config
     subj_id = 2
@@ -474,10 +474,10 @@ if __name__ == '__main__':
 
     #-- load fmri response
     # data shape: (selected_voxel, 7200/540)
-    #train_fmri_ts = tf.get_node('/rt')[:]
-    #train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
-    #val_fmri_ts = tf.get_node('/rv')[:]
-    #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
+    train_fmri_ts = tf.get_node('/rt')[:]
+    train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
+    val_fmri_ts = tf.get_node('/rv')[:]
+    val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
     ##-- save masked data as npy file
     #train_file = os.path.join(subj_dir, 'S%s_train_fmri_lV1.npy'%(subj_id))
     #val_file = os.path.join(subj_dir, 'S%s_val_fmri_lV1.npy'%(subj_id))
@@ -486,10 +486,10 @@ if __name__ == '__main__':
 
     #-- load cnn activation data
     # data.shape = (feature_size, x, y, 7200/540)
-    #train_feat_file = os.path.join(feat_dir, 'conv1_train_trs.npy')
-    #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
-    #val_feat_file = os.path.join(feat_dir, 'conv1_val_trs.npy')
-    #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
+    train_feat_file = os.path.join(feat_dir, 'conv1_train_trs.npy')
+    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    val_feat_file = os.path.join(feat_dir, 'conv1_val_trs.npy')
+    val_feat_ts = np.load(val_feat_file, mmap_mode='r')
 
     #-- load salience data
     #train_sal_file = os.path.join(feat_dir, 'salience_train_55_55_trs.npy')
@@ -568,10 +568,10 @@ if __name__ == '__main__':
     #val_salfeat_ts = (val_salfeat_ts-val_salfeat_m)/(1e-10+val_salfeat_s)
 
     #-- voxel-wise linear regression
-    #cross_corr_dir = os.path.join(subj_dir, 'spatial_cross_corr', 'lv1')
-    #reg_dir = os.path.join(cross_corr_dir, 'linreg')
-    #check_path(reg_dir)
-    #corr_mtx = np.load(os.path.join(cross_corr_dir, 'train_conv1_corr.npy'))
+    cross_corr_dir = os.path.join(subj_dir, 'spatial_cross_corr', 'lv1')
+    reg_dir = os.path.join(cross_corr_dir, 'linreg_l1')
+    check_path(reg_dir)
+    corr_mtx = np.load(os.path.join(cross_corr_dir, 'train_conv1_corr.npy'))
     #corr_mtx = corr_mtx.reshape(470, 55, 55)
     ## voxel-wise linear regression
     #wts = np.zeros((470, 55, 55, 3))
@@ -630,8 +630,8 @@ if __name__ == '__main__':
     #np.save(os.path.join(reg_dir, 'val_corr_mask.npy'), val_corr_mask)
 
     #-- Cross-modality mapping: voxel~CNN feature position correlation
-    cross_corr_dir = os.path.join(subj_dir, 'spatial_cross_corr')
-    check_path(cross_corr_dir)
+    #cross_corr_dir = os.path.join(subj_dir, 'spatial_cross_corr')
+    #check_path(cross_corr_dir)
     #-- features from CNN
     #corr_file = os.path.join(cross_corr_dir, 'train_conv1_corr.npy')
     #feat_ts = train_feat_ts.sum(axis=0).reshape(3025, 7200)
@@ -729,14 +729,14 @@ if __name__ == '__main__':
     #        out_file = os.path.join(roi_dir, filename)
     #        vutil.save_imshow(vxl_prf, out_file, val_range=(roi_min, roi_max))
     #-- show pRF parameters on cortical surface
-    paras = np.load(os.path.join(cross_corr_dir, 'curve_fit_paras.npy'))
-    full_prf_mtx = np.zeros((73728, 3))
-    full_prf_mtx[:] = np.nan
-    for i in range(len(vxl_idx)):
-        full_prf_mtx[vxl_idx[i], :] = paras[i, :3]
-    prf2visual_angle(full_prf_mtx, 55, cross_corr_dir, 'curve_fit')
-    err_file = os.path.join(cross_corr_dir, 'curve_fit_err.nii.gz')
-    vutil.vxl_data2nifti(paras[:, 5], vxl_idx, err_file)
+    #paras = np.load(os.path.join(cross_corr_dir, 'curve_fit_paras.npy'))
+    #full_prf_mtx = np.zeros((73728, 3))
+    #full_prf_mtx[:] = np.nan
+    #for i in range(len(vxl_idx)):
+    #    full_prf_mtx[vxl_idx[i], :] = paras[i, :3]
+    #prf2visual_angle(full_prf_mtx, 55, cross_corr_dir, 'curve_fit')
+    #err_file = os.path.join(cross_corr_dir, 'curve_fit_err.nii.gz')
+    #vutil.vxl_data2nifti(paras[:, 5], vxl_idx, err_file)
 
     #-- Cross-modality mapping: voxel~CNN unit correlation
     #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
