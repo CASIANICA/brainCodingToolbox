@@ -453,22 +453,19 @@ if __name__ == '__main__':
     # get non-nan voxel indexs
     fmri_s = train_fmri_ts.sum(axis=1)
     non_nan_idx = np.nonzero(np.logical_not(np.isnan(fmri_s)))[0]
-    # create mask
-    full_mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
-    full_mask = vutil.data_swap(full_mask_file).flatten()
-    full_vxl_idx = np.nonzero(full_mask==1)[0]
-    full_vxl_idx = np.intersect1d(full_vxl_idx, non_nan_idx)
     if phrase=='test':
-        mask_file = os.path.join(subj_dir, 'S%s_small_roi.nii.gz'%(subj_id))
-        mask = vutil.data_swap(mask_file).flatten()
-        mask[mask>1] = 0
-        mask[mask>0] = 1
-        vxl_idx = np.nonzero(mask==1)[0]
+        lv1_mask = tf.get_node('/roi/v1lh')[:].flatten()
+        vxl_idx = np.nonzero(lv1_mask==1)[0]
+        # for vS1, lV1 contains 490 non-NaN voxels
         vxl_idx = np.intersect1d(vxl_idx, non_nan_idx)
     else:
-        vxl_idx = full_vxl_idx
-    #np.save(os.path.join(subj_dir, 'full_vxl_idx.npy'), vxl_idx)
+        full_mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
+        full_mask = vutil.data_swap(full_mask_file).flatten()
+        full_vxl_idx = np.nonzero(full_mask==1)[0]
+        vxl_idx = np.intersect1d(full_vxl_idx, non_nan_idx)
+        #np.save(os.path.join(subj_dir, 'full_vxl_idx.npy'), vxl_idx)
     roi_dict = get_roi_idx(tf, vxl_idx)
+    print roi_dict.keys()
     #np.save(os.path.join(subj_dir, 'roi_idx_pointer.npy'), roi_dict)
     #roi_dict = np.load(os.path.join(subj_dir, 'roi_idx_pointer.npy')).item()
 
@@ -478,7 +475,7 @@ if __name__ == '__main__':
     train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
     val_fmri_ts = tf.get_node('/rv')[:]
     val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
-    ##-- save masked data as npy file
+    #-- save masked data as npy file
     #train_file = os.path.join(subj_dir, 'S%s_train_fmri_lV1.npy'%(subj_id))
     #val_file = os.path.join(subj_dir, 'S%s_val_fmri_lV1.npy'%(subj_id))
     #np.save(train_file, train_fmri_ts)
@@ -511,6 +508,7 @@ if __name__ == '__main__':
     ## feat processing
     #gaussian_prf_file = os.path.join(feat_dir, 'gaussian_prfs.npy')
     #gaussian_prfs = np.load(gaussian_prf_file, mmap_mode='r')
+    # TODO: can be used for each channel, not the sum of all channels
     #feat_ts = train_feat_ts.mean(axis=0).reshape(3025, 7200)
     #prf_feat_ts = gaussian_prfs.reshape(3025, 30250).T.dot(feat_ts)
     ## voxel~feat corr
