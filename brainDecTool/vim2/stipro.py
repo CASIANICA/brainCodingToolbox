@@ -191,12 +191,12 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None,
     feat = np.memmap(out_file, dtype='float64', mode='w+', shape=out_s)
 
     # convolution and down-sampling in a parallel approach
+    print ts_shape[1]/(s[1]*s[2])
     Parallel(n_jobs=8)(delayed(stim_pro)(feat_ptr, feat, s, fps, ds_fact,
                                           sal_ts, i, using_hrf=True)
                         for i in range(ts_shape[1]/(s[1]*s[2])))
 
     # save memmap object as a numpy.array
-    print 'Save data as npy file ...'
     narray = np.array(feat)
     np.save(out_file, narray)
 
@@ -378,8 +378,8 @@ if __name__ == '__main__':
     #mat2png(stimulus, 'train')
 
     #-- CNN activation pre-processing
-    #cnnfeat_tr_pro(stim_dir, feat_dir, dataset='train', layer='conv1',
-    #               ds_fact=None, salience_modulated=False)
+    cnnfeat_tr_pro(stim_dir, feat_dir, dataset='train', layer='conv1',
+                   ds_fact=None, salience_modulated=False)
     
     #-- calculate dense optical flow
     #get_optical_flow(stimulus, 'train', feat_dir)
@@ -387,7 +387,7 @@ if __name__ == '__main__':
     #feat_tr_pro(optical_file, feat_dir, out_dim=None, using_hrf=False)
 
     #-- salience processing
-    sal_file = os.path.join(feat_dir, 'salience_train_55_55.npy')
-    feat_tr_pro(sal_file, feat_dir, out_dim=None, using_hrf=True)
+    #sal_file = os.path.join(feat_dir, 'salience_val_55_55.npy')
+    #feat_tr_pro(sal_file, feat_dir, out_dim=None, using_hrf=True)
 
 
