@@ -9,12 +9,13 @@ from scipy import ndimage
 from scipy.misc import imsave
 import scipy.optimize as opt
 from sklearn.cross_decomposition import PLSCanonical
+from sklearn.linear_model import LassoCV
 
 from brainDecTool.util import configParser
 from brainDecTool.math import parallel_corr2_coef, corr2_coef, ridge
 from brainDecTool.math import get_pls_components, rcca
 from brainDecTool.math import LinearRegression
-from brainDecTool.math.norm import zero_one_norm
+from brainDecTool.math.norm import zero_one_norm, zscore
 from brainDecTool.pipeline import retinotopy
 from brainDecTool.pipeline.base import random_cross_modal_corr
 from brainDecTool.vim2 import util as vutil
@@ -122,9 +123,10 @@ def get_roi_idx(fmri_table, vxl_idx):
         roi_mask = fmri_table.get_node('/roi/%s'%(roi))[:].flatten()
         roi_idx = np.nonzero(roi_mask==1)[0]
         roi_idx = np.intersect1d(roi_idx, vxl_idx)
-        roi_ptr = np.array([np.where(vxl_idx==roi_idx[i])[0][0]
-                            for i in range(len(roi_idx))])
-        roi_dict[roi] = roi_ptr
+        if roi_idx.sum():
+            roi_ptr = np.array([np.where(vxl_idx==roi_idx[i])[0][0]
+                                for i in range(len(roi_idx))])
+            roi_dict[roi] = roi_ptr
     return roi_dict
 
 def hrf_estimate(tf, feat_ts):
@@ -418,7 +420,6 @@ def permutation_stats(random_corr_mtx):
     print 'Correlation threshold for permutation test: ',
     print maxv[int(np.rint(quar))]
 
-
 if __name__ == '__main__':
     """Main function."""
     # config parser
@@ -465,12 +466,11 @@ if __name__ == '__main__':
         vxl_idx = np.intersect1d(full_vxl_idx, non_nan_idx)
         #np.save(os.path.join(subj_dir, 'full_vxl_idx.npy'), vxl_idx)
     roi_dict = get_roi_idx(tf, vxl_idx)
-    print roi_dict.keys()
     #np.save(os.path.join(subj_dir, 'roi_idx_pointer.npy'), roi_dict)
     #roi_dict = np.load(os.path.join(subj_dir, 'roi_idx_pointer.npy')).item()
 
     #-- load fmri response
-    # data shape: (selected_voxel, 7200/540)
+    # data shape: (#voxel, 7200/540)
     train_fmri_ts = tf.get_node('/rt')[:]
     train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
     val_fmri_ts = tf.get_node('/rv')[:]
@@ -483,10 +483,10 @@ if __name__ == '__main__':
 
     #-- load cnn activation data
     # data.shape = (feature_size, x, y, 7200/540)
-    train_feat_file = os.path.join(feat_dir, 'conv1_train_trs.npy')
-    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
-    val_feat_file = os.path.join(feat_dir, 'conv1_val_trs.npy')
-    val_feat_ts = np.load(val_feat_file, mmap_mode='r')
+    #train_feat_file = os.path.join(feat_dir, 'conv1_train_trs.npy')
+    #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    #val_feat_file = os.path.join(feat_dir, 'conv1_val_trs.npy')
+    #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
 
     #-- load salience data
     #train_sal_file = os.path.join(feat_dir, 'salience_train_55_55_trs.npy')
@@ -501,14 +501,51 @@ if __name__ == '__main__':
     #val_salfeat_ts = np.load(val_salfeat_file, mmap_mode='r')
 
     #-- 2d gaussian kernel based pRF estimate
-    #prf_dir = os.path.join(subj_dir, 'prf')
-    #check_path(prf_dir)
-    ## parameter config
-    #fwhms = np.arange(1, 11)
-    ## feat processing
-    #gaussian_prf_file = os.path.join(feat_dir, 'gaussian_prfs.npy')
-    #gaussian_prfs = np.load(gaussian_prf_file, mmap_mode='r')
-    # TODO: can be used for each channel, not the sum of all channels
+    prf_dir = os.path.join(subj_dir, 'prf')
+    check_path(prf_dir)
+    # parameter config
+    fwhms = np.arange(1, 11)
+    # lasso linear regression
+    vxl_idx = vxl_idx[:10]
+    file_idx = -1
+    for i in range(30250):
+        print '--------------------------'
+        print 'Kernel %s'%(i+1)
+        # load CNN features modulated by Gaussian kernels
+        if i/550 > file_idx:
+            train_feat_file = os.path.join(feat_dir, 'gaussian_kernels',
+                                    'gaussian_conv1_train_trs_%s.npy'%(i/550))
+            train_feat_ts = np.load(train_feat_file)
+            val_feat_file = os.path.join(feat_dir, 'gaussian_kernels',
+                                    'gaussian_conv1_val_trs_%s.npy'%(i/550))
+            val_feat_ts = np.load(val_feat_file)
+            file_idx = i/550
+        train_x = train_feat_ts[..., i%550]
+        val_x = val_feat_ts[..., i%550]
+        # shape of x : (96, 7200/540)
+        train_x = zscore(train_x).T
+        val_x = zscore(val_x).T
+        # output vars
+        paras = np.zeros((96, 30250, len(vxl_idx)))
+        val_corr = np.zeros((30250, len(vxl_idx)))
+        alphas = np.zeros((30250, len(vxl_idx)))
+        for j in range(len(vxl_idx)):
+            print 'Voxel %s'%(j+1)
+            train_y = train_fmri_ts[j]
+            val_y = val_fmri_ts[j]
+            lasso_cv = LassoCV(cv=10, n_jobs=4)
+            lasso_cv.fit(train_x, train_y)
+            alphas[i, j] = lasso_cv.alpha_
+            paras[:, i, j] = lasso_cv.coef_
+            pred_y = lasso_cv.predict(val_x)
+            val_corr[i, j] = np.corrcoef(val_y, pred_y)[0][1]
+            print 'Alpha %s, prediction score %s'%(alphas[i, j], val_corr[i, j])
+    np.save(os.path.join(prf_dir, 'lassoreg_paras.npy'), paras)
+    np.save(os.path.join(prf_dir, 'lassoreg_pred_corr.npy'), val_corr)
+    np.save(os.path.join(prf_dir, 'lassoreg_alphas.npy'), alphas)
+
+
+    #-- gaussian kernel is applied to the sum of channels
     #feat_ts = train_feat_ts.mean(axis=0).reshape(3025, 7200)
     #prf_feat_ts = gaussian_prfs.reshape(3025, 30250).T.dot(feat_ts)
     ## voxel~feat corr
@@ -566,10 +603,10 @@ if __name__ == '__main__':
     #val_salfeat_ts = (val_salfeat_ts-val_salfeat_m)/(1e-10+val_salfeat_s)
 
     #-- voxel-wise linear regression
-    cross_corr_dir = os.path.join(subj_dir, 'spatial_cross_corr', 'lv1')
-    reg_dir = os.path.join(cross_corr_dir, 'linreg_l1')
-    check_path(reg_dir)
-    corr_mtx = np.load(os.path.join(cross_corr_dir, 'train_conv1_corr.npy'))
+    #cross_corr_dir = os.path.join(subj_dir, 'spatial_cross_corr', 'lv1')
+    #reg_dir = os.path.join(cross_corr_dir, 'linreg_l1')
+    #check_path(reg_dir)
+    #corr_mtx = np.load(os.path.join(cross_corr_dir, 'train_conv1_corr.npy'))
     #corr_mtx = corr_mtx.reshape(470, 55, 55)
     ## voxel-wise linear regression
     #wts = np.zeros((470, 55, 55, 3))

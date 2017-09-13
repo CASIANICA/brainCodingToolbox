@@ -354,7 +354,36 @@ def get_stim_seq(stimulus, output_filename):
     vol_times = np.arange(0, stim_len, fps)
     dseq = convolved_seq[vol_times]
     np.save(output_filename, dseq)
-    
+
+def gaussian_kernel_feats(feat_dir):
+    """Get CNN features modulated by Gaussian kernels."""
+    # load CNN features
+    train_feat_file = os.path.join(feat_dir, 'conv1_train_trs.npy')
+    feat_ts = np.load(train_feat_file, mmap_mode='r')
+    #val_feat_file = os.path.join(feat_dir, 'conv1_val_trs.npy')
+    #feat_ts = np.load(val_feat_file, mmap_mode='r')
+    # load Gaussian kernels
+    kernel_file = os.path.join(feat_dir, 'gaussian_prfs.npy')
+    kernels = np.load(kernel_file)
+    # data reshape
+    feat_ts = feat_ts.reshape(96, 3025, 7200)
+    feat_ts = np.transpose(feat_ts, (0, 2, 1))
+    #feat_ts = feat_ts.reshape(96, 3025, 540)
+    #feat_ts = np.transpose(feat_ts, (0, 2, 1))
+    kernels = kernels.reshape(3025, 30250)
+    # calculate gaussian modulated features
+    outdir = os.path.join(feat_dir, 'gaussian_kernels')
+    os.system('mkdir %s'%(outdir))
+    for i in range(30250/550):
+        print 'Iter %s/%s'%(i+1, 30250/550)
+        ndata = np.zeros((96, 7200, 550))
+        ktmp = kernels[:, i*550:(i+1)*550]
+        for j in range(96):
+            print 'Channel %s'%(j+1)
+            ndata[j, ...] = np.dot(feat_ts[j, ...], ktmp)
+        outfile = os.path.join(outdir, 'gaussian_conv1_train_trs_%s.npy'%(i))
+        np.save(outfile, ndata)
+
 
 if __name__ == '__main__':
     """Main function."""
@@ -381,8 +410,8 @@ if __name__ == '__main__':
     #mat2png(stimulus, 'train')
 
     #-- CNN activation pre-processing
-    cnnfeat_tr_pro(stim_dir, feat_dir, dataset='train', layer='conv1',
-                   ds_fact=None, salience_modulated=False)
+    #cnnfeat_tr_pro(stim_dir, feat_dir, dataset='train', layer='conv1',
+    #               ds_fact=None, salience_modulated=False)
     
     #-- calculate dense optical flow
     #get_optical_flow(stimulus, 'train', feat_dir)
@@ -393,4 +422,5 @@ if __name__ == '__main__':
     #sal_file = os.path.join(feat_dir, 'salience_val_55_55.npy')
     #feat_tr_pro(sal_file, feat_dir, out_dim=None, using_hrf=True)
 
-
+    gaussian_kernel_feats(feat_dir)
+    
