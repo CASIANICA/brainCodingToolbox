@@ -7,14 +7,12 @@ import tables
 from scipy.misc import imsave
 import cv2
 from joblib import Parallel, delayed
-from skimage.color import rgb2gray
-from skimage.measure import compare_ssim
+import bob.ip.gabor
 
 from brainDecTool.util import configParser
 from brainDecTool.math import ipl
 from brainDecTool.timeseries import hrf
 from brainDecTool.math import down_sample, img_resize
-from brainDecTool.vim2 import util as vutil
 
 
 def img_recon(orig_img):
@@ -32,6 +30,18 @@ def mat2png(stimulus, prefix_name):
     for i in range(x.shape[0]):
         file_name = prefix_name + '_' + str(i+1) + '.png'
         imsave(file_name, x[i, ...])
+
+def get_gabor_features(img):
+    """Get Gabor features from input image."""
+    img = img.astype(np.float64)
+    gwt = bob.ip.gabor.Transform()
+    trafo_img = gwt(img)
+    out_feat = np.zeros((img.shape[0], img.shape[1], trafo_img.shape[0]))
+    for i in range(trafo_img.shape[0]):
+        real_p = np.real(trafo_img[i, ...])
+        imag_p = np.imag(trafo_img[i, ...])
+        out_feat[..., i] = np.sqrt(np.square(real_p) + np.square(imag_p))
+    return out_feat
 
 def get_optical_flow(stimulus, prefix_name, out_dir):
     """Calculate dense optical flow from stimuli sequence."""
@@ -147,7 +157,7 @@ def stim_pro(feat_ptr, output, orig_size, fps, i, using_hrf=True):
         ndts = np.zeros_like(dts)
         delay_time = 4
         ndts[:, delay_time:] = dts[:, :(-1*delay_time)]
-    output[..., col_idx, channel_idx] = ndts
+    output[..., col_idx, channel_idx] = ndts.T
 
 def feat_tr_pro(in_file, out_dir, out_dim=None, using_hrf=True):
     """Get TRs from input 3D dataset (the third dim is time).
@@ -306,17 +316,40 @@ if __name__ == '__main__':
     #    ofile = os.path.join(feat_dir, data_type+'_hue.npy')
     #    np.save(ofile, hue_feat)
 
+    # extract gabor features
+    data_type = 'val'
+    sti_file = os.path.join(stim_dir, data_type+'_stimulus_LCh.npy')
+    sti = np.load(sti_file, mmap_mode='r')
+    # we define 40 gabor basis
+    if data_type=='train':
+        parts = 15
+        num_parts = sti.shape[0] / parts
+        for i in range(parts):
+            gabor_feat = np.zeros((num_parts, sti.shape[1], sti.shape[2], 40),
+                                  dtype=np.float16)
+            L = sti[i*num_parts:(i+1)*num_parts, ..., 0].copy()
+            for j in range(num_parts):
+                x = L[j, ...] / 100 * 255
+                gabor_feat[j, ...] = get_gabor_features(x)
+            ofile = os.path.join(feat_dir, data_type+'_gabor_%s.npy'%(i))
+            np.save(ofile, gabor_feat)
+    else:
+        gabor_feat = np.zeros((sti.shape[0], sti.shape[1], sti.shape[2], 40),
+                              dtype=np.float16)
+        L = sti[..., 0].copy()
+        for j in range(L.shape[0]):
+            x = L[j, ...] / 100 * 255
+            gabor_feat[j, ...] = get_gabor_features(x)
+        ofile = os.path.join(feat_dir, data_type+'_gabor.npy')
+        np.save(ofile, gabor_feat)
+
     # features to expected BOLD signal
-    feat2bold(stim_dir, dataset='val', ftype='hue')
+    #feat2bold(feat_dir, dataset='val', ftype='hue')
     
     #-- calculate dense optical flow
     #get_optical_flow(stimulus, 'train', feat_dir)
     #optical_file = os.path.join(feat_dir, 'train_opticalflow_mag.npy')
     #feat_tr_pro(optical_file, feat_dir, out_dim=None, using_hrf=False)
-
-    #-- salience processing
-    #sal_file = os.path.join(feat_dir, 'salience_val_55_55.npy')
-    #feat_tr_pro(sal_file, feat_dir, out_dim=None, using_hrf=True)
 
     #gaussian_kernel_feats(feat_dir)
     
