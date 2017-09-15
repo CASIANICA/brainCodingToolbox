@@ -397,13 +397,14 @@ if __name__ == '__main__':
             outfile = os.path.join(feat_dir,data_type+'_hue_feature_%s.npy'%(i))
             np.save(outfile, hue_feat)
     else:
-        hue_feat = np.zeros((sti.shape[0], sti.shape[1], sti.shape[2], 3),
+        hue_feat = np.zeros((sti.shape[0], sti.shape[1], sti.shape[2], 6),
                             dtype=np.float16)
         hue = sti[..., 2].copy()
         hue[hue<0] += 2*np.pi
         for j in range(6):
-
-            hue_feat[..., j] = np.square(np.abs(np.sin(hue-j*np.pi/3)))
+            tmp = np.sin(hue-j*np.pi/3)
+            tmp[tmp<0] = 0
+            hue_feat[..., j] = np.square(tmp) 
         outfile = os.path.join(feat_dir, data_type+'_hue_feature.npy')
         np.save(outfile, hue_feat)
 
