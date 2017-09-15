@@ -380,20 +380,22 @@ if __name__ == '__main__':
     #np.save(os.path.join(stim_dir, data_type+'_stimulus_LCh.npy'), ciesti)
     
     # extract hue features
-    data_type = 'val'
+    data_type = 'train'
     sti_file = os.path.join(stim_dir, data_type+'_stimulus_LCh.npy')
     sti = np.load(sti_file, mmap_mode='r')
     # we define 8 hue basis, each corresponding pi/4 range of hue
     if data_type=='train':
-        parts = 10
+        parts = 15
         num_parts = sti.shape[0] / parts
         for i in range(parts):
-            hue_feat = np.zeros((num_parts, sti.shape[1], sti.shape[2], 8))
+            hue_feat = np.zeros((num_parts, sti.shape[1], sti.shape[2], 6),
+                                dtype=np.float16)
             hue = sti[i*num_parts:(i+1)*num_parts, ..., 2].copy()
             hue[hue<0] += 2*np.pi
-            for j in range(8):
-                sel_pix = np.logical_and(hue>=(j*np.pi/4), hue<((j+1)*np.pi/4))
-                hue_feat[sel_pix, j] = np.square(np.sin(hue[sel_pix]*4-j*np.pi))
+            for j in range(6):
+                tmp = np.sin(hue-j*np.pi/3)
+                tmp[tmp<0] = 0
+                hue_feat[..., j] = np.square(tmp) 
             outfile = os.path.join(feat_dir,data_type+'_hue_feature_%s.npy'%(i))
             np.save(outfile, hue_feat)
     else:
