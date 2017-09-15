@@ -33,71 +33,6 @@ def mat2png(stimulus, prefix_name):
         file_name = prefix_name + '_' + str(i+1) + '.png'
         imsave(file_name, x[i, ...])
 
-def mat2feat(stimulus, layer, phrase):
-    """Get features of `layer` derived from CNN."""
-    # import modules
-    import sys
-    sys.path.insert(0, '/home/huanglijie/repo/caffe/python')
-    import caffe
-    caffe_dir = '/'.join(os.path.dirname(caffe.__file__).split('/')[:-2])
-    caffe.set_mode_gpu()
-    print 'GPU mode'
-
-    # reorder the data shape: to NxHxWxC
-    stimulus = np.transpose(stimulus, (0, 3, 2, 1))
-    print 'stimulus size :', stimulus.shape
-
-    stim_len = stimulus.shape[0]
-    if phrase=='train':
-        part = 10
-    else:
-        part = 1
-    unit = stim_len / part
-    for i in range(part):
-        # resize to 227 x 227
-        input_ = np.zeros((unit, 227, 227, 3), dtype=np.float32)
-        print 'input size :', input_.shape
-        print 'Resize input image ...'
-        for ix, im in enumerate(stimulus[(i*unit):(i+1)*unit]):
-            input_[ix] = caffe.io.resize_image(im.astype(np.float32),(227, 227))
-        # reorder the data shape: to NxCxHxW
-        input_ = np.transpose(input_, (0, 3, 1, 2))
-        # RGB to BGR
-        input_ = input_[:, ::-1]
-        # substract mean
-        mean_file = os.path.join(caffe_dir, 'python', 'caffe', 'imagenet',
-                                 'ilsvrc_2012_mean.npy')
-        mean_im = np.load(mean_file)
-        # take center crop
-        center = np.array((256, 256)) / 2.0
-        crop = np.tile(center, (1, 2))[0] + np.concatenate(
-                [-np.array([227, 227]) / 2.0, np.array([227, 227]) / 2.0])
-        crop = crop.astype(int)
-        mean_im = mean_im[:, crop[0]:crop[2], crop[1]:crop[3]]
-        mean_im = np.expand_dims(mean_im, 0)
-        input_ -= mean_im
-
-        # feedforward
-        caffenet_dir = os.path.join(caffe_dir, 'models',
-                                    'bvlc_reference_caffenet')
-        caffenet = caffe.Net(os.path.join(caffenet_dir, 'deploy.prototxt'),
-                os.path.join(caffenet_dir,'bvlc_reference_caffenet.caffemodel'),
-                caffe.TEST)
-        feat_s = caffenet.blobs[layer].data.shape
-        feat = np.zeros((input_.shape[0], feat_s[1]*feat_s[2]*feat_s[3]),
-                        dtype=np.float32)
-        batch_unit = input_.shape[0] / 10
-        for j in range(batch_unit):
-            batch_input = input_[(j*10):(j+1)*10]
-            caffenet.forward(data=batch_input)
-            tmp = np.copy(caffenet.blobs[layer].data)
-            feat[(j*10):(j+1)*10] = tmp.reshape(10, -1)
-        del caffenet
-        if phrase=='val':
-            np.save('%s_sti_%s.npy'%(layer, phrase), feat)
-        else:
-            np.save('%s_sti_%s_%s.npy'%(layer, phrase, i), feat)
-
 def get_optical_flow(stimulus, prefix_name, out_dir):
     """Calculate dense optical flow from stimuli sequence."""
     img_w, img_h = stimulus.shape[2], stimulus.shape[3]
@@ -118,44 +53,31 @@ def get_optical_flow(stimulus, prefix_name, out_dir):
     np.save(os.path.join(out_dir, prefix_name+'_opticalflow_mag.npy'), mag)
     np.save(os.path.join(out_dir, prefix_name+'_opticalflow_ang.npy'), ang)
 
-def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None,
-                   salience_modulated=False):
-    """Get TRs from CNN actiavtion datasets.
+def feat2bold(feat_dir, dataset, ftype):
+    """Convert feature time course to expected BOLD signals.
     
     Input
     -----
     feat_dir : absolute path of feature directory
-    out_dir : output directory
     dataset : train or val
-    layer : index of CNN layers
+    ftype : gabor or hue
     ds_fact : spatial down-sample factor
-    salience_modulated : Boolean value
 
     """
-    # layer size
-    layer_size = {'conv1': [96, 55, 55],
-                  'norm1': [96, 27, 27],
-                  'conv2': [256, 27, 27],
-                  'norm2': [256, 13, 13],
-                  'conv3': [384, 13, 13],
-                  'conv4': [384, 13, 13],
-                  'conv5': [256, 13, 13],
-                  'pool5': [256, 6, 6]}
-    
     # load stimulus time courses
-    prefix_name = '%s_sti_%s' % (layer, dataset)
+    prefix_name = '%s_%s' % (dataset, ftype)
     feat_ptr = []
     if dataset=='train':
         time_count = 0
-        for i in range(10):
-            tmp = np.load(os.path.join(feat_dir, dataset,
-                                       prefix_name+'_'+str(i)+'.npy'),
+        for i in range(15):
+            tmp = np.load(os.path.join(feat_dir, prefix_name+'_'+str(i)+'.npy'),
                           mmap_mode='r')
             time_count += tmp.shape[0]
             feat_ptr.append(tmp)
-        ts_shape = (time_count, feat_ptr[0].shape[1])
+        ts_shape = (time_count, feat_ptr[0].shape[1],
+                    feat_ptr[0].shape[2], feat_ptr[0].shape[3])
     else:
-        feat_ts = np.load(os.path.join(feat_dir, dataset, prefix_name+'.npy'),
+        feat_ts = np.load(os.path.join(feat_dir, prefix_name+'.npy'),
                           mmap_mode='r')
         feat_ptr.append(feat_ts)
         ts_shape = feat_ts.shape
@@ -164,46 +86,27 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None,
     # movie fps
     fps = 15
     
-    # calculate down-sampled data size
-    s = layer_size[layer]
-    if ds_fact:
-        ds_mark = '_ds%s' %(ds_fact)
-        out_s = (s[0], int(np.ceil(s[1]*1.0/ds_fact)),
-                 int(np.ceil(s[2]*1.0/ds_fact)), ts_shape[0]/fps)
-    else:
-        ds_mark = ''
-        out_s = (s[0], s[1], s[2], ts_shape[0]/fps)
+    # calculate spatial down-sampled size
+    out_s = (ts_shape[0]/fps, ts_shape[1], ts_shape[2], ts_shape[3])
     print 'Down-sampled data shape : ', out_s
- 
-    # salience config
-    if salience_modulated:
-        sal_mark = '_salmod'
-        salience_name = 'salience_%s_%s_%s.npy'%(dataset, s[1], s[2])
-        salience_file = os.path.join(out_dir, salience_name)
-        sal_ts = np.load(salience_file, mmap_mode='r')
-        sal_ts = sal_ts.reshape(-1, sal_ts.shape[-1])
-    else:
-        sal_ts = None
-        sal_mark = ''
 
     # data array for storing time series after convolution and down-sampling
     # to save memory, a memmap is used temporally
-    out_file_name = '%s_%s_trs%s%s.npy'%(layer, dataset, ds_mark, sal_mark)
-    out_file = os.path.join(out_dir, out_file_name)
+    out_file_name = '%s_%s_trs.npy'%(dataset, ftype)
+    out_file = os.path.join(feat_dir, out_file_name)
     print 'Save TR data into file ', out_file
-    feat = np.memmap(out_file, dtype='float64', mode='w+', shape=out_s)
+    bold = np.memmap(out_file, dtype='float64', mode='w+', shape=out_s)
 
     # convolution and down-sampling in a parallel approach
-    print ts_shape[1]/(s[1]*s[2])
-    Parallel(n_jobs=8)(delayed(stim_pro)(feat_ptr, feat, s, fps, ds_fact,
-                                          sal_ts, i, using_hrf=True)
-                        for i in range(ts_shape[1]/(s[1]*s[2])))
+    Parallel(n_jobs=6)(delayed(stim_pro)(feat_ptr, bold, ts_shape, fps,
+                                         i, using_hrf=True)
+                        for i in range(ts_shape[2]*ts_shape[3]))
 
     # save memmap object as a numpy.array
-    narray = np.array(feat)
+    narray = np.array(bold)
     np.save(out_file, narray)
 
-def stim_pro(feat_ptr, output, orig_size, fps, fact, sal_ts, i, using_hrf=True):
+def stim_pro(feat_ptr, output, orig_size, fps, i, using_hrf=True):
     """Sugar function for parallel computing."""
     print i
     # scanning parameter
@@ -217,16 +120,15 @@ def stim_pro(feat_ptr, output, orig_size, fps, fact, sal_ts, i, using_hrf=True):
     hrf_signal = hrf.biGammaHRF(hrf_times)
 
     # procssing
-    bsize = orig_size[1]*orig_size[2]
+    channel_idx = i / orig_size[2]
+    col_idx = i % orig_size[2]
     for p in range(len(feat_ptr)):
         if not p:
-            ts = feat_ptr[p][:, i*bsize:(i+1)*bsize]
+            ts = feat_ptr[p][..., col_idx, channel_idx]
         else:
-            ts = np.concatenate([ts, feat_ptr[p][:, i*bsize:(i+1)*bsize]],
+            ts = np.concatenate([ts, feat_ptr[p][..., col_idx, channel_idx]],
                                 axis=0)
     ts = ts.T
-    if sal_ts:
-        ts = ts * sal_ts
     # log-transform
     ts = np.log(ts+1)
     if using_hrf:
@@ -245,17 +147,7 @@ def stim_pro(feat_ptr, output, orig_size, fps, fact, sal_ts, i, using_hrf=True):
         ndts = np.zeros_like(dts)
         delay_time = 4
         ndts[:, delay_time:] = dts[:, :(-1*delay_time)]
-
-    # reshape to 3D
-    ndts = ndts.reshape(orig_size[1], orig_size[2], ts.shape[1]/fps)
-    # get start index
-    idx = i*bsize
-    channel_idx, row, col = vutil.node2feature(idx, orig_size)
-
-    # spatial down-sample
-    if fact:
-        ndts = down_sample(ndts, (fact, fact, 1))
-    output[channel_idx, ...] = ndts
+    output[..., col_idx, channel_idx] = ndts
 
 def feat_tr_pro(in_file, out_dir, out_dim=None, using_hrf=True):
     """Get TRs from input 3D dataset (the third dim is time).
@@ -364,13 +256,17 @@ if __name__ == '__main__':
     stim_dir = os.path.join(data_dir, 'stimulus')
     feat_dir = os.path.join(data_dir, 'sfeatures')
 
-    ## load original stimulus data
+    # load original stimulus data
     #tf = tables.open_file(os.path.join(stim_dir, 'Stimuli.mat'))
     #data_type = 'train'
     #data_dic = {'train': '/st', 'val': '/sv'}
     #stimulus = tf.get_node(data_dic[data_type])[:]
     #tf.close()
-    ## convert images from RGB to CIRLCh space
+    
+    # convert mat to png
+    #mat2png(stimulus, data_type)
+    
+    # convert images from RGB to CIRLCh space
     #stimulus = np.transpose(stimulus, (0, 3, 2, 1))
     #ciesti = np.zeros_like(stimulus, dtype=np.float16)
     #for i in range(stimulus.shape[0]):
@@ -380,45 +276,38 @@ if __name__ == '__main__':
     #np.save(os.path.join(stim_dir, data_type+'_stimulus_LCh.npy'), ciesti)
     
     # extract hue features
-    data_type = 'train'
-    sti_file = os.path.join(stim_dir, data_type+'_stimulus_LCh.npy')
-    sti = np.load(sti_file, mmap_mode='r')
-    # we define 8 hue basis, each corresponding pi/4 range of hue
-    if data_type=='train':
-        parts = 15
-        num_parts = sti.shape[0] / parts
-        for i in range(parts):
-            hue_feat = np.zeros((num_parts, sti.shape[1], sti.shape[2], 6),
-                                dtype=np.float16)
-            hue = sti[i*num_parts:(i+1)*num_parts, ..., 2].copy()
-            hue[hue<0] += 2*np.pi
-            for j in range(6):
-                tmp = np.sin(hue-j*np.pi/3)
-                tmp[tmp<0] = 0
-                hue_feat[..., j] = np.square(tmp) 
-            outfile = os.path.join(feat_dir,data_type+'_hue_feature_%s.npy'%(i))
-            np.save(outfile, hue_feat)
-    else:
-        hue_feat = np.zeros((sti.shape[0], sti.shape[1], sti.shape[2], 6),
-                            dtype=np.float16)
-        hue = sti[..., 2].copy()
-        hue[hue<0] += 2*np.pi
-        for j in range(6):
-            tmp = np.sin(hue-j*np.pi/3)
-            tmp[tmp<0] = 0
-            hue_feat[..., j] = np.square(tmp) 
-        outfile = os.path.join(feat_dir, data_type+'_hue_feature.npy')
-        np.save(outfile, hue_feat)
+    #data_type = 'train'
+    #sti_file = os.path.join(stim_dir, data_type+'_stimulus_LCh.npy')
+    #sti = np.load(sti_file, mmap_mode='r')
+    ## we define 8 hue basis, each corresponding pi/4 range of hue
+    #if data_type=='train':
+    #    parts = 15
+    #    num_parts = sti.shape[0] / parts
+    #    for i in range(parts):
+    #        hue_feat = np.zeros((num_parts, sti.shape[1], sti.shape[2], 6),
+    #                            dtype=np.float16)
+    #        hue = sti[i*num_parts:(i+1)*num_parts, ..., 2].copy()
+    #        hue[hue<0] += 2*np.pi
+    #        for j in range(6):
+    #            tmp = np.sin(hue-j*np.pi/3)
+    #            tmp[tmp<0] = 0
+    #            hue_feat[..., j] = np.square(tmp) 
+    #        ofile = os.path.join(feat_dir, data_type+'_hue_%s.npy'%(i))
+    #        np.save(ofile, hue_feat)
+    #else:
+    #    hue_feat = np.zeros((sti.shape[0], sti.shape[1], sti.shape[2], 6),
+    #                        dtype=np.float16)
+    #    hue = sti[..., 2].copy()
+    #    hue[hue<0] += 2*np.pi
+    #    for j in range(6):
+    #        tmp = np.sin(hue-j*np.pi/3)
+    #        tmp[tmp<0] = 0
+    #        hue_feat[..., j] = np.square(tmp) 
+    #    ofile = os.path.join(feat_dir, data_type+'_hue.npy')
+    #    np.save(ofile, hue_feat)
 
-    #-- convert mat to cnn features
-    #mat2feat(stimulus, 'norm1', data_type)
-
-    #-- convert mat to png
-    #mat2png(stimulus, 'train')
-
-    #-- CNN activation pre-processing
-    #cnnfeat_tr_pro(stim_dir, feat_dir, dataset='train', layer='conv1',
-    #               ds_fact=None, salience_modulated=False)
+    # features to expected BOLD signal
+    feat2bold(stim_dir, dataset='val', ftype='hue')
     
     #-- calculate dense optical flow
     #get_optical_flow(stimulus, 'train', feat_dir)
