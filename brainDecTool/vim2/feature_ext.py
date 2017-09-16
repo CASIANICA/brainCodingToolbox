@@ -317,34 +317,34 @@ if __name__ == '__main__':
     #    np.save(ofile, hue_feat)
 
     # extract gabor features
-    data_type = 'val'
-    sti_file = os.path.join(stim_dir, data_type+'_stimulus_LCh.npy')
-    sti = np.load(sti_file, mmap_mode='r')
-    # we define 40 gabor basis
-    if data_type=='train':
-        parts = 15
-        num_parts = sti.shape[0] / parts
-        for i in range(parts):
-            gabor_feat = np.zeros((num_parts, sti.shape[1], sti.shape[2], 40),
-                                  dtype=np.float16)
-            L = sti[i*num_parts:(i+1)*num_parts, ..., 0].copy()
-            for j in range(num_parts):
-                x = L[j, ...] / 100 * 255
-                gabor_feat[j, ...] = get_gabor_features(x)
-            ofile = os.path.join(feat_dir, data_type+'_gabor_%s.npy'%(i))
-            np.save(ofile, gabor_feat)
-    else:
-        gabor_feat = np.zeros((sti.shape[0], sti.shape[1], sti.shape[2], 40),
-                              dtype=np.float16)
-        L = sti[..., 0].copy()
-        for j in range(L.shape[0]):
-            x = L[j, ...] / 100 * 255
-            gabor_feat[j, ...] = get_gabor_features(x)
-        ofile = os.path.join(feat_dir, data_type+'_gabor.npy')
-        np.save(ofile, gabor_feat)
+    #data_type = 'val'
+    #sti_file = os.path.join(stim_dir, data_type+'_stimulus_LCh.npy')
+    #sti = np.load(sti_file, mmap_mode='r')
+    ## we define 40 gabor basis
+    #if data_type=='train':
+    #    parts = 15
+    #    num_parts = sti.shape[0] / parts
+    #    for i in range(parts):
+    #        gabor_feat = np.zeros((num_parts, sti.shape[1], sti.shape[2], 40),
+    #                              dtype=np.float16)
+    #        L = sti[i*num_parts:(i+1)*num_parts, ..., 0].copy()
+    #        for j in range(num_parts):
+    #            x = L[j, ...] / 100 * 255
+    #            gabor_feat[j, ...] = get_gabor_features(x)
+    #        ofile = os.path.join(feat_dir, data_type+'_gabor_%s.npy'%(i))
+    #        np.save(ofile, gabor_feat)
+    #else:
+    #    gabor_feat = np.zeros((sti.shape[0], sti.shape[1], sti.shape[2], 40),
+    #                          dtype=np.float16)
+    #    L = sti[..., 0].copy()
+    #    for j in range(L.shape[0]):
+    #        x = L[j, ...] / 100 * 255
+    #        gabor_feat[j, ...] = get_gabor_features(x)
+    #    ofile = os.path.join(feat_dir, data_type+'_gabor.npy')
+    #    np.save(ofile, gabor_feat)
 
     # features to expected BOLD signal
-    #feat2bold(feat_dir, dataset='val', ftype='hue')
+    feat2bold(feat_dir, dataset='val', ftype='hue')
     
     #-- calculate dense optical flow
     #get_optical_flow(stimulus, 'train', feat_dir)
