@@ -132,15 +132,15 @@ def stim_pro(feat_ptr, output, orig_size, fps, i, using_hrf=True):
     # procssing
     channel_idx = i / orig_size[2]
     col_idx = i % orig_size[2]
+    tmp_list = []
     for p in range(len(feat_ptr)):
-        if not p:
-            ts = feat_ptr[p][..., col_idx, channel_idx]
-        else:
-            ts = np.concatenate([ts, feat_ptr[p][..., col_idx, channel_idx]],
-                                axis=0)
-    ts = ts.T
+        tmp_list.append(feat_ptr[p][..., col_idx, channel_idx])
+    ts = np.concatenate(tmp_list, axis=0)
+    del tmp_list
     # log-transform
-    ts = np.log(ts+1)
+    # memory saving trick
+    ts += 1
+    ts = np.log(ts.T)
     if using_hrf:
         # convolved with HRF
         convolved = np.apply_along_axis(np.convolve, 1, ts, hrf_signal)
