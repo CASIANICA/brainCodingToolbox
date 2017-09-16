@@ -108,7 +108,7 @@ def feat2bold(feat_dir, dataset, ftype):
     bold = np.memmap(out_file, dtype='float64', mode='w+', shape=out_s)
 
     # convolution and down-sampling in a parallel approach
-    Parallel(n_jobs=6)(delayed(stim_pro)(feat_ptr, bold, ts_shape, fps,
+    Parallel(n_jobs=8)(delayed(stim_pro)(feat_ptr, bold, ts_shape, fps,
                                          i, using_hrf=True)
                         for i in range(ts_shape[2]*ts_shape[3]))
 
@@ -132,15 +132,11 @@ def stim_pro(feat_ptr, output, orig_size, fps, i, using_hrf=True):
     # procssing
     channel_idx = i / orig_size[2]
     col_idx = i % orig_size[2]
-    print 'Channel %s - Col %s'%(channel_idx, col_idx)
-    # create an array for data storage
-    feat_parts = len(feat_ptr)
-    ts = np.zeros((feat_parts*feat_ptr[0].shape[0], feat_ptr[0].shape[1]))
-    count_idx = 0
+    tmp_list = []
     for p in feat_ptr:
-        print p.filename
-        ts[count_idx:(count_idx+p.shape[0], :)] = p[..., col_idx, channel_idx])
-        count_idx += p.shape[0]
+        tmp_list.append(p[..., col_idx, channel_idx])
+    ts = np.concatenate(tmp_list, axis=0)
+    del tmp_list
     # log-transform
     # memory saving trick
     ts += 1
