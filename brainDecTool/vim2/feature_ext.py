@@ -105,7 +105,7 @@ def feat2bold(feat_dir, dataset, ftype):
     out_file_name = '%s_%s_trs.npy'%(dataset, ftype)
     out_file = os.path.join(feat_dir, out_file_name)
     print 'Save TR data into file ', out_file
-    bold = np.memmap(out_file, dtype='float64', mode='w+', shape=out_s)
+    bold = np.memmap(out_file, dtype='float16', mode='w+', shape=out_s)
 
     # convolution and down-sampling in a parallel approach
     Parallel(n_jobs=8)(delayed(stim_pro)(feat_ptr, bold, ts_shape, fps,
@@ -128,6 +128,7 @@ def stim_pro(feat_ptr, output, orig_size, fps, i, using_hrf=True):
     # HRF config
     hrf_times = np.arange(0, 35, time_unit)
     hrf_signal = hrf.biGammaHRF(hrf_times)
+    hrf_signal = hrf_signal.astype(np.float16)
 
     # procssing
     channel_idx = i / orig_size[2]
