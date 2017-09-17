@@ -82,10 +82,10 @@ def feat2bold(feat_dir, dataset, ftype):
         for i in range(15):
             tmp = np.load(os.path.join(feat_dir, prefix_name+'_'+str(i)+'.npy'),
                           mmap_mode='r')
-            time_count += tmp.shape[0]
+            time_count += tmp.shape[3]
             feat_ptr.append(tmp)
-        ts_shape = (time_count, feat_ptr[0].shape[1],
-                    feat_ptr[0].shape[2], feat_ptr[0].shape[3])
+        ts_shape = (feat_ptr[0].shape[0], feat_ptr[0].shape[1],
+                    feat_ptr[0].shape[2], time_count)
     else:
         feat_ts = np.load(os.path.join(feat_dir, prefix_name+'.npy'),
                           mmap_mode='r')
@@ -97,7 +97,7 @@ def feat2bold(feat_dir, dataset, ftype):
     fps = 15
     
     # calculate spatial down-sampled size
-    out_s = (ts_shape[0]/fps, ts_shape[1], ts_shape[2], ts_shape[3])
+    out_s = (ts_shape[0], ts_shape[1], ts_shape[2], ts_shape[3]/fps)
     print 'Down-sampled data shape : ', out_s
 
     # data array for storing time series after convolution and down-sampling
@@ -108,9 +108,9 @@ def feat2bold(feat_dir, dataset, ftype):
     bold = np.memmap(out_file, dtype='float16', mode='w+', shape=out_s)
 
     # convolution and down-sampling in a parallel approach
-    Parallel(n_jobs=8)(delayed(stim_pro)(feat_ptr, bold, ts_shape, fps,
-                                         i, using_hrf=True)
-                        for i in range(ts_shape[2]*ts_shape[3]))
+    Parallel(n_jobs=10)(delayed(stim_pro)(feat_ptr, bold, ts_shape, fps,
+                                          i, using_hrf=True)
+                        for i in range(ts_shape[0]*ts_shape[1]))
 
     # save memmap object as a numpy.array
     narray = np.array(bold)
@@ -131,17 +131,16 @@ def stim_pro(feat_ptr, output, orig_size, fps, i, using_hrf=True):
     hrf_signal = hrf_signal.astype(np.float16)
 
     # procssing
-    channel_idx = i / orig_size[2]
-    col_idx = i % orig_size[2]
+    r_idx = i / orig_size[1]
+    c_idx = i % orig_size[1]
     tmp_list = []
     for p in feat_ptr:
-        tmp_list.append(p[..., col_idx, channel_idx])
-    ts = np.concatenate(tmp_list, axis=0)
-    del tmp_list
+        tmp_list.append(p[r_idx, c_idx, ...])
+    ts = np.concatenate(tmp_list, axis=1)
     # log-transform
     # memory saving trick
     ts += 1
-    ts = np.log(ts.T)
+    ts = np.log(ts)
     if using_hrf:
         # convolved with HRF
         convolved = np.apply_along_axis(np.convolve, 1, ts, hrf_signal)
@@ -158,7 +157,7 @@ def stim_pro(feat_ptr, output, orig_size, fps, i, using_hrf=True):
         ndts = np.zeros_like(dts)
         delay_time = 4
         ndts[:, delay_time:] = dts[:, :(-1*delay_time)]
-    output[..., col_idx, channel_idx] = ndts.T
+    output[r_idx, c_idx, ...] = ndts
 
 def feat_tr_pro(in_file, out_dir, out_dim=None, using_hrf=True):
     """Get TRs from input 3D dataset (the third dim is time).
@@ -278,44 +277,44 @@ if __name__ == '__main__':
     #mat2png(stimulus, data_type)
     
     # convert images from RGB to CIRLCh space
-    #stimulus = np.transpose(stimulus, (0, 3, 2, 1))
+    #stimulus = np.transpose(stimulus, (3, 2, 1, 0))
     #ciesti = np.zeros_like(stimulus, dtype=np.float16)
-    #for i in range(stimulus.shape[0]):
+    #for i in range(stimulus.shape[3]):
     #    print i
-    #    tmp = ipl.rgb2cielab(stimulus[i, ...])
-    #    ciesti[i, ...] = ipl.cielab2cielch(tmp)
+    #    tmp = ipl.rgb2cielab(stimulus[..., i])
+    #    ciesti[..., i] = ipl.cielab2cielch(tmp)
     #np.save(os.path.join(stim_dir, data_type+'_stimulus_LCh.npy'), ciesti)
     
     # extract hue features
-    #data_type = 'train'
-    #sti_file = os.path.join(stim_dir, data_type+'_stimulus_LCh.npy')
-    #sti = np.load(sti_file, mmap_mode='r')
-    ## we define 8 hue basis, each corresponding pi/4 range of hue
-    #if data_type=='train':
-    #    parts = 15
-    #    num_parts = sti.shape[0] / parts
-    #    for i in range(parts):
-    #        hue_feat = np.zeros((num_parts, sti.shape[1], sti.shape[2], 6),
-    #                            dtype=np.float16)
-    #        hue = sti[i*num_parts:(i+1)*num_parts, ..., 2].copy()
-    #        hue[hue<0] += 2*np.pi
-    #        for j in range(6):
-    #            tmp = np.sin(hue-j*np.pi/3)
-    #            tmp[tmp<0] = 0
-    #            hue_feat[..., j] = np.square(tmp) 
-    #        ofile = os.path.join(feat_dir, data_type+'_hue_%s.npy'%(i))
-    #        np.save(ofile, hue_feat)
-    #else:
-    #    hue_feat = np.zeros((sti.shape[0], sti.shape[1], sti.shape[2], 6),
-    #                        dtype=np.float16)
-    #    hue = sti[..., 2].copy()
-    #    hue[hue<0] += 2*np.pi
-    #    for j in range(6):
-    #        tmp = np.sin(hue-j*np.pi/3)
-    #        tmp[tmp<0] = 0
-    #        hue_feat[..., j] = np.square(tmp) 
-    #    ofile = os.path.join(feat_dir, data_type+'_hue.npy')
-    #    np.save(ofile, hue_feat)
+    data_type = 'val'
+    sti_file = os.path.join(stim_dir, data_type+'_stimulus_LCh.npy')
+    sti = np.load(sti_file, mmap_mode='r')
+    # we define 8 hue basis, each corresponding pi/4 range of hue
+    if data_type=='train':
+        parts = 15
+        num_parts = sti.shape[3] / parts
+        for i in range(parts):
+            hue_feat = np.zeros((sti.shape[0], sti.shape[1], 6, num_parts),
+                                dtype=np.float16)
+            hue = sti[..., 2, i*num_parts:(i+1)*num_parts].copy()
+            hue[hue<0] += 2*np.pi
+            for j in range(6):
+                tmp = np.sin(hue-j*np.pi/3)
+                tmp[tmp<0] = 0
+                hue_feat[..., j, :] = np.square(tmp) 
+            ofile = os.path.join(feat_dir, data_type+'_hue_%s.npy'%(i))
+            np.save(ofile, hue_feat)
+    else:
+        hue_feat = np.zeros((sti.shape[0], sti.shape[1], 6, sti.shape[3]),
+                            dtype=np.float16)
+        hue = sti[..., 2, :].copy()
+        hue[hue<0] += 2*np.pi
+        for j in range(6):
+            tmp = np.sin(hue-j*np.pi/3)
+            tmp[tmp<0] = 0
+            hue_feat[..., j, :] = np.square(tmp) 
+        ofile = os.path.join(feat_dir, data_type+'_hue.npy')
+        np.save(ofile, hue_feat)
 
     # extract gabor features
     #data_type = 'val'
@@ -326,26 +325,26 @@ if __name__ == '__main__':
     #    parts = 15
     #    num_parts = sti.shape[0] / parts
     #    for i in range(parts):
-    #        gabor_feat = np.zeros((num_parts, sti.shape[1], sti.shape[2], 40),
+    #        gabor_feat = np.zeros((sti.shape[0], sti.shape[1], 40, num_parts),
     #                              dtype=np.float16)
-    #        L = sti[i*num_parts:(i+1)*num_parts, ..., 0].copy()
+    #        L = sti[..., 0, i*num_parts:(i+1)*num_parts].copy()
     #        for j in range(num_parts):
-    #            x = L[j, ...] / 100 * 255
-    #            gabor_feat[j, ...] = get_gabor_features(x)
+    #            x = L[..., j] / 100 * 255
+    #            gabor_feat[..., j] = get_gabor_features(x)
     #        ofile = os.path.join(feat_dir, data_type+'_gabor_%s.npy'%(i))
     #        np.save(ofile, gabor_feat)
     #else:
-    #    gabor_feat = np.zeros((sti.shape[0], sti.shape[1], sti.shape[2], 40),
+    #    gabor_feat = np.zeros((sti.shape[0], sti.shape[1], 40, sti.shape[3]),
     #                          dtype=np.float16)
-    #    L = sti[..., 0].copy()
-    #    for j in range(L.shape[0]):
-    #        x = L[j, ...] / 100 * 255
-    #        gabor_feat[j, ...] = get_gabor_features(x)
+    #    L = sti[..., 0, :].copy()
+    #    for j in range(L.shape[2]):
+    #        x = L[..., j] / 100 * 255
+    #        gabor_feat[..., j] = get_gabor_features(x)
     #    ofile = os.path.join(feat_dir, data_type+'_gabor.npy')
     #    np.save(ofile, gabor_feat)
 
     # features to expected BOLD signal
-    feat2bold(feat_dir, dataset='val', ftype='hue')
+    #feat2bold(feat_dir, dataset='val', ftype='hue')
     
     #-- calculate dense optical flow
     #get_optical_flow(stimulus, 'train', feat_dir)
