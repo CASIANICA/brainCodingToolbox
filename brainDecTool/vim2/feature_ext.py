@@ -323,7 +323,7 @@ if __name__ == '__main__':
     ## we define 40 gabor basis
     #if data_type=='train':
     #    parts = 15
-    #    num_parts = sti.shape[0] / parts
+    #    num_parts = sti.shape[3] / parts
     #    for i in range(parts):
     #        gabor_feat = np.zeros((sti.shape[0], sti.shape[1], 40, num_parts),
     #                              dtype=np.float16)
