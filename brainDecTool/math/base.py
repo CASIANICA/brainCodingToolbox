@@ -129,12 +129,12 @@ def r2p(r, sample_size, two_side=True):
     else:
         return stats.t.sf(tt, sample_size-2)
 
-def make_2d_gaussian(size, fwhm=3, center=None):
+def make_2d_gaussian(size, sigma, center=None):
     """Make a square gaussian kernel.
 
     `size` is the length of a side of the square;
-    `fwhm` is full-width-half-maximum, which can be thought of an as effective
-    radius;
+    `sigma` is standard deviation of the 2D gaussian, which can be thought of
+        the radius;
     `center` is the center of the gaussian curve, None: default in center of
     the square, a cell of (x0, y0) for a specific location; x0 - col, y0 - row.
     """
@@ -147,5 +147,5 @@ def make_2d_gaussian(size, fwhm=3, center=None):
         x0 = center[0]
         y0 = center[1]
 
-    return np.exp(-4*np.log(2) * ((x-x0)**2 + (y-y0)**2) / fwhm**2)
+    return np.exp(-0.5*((x-x0)**2+(y-y0)**2)/sigma**2)/np.sqrt(2*np.pi)/sigma
 
