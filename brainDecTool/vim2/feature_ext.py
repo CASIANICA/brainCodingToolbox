@@ -26,10 +26,10 @@ def img_recon(orig_img):
 
 def mat2png(stimulus, prefix_name):
     """Comvert stimulus from mat to png format."""
-    x = np.transpost(stimulus, (0, 3, 2, 1))
+    x = np.transpost(stimulus, (3, 2, 1, 0))
     for i in range(x.shape[0]):
         file_name = prefix_name + '_' + str(i+1) + '.png'
-        imsave(file_name, x[i, ...])
+        imsave(file_name, x[..., i])
 
 def get_gabor_features(img):
     """Get Gabor features from input image."""
@@ -280,7 +280,6 @@ if __name__ == '__main__':
     #stimulus = np.transpose(stimulus, (3, 2, 1, 0))
     #ciesti = np.zeros_like(stimulus, dtype=np.float16)
     #for i in range(stimulus.shape[3]):
-    #    print i
     #    tmp = ipl.rgb2cielab(stimulus[..., i])
     #    ciesti[..., i] = ipl.cielab2cielch(tmp)
     #np.save(os.path.join(stim_dir, data_type+'_stimulus_LCh.npy'), ciesti)
@@ -289,14 +288,15 @@ if __name__ == '__main__':
     data_type = 'val'
     sti_file = os.path.join(stim_dir, data_type+'_stimulus_LCh.npy')
     sti = np.load(sti_file, mmap_mode='r')
-    # we define 8 hue basis, each corresponding pi/4 range of hue
+    # we define 6 hue basis, each corresponding pi range of hue, with a pi/3
+    # difference in phrase
     if data_type=='train':
         parts = 15
-        num_parts = sti.shape[3] / parts
+        part_size = sti.shape[3] / parts
         for i in range(parts):
-            hue_feat = np.zeros((sti.shape[0], sti.shape[1], 6, num_parts),
+            hue_feat = np.zeros((sti.shape[0], sti.shape[1], 6, part_size),
                                 dtype=np.float16)
-            hue = sti[..., 2, i*num_parts:(i+1)*num_parts].copy()
+            hue = sti[..., 2, i*part_size:(i+1)*part_size].copy()
             hue[hue<0] += 2*np.pi
             for j in range(6):
                 tmp = np.sin(hue-j*np.pi/3)
@@ -323,12 +323,12 @@ if __name__ == '__main__':
     ## we define 40 gabor basis
     #if data_type=='train':
     #    parts = 15
-    #    num_parts = sti.shape[3] / parts
+    #    part_size = sti.shape[3] / parts
     #    for i in range(parts):
-    #        gabor_feat = np.zeros((sti.shape[0], sti.shape[1], 40, num_parts),
+    #        gabor_feat = np.zeros((sti.shape[0], sti.shape[1], 40, part_size),
     #                              dtype=np.float16)
-    #        L = sti[..., 0, i*num_parts:(i+1)*num_parts].copy()
-    #        for j in range(num_parts):
+    #        L = sti[..., 0, i*part_size:(i+1)*part_size].copy()
+    #        for j in range(part_size):
     #            x = L[..., j] / 100 * 255
     #            gabor_feat[..., j] = get_gabor_features(x)
     #        ofile = os.path.join(feat_dir, data_type+'_gabor_%s.npy'%(i))
