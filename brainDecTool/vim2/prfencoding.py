@@ -118,6 +118,56 @@ def stim_pro(feat_ptr, output, orig_size, fps, i):
     vol_times = np.arange(0, ts.shape[1], fps)
     output[r_idx, c_idx, ...] = convolved[:, vol_times]
 
+def get_candidate_model(feat_dir):
+    """ Get gaussian kernel based receptive field features"""
+    # load feature data
+    train_gabor = np.load(os.path.join(feat_dir, 'train_gabor_trs.npy'))
+    train_hue = np.load(os.path.join(feat_dir, 'train_hue_trs.npy'))
+    val_gabor = np.load(os.path.join(feat_dir, 'val_gabor_trs.npy'))
+    val_hue = np.load(os.path.join(feat_dir, 'val_hue_trs.npy'))
+    train_feat = np.concatenate([train_gabor, train_hue], axis=2)
+    del train_gabor
+    del train_hue
+    val_feat = np.concatenate([val_gabor, val_hue], axis=2)
+    del val_gabor
+    del val_hue
+    # derived gaussian-based features
+    # candidate pooling centers are spaced 0.625 degrees apart (4 pixels)
+    # candiante pooling fields included 15 evenly-spaces radii between 0.16
+    # degrees (1 pixel) and 7.8 degrees (50 pixels)
+    out_train = os.path.join(feat_dir, 'train_candidate_feat.npy')
+    out_val = os.path.join(feat_dir, 'val_candidate_feat.npy')
+    train_cand_feat = np.memmap(out_train, dtype='float16', mode='w+',
+                                shape=(32*32*15, 46, 7200))
+    val_cand_feat = np.memmap(out_val, dtype='float16', mode='w+',
+                              shape=(32*32*15, 46, 540))
+    Parallel(n_jobs=5)(delayed(model_pro)(train_feat, val_feat, train_cand_feat,
+                                         val_cand_feat, xi, yi, si)
+                    for si in range(15) for xi in range(32) for yi in range(32))
+    
+    # save memmap object as a numpy.array
+    train_array = np.array(train_cand_feat)
+    np.save(out_train, train_array)
+    val_array = np.array(val_cand_feat)
+    np.save(out_val, val_array)
+
+def model_pro(train_in, val_in, train_out, val_out, xi, yi, si):
+    """Sugar function for generating  candidate model"""
+    model_i = si*32*32 + xi*32 + yi
+    center_x = np.arange(0, 128, 4)
+    center_y = np.arange(0, 128, 4)
+    sigma = np.linspace(1, 50, 15)
+    x0 = center_x[xi]
+    y0 = center_y[yi]
+    s = sigma[si]
+    print 'Model %s : center - (%s, %s), sigma %s'%(model_i, x0, y0, s)
+    kernel = make_2d_gaussian(128, s, center=(x0, y0))
+    kernel = kernel.flatten()
+    for c in range(46):
+        train_t = train_in[..., c, :].reshape(128*128, 7200)
+        val_t = val_in[..., c, :].reshape(128*128, 540)
+        train_out[model_i, c, :] = kernel.dot(train_t)
+        val_out[model_i, c, :] = kernel.dot(val_t)
 
 if __name__ == '__main__':
     """Main function."""
@@ -207,41 +257,6 @@ if __name__ == '__main__':
     # features to expected BOLD signal
     #feat2bold(feat_dir, dataset='val', ftype='hue')
 
-    # gaussian kernel based receptive field features
-    # load feature data
-    train_gabor = np.load(os.path.join(feat_dir, 'train_gabor_trs.npy'))
-    train_hue = np.load(os.path.join(feat_dir, 'train_hue_trs.npy'))
-    val_gabor = np.load(os.path.join(feat_dir, 'val_gabor_trs.npy'))
-    val_hue = np.load(os.path.join(feat_dir, 'val_hue_trs.npy'))
-    train_feat = np.concatenate([train_gabor, train_hue], axis=2)
-    del train_gabor
-    del train_hue
-    val_feat = np.concatenate([val_gabor, val_hue], axis=2)
-    del val_gabor
-    del val_hue
-    # derived gaussian-based features
-    # candidate pooling centers are spaced 0.625 degrees apart (4 pixels)
-    # candiante pooling fields included 15 evenly-spaces radii between 0.16
-    # degrees (1 pixel) and 7.8 degrees (50 pixels)
-    center_x = np.arange(0, 128, 4)
-    center_y = np.arange(0, 128, 4)
-    sigma = np.linspace(1, 50, 15)
-    train_cand_feat = np.zeros((32*32*15, 46, 7200), dtype=np.float16)
-    val_cand_feat = np.zeros((32*32*15, 46, 540), dtype=np.float16)
-    i = 0
-    for s in sigma:
-        for x0 in center_x:
-            for y0 in center_y:
-                kernel = make_2d_gaussian(128, s, center=(x0, y0))
-                kernel = kernel.flatten()
-                for c in range(46):
-                    train_t = train_feat[..., c, :].reshape(128*128, 7200)
-                    val_t = val_feat[..., c, :].reshape(128*128, 540)
-                    train_cand_feat[i, c, :] = kernel.dot(train_t)
-                    val_cand_feat[i, c, :] = kernel.dot(val_t)
-                print i
-                i += 1
-    np.save(os.path.join(feat_dir, 'train_candidate_feat.npy'), train_cand_feat)
-    np.save(os.path.join(feat_dir, 'val_candidate_feat.npy'), val_cand_feat)
+    # gaussian kernel based receptive field model
+    get_candidate_model(feat_dir)
 
- 
