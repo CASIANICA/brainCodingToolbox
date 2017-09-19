@@ -11,7 +11,14 @@ import bob.ip.gabor
 from brainDecTool.util import configParser
 from brainDecTool.math import ipl, make_2d_gaussian
 from brainDecTool.timeseries import hrf
+from brainDecTool.math.norm import zscore
+from brainDecTool.vim2 import dataio
 
+
+def check_path(dir_path):
+    """Check whether the directory does exist, if not, create it."""            
+    if not os.path.exists(dir_path):
+        os.mkdir(dir_path, 0755)
 
 def mat2png(stimulus, prefix_name):
     """Comvert stimulus from mat to png format."""
@@ -141,7 +148,7 @@ def get_candidate_model(feat_dir):
                                 shape=(32*32*15, 46, 7200))
     val_cand_feat = np.memmap(out_val, dtype='float16', mode='w+',
                               shape=(32*32*15, 46, 540))
-    Parallel(n_jobs=5)(delayed(model_pro)(train_feat, val_feat, train_cand_feat,
+    Parallel(n_jobs=4)(delayed(model_pro)(train_feat, val_feat, train_cand_feat,
                                          val_cand_feat, xi, yi, si)
                     for si in range(15) for xi in range(32) for yi in range(32))
     
@@ -173,9 +180,10 @@ if __name__ == '__main__':
     """Main function."""
     # config parser
     cf = configParser.Config('config')
-    data_dir = cf.get('base', 'path')
-    stim_dir = os.path.join(data_dir, 'stimulus')
-    feat_dir = os.path.join(data_dir, 'sfeatures')
+    root_dir = cf.get('base', 'path')
+    stim_dir = os.path.join(root_dir, 'stimulus')
+    feat_dir = os.path.join(root_dir, 'sfeatures')
+    db_dir = os.path.join(root_dir, 'subjects')
 
     # load original stimulus data
     #tf = tables.open_file(os.path.join(stim_dir, 'Stimuli.mat'))
@@ -258,5 +266,55 @@ if __name__ == '__main__':
     #feat2bold(feat_dir, dataset='val', ftype='hue')
 
     # gaussian kernel based receptive field model
-    get_candidate_model(feat_dir)
+    #get_candidate_model(feat_dir)
+
+    # pRF model fitting
+    subj_id = 1
+    roi = 'v1lh'
+    # directory config
+    subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
+    # load fmri response
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_fmri_ts(subj_dir, roi=roi)
+    print 'Voxel number: %s'%(len(vxl_idx))
+    print 'train fmri data shape: ',
+    print train_fmri_ts.shape
+    # load candidate models
+    train_models = np.load(os.path.join(feat_dir, 'train_candidate_feat.npy'),
+                           mmap_mode='r')
+    val_models = np.load(os.path.join(feat_dir, 'val_candidate_feat.npy'),
+                         mmap_mode='r')
+    prf_dir = os.path.join(subj_dir, 'prf')
+    check_path(prf_dir)
+    paras_file = os.path.join(prf_dir, 'lassoreg_paras.npy')
+    paras = np.memmap(paras_file, dtype='float16', mode='w+',
+                      shape=(len(vxl_idx), 15360, 46))
+    val_corr_file = os.path.join(prf_dir, 'lassoreg_pred_corr.npy')
+    val_corr = np.memmap(val_corr_file, dtype='float16', mode='w+',
+                         shape=(len(vxl_idx), 15360))
+    alphas_file = os.path.join(prf_dir, 'lassoreg_alphas.npy')
+    alphas = np.memmap(alphas_file, dtype='float16', mode='w+',
+                       shape=(len(vxl_idx), 15360))
+    # for code test
+    vxl_idx = vxl_idx[:5]
+    for i in range(len(vxl_idx)):
+        print 'Voxel %s'%(i)
+        train_y = train_fmri_ts[i]
+        val_y = val_fmri_ts[i]
+        for j in range(15360):
+            print 'Model %s'%(j)
+            train_x = zscore(train_models[j, ...]).T
+            val_x = zscore(val_models[j, ...]).T
+            lasso_cv = LassoCV(cv=10, n_jobs=6)
+            lasso_cv.fit(train_x, train_y)
+            alphas[i, j] = lasso_cv.alpha_
+            paras[i, j :] = lasso_cv_coef_
+            pred_y = lasso_cv.predict(val_x)
+            val_corr[i, j] = np.corrcoef(val_y, pred_y)[0][1]
+            print 'Alpha %s, prediction score %s'%(alphas[i, j], val_corr[i, j])
+    paras = np.array(paras)
+    np.save(paras_file, paras)
+    val_corr = np.array(val_corr)
+    np.save(val_corr_file, val_corr)
+    paras = np.array(alphas)
+    np.save(alphas_file, alphas)
 
