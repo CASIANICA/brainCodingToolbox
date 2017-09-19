@@ -170,11 +170,8 @@ def model_pro(train_in, val_in, train_out, val_out, xi, yi, si):
     print 'Model %s : center - (%s, %s), sigma %s'%(model_i, x0, y0, s)
     kernel = make_2d_gaussian(128, s, center=(x0, y0))
     kernel = kernel.flatten()
-    for c in range(46):
-        train_t = train_in[..., c, :].reshape(128*128, 7200)
-        val_t = val_in[..., c, :].reshape(128*128, 540)
-        train_out[model_i, c, :] = kernel.dot(train_t)
-        val_out[model_i, c, :] = kernel.dot(val_t)
+    train_out[model_i] = kernel.dot(train_t.reshape(128*128, 46*7200)).reshape(46, 7200)
+    val_out[model_i] = kernel.dot(val_t.reshape(128*128, 46*540)).reshape(46, 540)
 
 if __name__ == '__main__':
     """Main function."""
