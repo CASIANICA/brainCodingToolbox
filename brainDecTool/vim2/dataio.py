@@ -38,7 +38,7 @@ def load_fmri_ts(subj_dir, roi=None):
     # data shape: (#voxel, 7200/540)
     train_ts = tf.get_node('rt')[:]
     train_ts = np.nan_to_num(train_ts[vxl_idx])
-    val_ts = tf..get_node('rv')[:]
+    val_ts = tf.get_node('rv')[:]
     val_ts = np.nan_to_num(val_ts[vxl_idx])
     return vxl_idx, train_ts, val_ts
 

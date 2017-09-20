@@ -133,45 +133,52 @@ def get_candidate_model(feat_dir):
     val_gabor = np.load(os.path.join(feat_dir, 'val_gabor_trs.npy'))
     val_hue = np.load(os.path.join(feat_dir, 'val_hue_trs.npy'))
     train_feat = np.concatenate([train_gabor, train_hue], axis=2)
+    train_feat = train_feat.reshape(128*128, 46*7200)
     del train_gabor
     del train_hue
     val_feat = np.concatenate([val_gabor, val_hue], axis=2)
+    val_feat = val_feat.reshape(128*128, 46*540)
     del val_gabor
     del val_hue
     # derived gaussian-based features
     # candidate pooling centers are spaced 0.625 degrees apart (4 pixels)
     # candiante pooling fields included 15 evenly-spaces radii between 0.16
     # degrees (1 pixel) and 7.8 degrees (50 pixels)
-    out_train = os.path.join(feat_dir, 'train_candidate_feat.npy')
-    out_val = os.path.join(feat_dir, 'val_candidate_feat.npy')
-    train_cand_feat = np.memmap(out_train, dtype='float16', mode='w+',
-                                shape=(32*32*15, 46, 7200))
-    val_cand_feat = np.memmap(out_val, dtype='float16', mode='w+',
-                              shape=(32*32*15, 46, 540))
-    Parallel(n_jobs=4)(delayed(model_pro)(train_feat, val_feat, train_cand_feat,
-                                         val_cand_feat, xi, yi, si)
+    out_train = os.path.join(feat_dir, 'train_candidate_model.npy')
+    out_val = os.path.join(feat_dir, 'val_candidate_model.npy')
+    train_model = np.memmap(out_train, dtype='float16', mode='w+',
+                            shape=(32*32*15, 46, 7200))
+    val_model = np.memmap(out_val, dtype='float16', mode='w+',
+                          shape=(32*32*15, 46, 540))
+    Parallel(n_jobs=3)(delayed(model_pro)(train_feat, val_feat, train_model,
+                                          val_model, xi, yi, si)
                     for si in range(15) for xi in range(32) for yi in range(32))
     
     # save memmap object as a numpy.array
-    train_array = np.array(train_cand_feat)
+    train_array = np.array(train_model)
     np.save(out_train, train_array)
-    val_array = np.array(val_cand_feat)
+    val_array = np.array(val_model)
     np.save(out_val, val_array)
 
 def model_pro(train_in, val_in, train_out, val_out, xi, yi, si):
     """Sugar function for generating  candidate model"""
-    model_i = si*32*32 + xi*32 + yi
+    mi = si*32*32 + xi*32 + yi
     center_x = np.arange(0, 128, 4)
     center_y = np.arange(0, 128, 4)
     sigma = np.linspace(1, 50, 15)
     x0 = center_x[xi]
     y0 = center_y[yi]
     s = sigma[si]
-    print 'Model %s : center - (%s, %s), sigma %s'%(model_i, x0, y0, s)
+    print 'Model %s : center - (%s, %s), sigma %s'%(mi, x0, y0, s)
     kernel = make_2d_gaussian(128, s, center=(x0, y0))
     kernel = kernel.flatten()
-    train_out[model_i] = kernel.dot(train_t.reshape(128*128, 46*7200)).reshape(46, 7200)
-    val_out[model_i] = kernel.dot(val_t.reshape(128*128, 46*540)).reshape(46, 540)
+    tmp = np.zeros((331200, ), dtype=np.float16)
+    for i in range(23):
+        m = i*14400
+        n = m + 14400
+        tmp[m:n] = kernel.dot(train_in[:, m:n]).astype(np.float16)
+    train_out[mi] = tmp.reshape(46, 7200)
+    val_out[mi] = kernel.dot(val_in).reshape(46, 540).astype(np.float16)
 
 if __name__ == '__main__':
     """Main function."""
