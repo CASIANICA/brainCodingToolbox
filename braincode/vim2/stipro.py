@@ -128,6 +128,7 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None,
     dataset : train or val
     layer : index of CNN layers
     ds_fact : spatial down-sample factor
+    salience_modulated : Boolean value
 
     """
     # layer size
@@ -181,6 +182,7 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None,
         sal_ts = np.load(salience_file, mmap_mode='r')
         sal_ts = sal_ts.reshape(-1, sal_ts.shape[-1])
     else:
+        sal_ts = None
         sal_mark = ''
 
     # data array for storing time series after convolution and down-sampling
@@ -191,12 +193,12 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None,
     feat = np.memmap(out_file, dtype='float64', mode='w+', shape=out_s)
 
     # convolution and down-sampling in a parallel approach
+    print ts_shape[1]/(s[1]*s[2])
     Parallel(n_jobs=8)(delayed(stim_pro)(feat_ptr, feat, s, fps, ds_fact,
                                           sal_ts, i, using_hrf=True)
                         for i in range(ts_shape[1]/(s[1]*s[2])))
 
     # save memmap object as a numpy.array
-    print 'Save data as npy file ...'
     narray = np.array(feat)
     np.save(out_file, narray)
 
@@ -222,7 +224,8 @@ def stim_pro(feat_ptr, output, orig_size, fps, fact, sal_ts, i, using_hrf=True):
             ts = np.concatenate([ts, feat_ptr[p][:, i*bsize:(i+1)*bsize]],
                                 axis=0)
     ts = ts.T
-    ts = ts * sal_ts
+    if sal_ts:
+        ts = ts * sal_ts
     # log-transform
     ts = np.log(ts+1)
     if using_hrf:
@@ -351,7 +354,36 @@ def get_stim_seq(stimulus, output_filename):
     vol_times = np.arange(0, stim_len, fps)
     dseq = convolved_seq[vol_times]
     np.save(output_filename, dseq)
-    
+
+def gaussian_kernel_feats(feat_dir):
+    """Get CNN features modulated by Gaussian kernels."""
+    # load CNN features
+    train_feat_file = os.path.join(feat_dir, 'conv1_train_trs.npy')
+    feat_ts = np.load(train_feat_file, mmap_mode='r')
+    #val_feat_file = os.path.join(feat_dir, 'conv1_val_trs.npy')
+    #feat_ts = np.load(val_feat_file, mmap_mode='r')
+    # load Gaussian kernels
+    kernel_file = os.path.join(feat_dir, 'gaussian_prfs.npy')
+    kernels = np.load(kernel_file)
+    # data reshape
+    feat_ts = feat_ts.reshape(96, 3025, 7200)
+    feat_ts = np.transpose(feat_ts, (0, 2, 1))
+    #feat_ts = feat_ts.reshape(96, 3025, 540)
+    #feat_ts = np.transpose(feat_ts, (0, 2, 1))
+    kernels = kernels.reshape(3025, 30250)
+    # calculate gaussian modulated features
+    outdir = os.path.join(feat_dir, 'gaussian_kernels')
+    os.system('mkdir %s'%(outdir))
+    for i in range(30250/550):
+        print 'Iter %s/%s'%(i+1, 30250/550)
+        ndata = np.zeros((96, 7200, 550))
+        ktmp = kernels[:, i*550:(i+1)*550]
+        for j in range(96):
+            print 'Channel %s'%(j+1)
+            ndata[j, ...] = np.dot(feat_ts[j, ...], ktmp)
+        outfile = os.path.join(outdir, 'gaussian_conv1_train_trs_%s.npy'%(i))
+        np.save(outfile, ndata)
+
 
 if __name__ == '__main__':
     """Main function."""
@@ -387,7 +419,8 @@ if __name__ == '__main__':
     #feat_tr_pro(optical_file, feat_dir, out_dim=None, using_hrf=False)
 
     #-- salience processing
-    sal_file = os.path.join(feat_dir, 'salience_train_55_55.npy')
-    feat_tr_pro(sal_file, feat_dir, out_dim=None, using_hrf=True)
+    #sal_file = os.path.join(feat_dir, 'salience_val_55_55.npy')
+    #feat_tr_pro(sal_file, feat_dir, out_dim=None, using_hrf=True)
 
-
+    gaussian_kernel_feats(feat_dir)
+    
