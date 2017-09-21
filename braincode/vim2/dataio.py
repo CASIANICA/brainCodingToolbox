@@ -6,7 +6,7 @@ import numpy as np
 import tables
 import nibabel as nib
 
-from brainDecTool.util import configParser
+from braincode.util import configParser
 
 def data_swap(nifti_file):                                                      
     """Convert nifti data into original data shape."""

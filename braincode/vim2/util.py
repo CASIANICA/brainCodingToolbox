@@ -8,7 +8,7 @@ import nibabel as nib
 import matplotlib.pylab as plt
 import matplotlib.image as mpimg
 
-from brainDecTool.math import corr2_coef, make_2d_gaussian
+from braincode.math import corr2_coef, make_2d_gaussian
 
 def idx2coord(vec_idx):
     """Convert row index in response data matrix into 3D coordinate in

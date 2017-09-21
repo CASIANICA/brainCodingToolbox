@@ -15,7 +15,7 @@ import scipy.io
 from scipy import signal
 from scipy.ndimage import zoom
 
-from brainDecTool.timeseries import hrf
+from braincode.timeseries import hrf
 
 print(caffe.__file__)
 

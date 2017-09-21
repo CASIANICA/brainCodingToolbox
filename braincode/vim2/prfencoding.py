@@ -8,11 +8,11 @@ from scipy.misc import imsave
 from joblib import Parallel, delayed
 import bob.ip.gabor
 
-from brainDecTool.util import configParser
-from brainDecTool.math import ipl, make_2d_gaussian
-from brainDecTool.timeseries import hrf
-from brainDecTool.math.norm import zscore
-from brainDecTool.vim2 import dataio
+from braincode.util import configParser
+from braincode.math import ipl, make_2d_gaussian
+from braincode.timeseries import hrf
+from braincode.math.norm import zscore
+from braincode.vim2 import dataio
 
 
 def check_path(dir_path):

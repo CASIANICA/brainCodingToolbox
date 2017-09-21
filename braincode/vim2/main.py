@@ -8,17 +8,17 @@ from scipy import ndimage
 from scipy.misc import imsave
 from sklearn.cross_decomposition import PLSCanonical
 
-from brainDecTool.util import configParser
-from brainDecTool.math import parallel_corr2_coef, corr2_coef, ridge
-from brainDecTool.math import get_pls_components, rcca
-from brainDecTool.math.norm import zero_one_norm
-from brainDecTool.pipeline import retinotopy
-from brainDecTool.pipeline.base import random_cross_modal_corr
-from brainDecTool.pipeline.base import multiple_regression
-from brainDecTool.pipeline.base import ridge_regression,random_ridge_regression
-from brainDecTool.pipeline.base import layer_ridge_regression
-from brainDecTool.pipeline.base import pred_cnn_ridge
-from brainDecTool.vim2 import util as vutil
+from braincode.util import configParser
+from braincode.math import parallel_corr2_coef, corr2_coef, ridge
+from braincode.math import get_pls_components, rcca
+from braincode.math.norm import zero_one_norm
+from braincode.pipeline import retinotopy
+from braincode.pipeline.base import random_cross_modal_corr
+from braincode.pipeline.base import multiple_regression
+from braincode.pipeline.base import ridge_regression,random_ridge_regression
+from braincode.pipeline.base import layer_ridge_regression
+from braincode.pipeline.base import pred_cnn_ridge
+from braincode.vim2 import util as vutil
 
 
 def check_path(dir_path):

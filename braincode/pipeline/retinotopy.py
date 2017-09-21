@@ -2,7 +2,7 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 
 import numpy as np
-from brainDecTool.math import unit_vector
+from braincode.math import unit_vector
 
 def coord2ecc(pos_mtx, img_size, max_visual_angle):
     """Return the distance to the image center in unit of degree (visual angle).

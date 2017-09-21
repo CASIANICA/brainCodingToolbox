@@ -10,14 +10,14 @@ import scipy.optimize as opt
 from sklearn.cross_decomposition import PLSCanonical
 from sklearn.linear_model import LassoCV
 
-from brainDecTool.util import configParser
-from brainDecTool.math import parallel_corr2_coef, corr2_coef, ridge
-from brainDecTool.math import get_pls_components, rcca
-from brainDecTool.math import LinearRegression
-from brainDecTool.math.norm import zero_one_norm, zscore
-from brainDecTool.pipeline import retinotopy
-from brainDecTool.pipeline.base import random_cross_modal_corr
-from brainDecTool.vim2 import util as vutil
+from braincode.util import configParser
+from braincode.math import parallel_corr2_coef, corr2_coef, ridge
+from braincode.math import get_pls_components, rcca
+from braincode.math import LinearRegression
+from braincode.math.norm import zero_one_norm, zscore
+from braincode.pipeline import retinotopy
+from braincode.pipeline.base import random_cross_modal_corr
+from braincode.vim2 import util as vutil
 
 
 def check_path(dir_path):
