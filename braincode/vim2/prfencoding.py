@@ -14,6 +14,7 @@ from braincode.timeseries import hrf
 from braincode.math.norm import zscore
 from braincode.vim2 import dataio
 
+from sklearn.linear_model import LassoCV
 
 def check_path(dir_path):
     """Check whether the directory does exist, if not, create it."""            
@@ -280,12 +281,10 @@ if __name__ == '__main__':
     # load fmri response
     vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_fmri_ts(subj_dir, roi=roi)
     print 'Voxel number: %s'%(len(vxl_idx))
-    print 'train fmri data shape: ',
-    print train_fmri_ts.shape
     # load candidate models
-    train_models = np.load(os.path.join(feat_dir, 'train_candidate_feat.npy'),
+    train_models = np.load(os.path.join(feat_dir, 'train_candidate_model.npy'),
                            mmap_mode='r')
-    val_models = np.load(os.path.join(feat_dir, 'val_candidate_feat.npy'),
+    val_models = np.load(os.path.join(feat_dir, 'val_candidate_model.npy'),
                          mmap_mode='r')
     prf_dir = os.path.join(subj_dir, 'prf')
     check_path(prf_dir)
@@ -306,12 +305,14 @@ if __name__ == '__main__':
         val_y = val_fmri_ts[i]
         for j in range(15360):
             print 'Model %s'%(j)
-            train_x = zscore(train_models[j, ...]).T
-            val_x = zscore(val_models[j, ...]).T
+            train_x = np.array(train_models[j, ...]).astype(np.float64)
+            val_x = np.array(val_models[j, ...]).astype(np.float64)
+            train_x = zscore(train_x).T
+            val_x = zscore(val_x).T
             lasso_cv = LassoCV(cv=10, n_jobs=6)
             lasso_cv.fit(train_x, train_y)
             alphas[i, j] = lasso_cv.alpha_
-            paras[i, j :] = lasso_cv_coef_
+            paras[i, j :] = lasso_cv.coef_
             pred_y = lasso_cv.predict(val_x)
             val_corr[i, j] = np.corrcoef(val_y, pred_y)[0][1]
             print 'Alpha %s, prediction score %s'%(alphas[i, j], val_corr[i, j])

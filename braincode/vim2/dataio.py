@@ -18,7 +18,7 @@ def data_swap(nifti_file):
 
 def load_fmri_ts(subj_dir, roi=None):
     """Load fmri time courses for each voxel within specified ROI."""
-    fmri_file = os.path.join(subj_dir, 'VoxelResponse.mat')
+    fmri_file = os.path.join(subj_dir, 'VoxelResponses.mat')
     tf = tables.open_file(fmri_file)
     # create mask
     # train data shape: (73728, 7200)
@@ -36,9 +36,9 @@ def load_fmri_ts(subj_dir, roi=None):
     vxl_idx = np.intersect1d(vxl_idx, non_nan_idx)
     # load fmri response
     # data shape: (#voxel, 7200/540)
-    train_ts = tf.get_node('rt')[:]
+    train_ts = tf.get_node('/rt')[:]
     train_ts = np.nan_to_num(train_ts[vxl_idx])
-    val_ts = tf.get_node('rv')[:]
+    val_ts = tf.get_node('/rv')[:]
     val_ts = np.nan_to_num(val_ts[vxl_idx])
     return vxl_idx, train_ts, val_ts
 
