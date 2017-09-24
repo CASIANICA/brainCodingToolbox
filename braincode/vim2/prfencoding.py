@@ -9,7 +9,7 @@ from joblib import Parallel, delayed
 import bob.ip.gabor
 
 from braincode.util import configParser
-from braincode.math import ipl, make_2d_gaussian
+from braincode.math import ipl, make_2d_gaussian, ridge
 from braincode.timeseries import hrf
 from braincode.math.norm import zscore
 from braincode.vim2 import dataio
@@ -288,6 +288,7 @@ if __name__ == '__main__':
                          mmap_mode='r')
     prf_dir = os.path.join(subj_dir, 'prf')
     check_path(prf_dir)
+    # lasso regression
     paras_file = os.path.join(prf_dir, 'lassoreg_paras.npy')
     paras = np.memmap(paras_file, dtype='float16', mode='w+',
                       shape=(len(vxl_idx), 15360, 46))
@@ -322,4 +323,5 @@ if __name__ == '__main__':
     np.save(val_corr_file, val_corr)
     paras = np.array(alphas)
     np.save(alphas_file, alphas)
+    # ridge regression
 
