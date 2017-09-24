@@ -288,6 +288,7 @@ if __name__ == '__main__':
                          mmap_mode='r')
     prf_dir = os.path.join(subj_dir, 'prf')
     check_path(prf_dir)
+    
     # lasso regression
     paras_file = os.path.join(prf_dir, 'lassoreg_paras.npy')
     paras = np.memmap(paras_file, dtype='float16', mode='w+',
@@ -323,5 +324,48 @@ if __name__ == '__main__':
     np.save(val_corr_file, val_corr)
     paras = np.array(alphas)
     np.save(alphas_file, alphas)
+    
     # ridge regression
+    ALPHA_NUM = 20
+    BOOTS_NUM = 15
+    paras_file = os.path.join(prf_dir, 'ridgereg_paras.npy')
+    paras = np.memmap(paras_file, dtype='float64', mode='w+',
+                      shape=(15360, len(vxl_idx), 46))
+    val_corr_file= os.path.join(prf_dir, 'ridgereg_pred_corr.npy')
+    val_corr = np.memmap(val_corr_file, dtype='float64', mode='w+',
+                         shape=(15360, len(vxl_idx)))
+    alphas_file = os.path.join(prf_dir, 'ridgereg_alphas.npy')
+    alphas = np.memmap(alphas_file, dtype='float64', mode='w+',
+                       shape=(15360, len(vxl_idx)))
+    # fMRI data z-score
+    print 'fmri data temporal z-score'
+    m = np.mean(train_fmri_ts, axis=1, keepdims=True)
+    s = np.std(train_fmri_ts, axis=1, keepdims=True)
+    train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
+    m = np.mean(val_fmri_ts, axis=1, keepdims=True)
+    s = np.std(val_fmri_ts, axis=1, keepdims=True)
+    val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
+
+    for i in range(15360):
+        print 'Model %s'%(i)
+        train_x = np.array(train_models[i, ...]).astype(np.float64)
+        val_x = np.array(val_models[i, ...]).astype(np.float64)
+        train_x = zscore(train_x).T
+        val_x = zscore(val_x).T
+        wt, vcorr, alpha, bscores, valinds = ridge.bootstrap_ridge(
+                train_x, train_fmri_ts, val_x, val_fmri_ts,
+                alphas=np.logspace(-2, 3, ALPHA_NUM),
+                nboots=BOOTS_NUM, chunklen=720, nchunks=1,
+                single_alpha=False, use_corr=False)
+        paras[i, ...] = wt.T
+        val_corr[i] = vcorr
+        alphas[i] = alpha
+    # save output
+    paras = np.array(paras)
+    np.save(paras_file, paras)
+    val_corr = np.array(val_corr)
+    np.save(val_corr_file, val_corr)
+    paras = np.array(alphas)
+    np.save(alphas_file, alphas)
+
 
