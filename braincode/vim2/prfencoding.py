@@ -290,40 +290,40 @@ if __name__ == '__main__':
     check_path(prf_dir)
     
     # lasso regression
-    paras_file = os.path.join(prf_dir, 'lassoreg_paras.npy')
-    paras = np.memmap(paras_file, dtype='float16', mode='w+',
-                      shape=(len(vxl_idx), 15360, 46))
-    val_corr_file = os.path.join(prf_dir, 'lassoreg_pred_corr.npy')
-    val_corr = np.memmap(val_corr_file, dtype='float16', mode='w+',
-                         shape=(len(vxl_idx), 15360))
-    alphas_file = os.path.join(prf_dir, 'lassoreg_alphas.npy')
-    alphas = np.memmap(alphas_file, dtype='float16', mode='w+',
-                       shape=(len(vxl_idx), 15360))
-    # for code test
-    vxl_idx = vxl_idx[:5]
-    for i in range(len(vxl_idx)):
-        print 'Voxel %s'%(i)
-        train_y = train_fmri_ts[i]
-        val_y = val_fmri_ts[i]
-        for j in range(15360):
-            print 'Model %s'%(j)
-            train_x = np.array(train_models[j, ...]).astype(np.float64)
-            val_x = np.array(val_models[j, ...]).astype(np.float64)
-            train_x = zscore(train_x).T
-            val_x = zscore(val_x).T
-            lasso_cv = LassoCV(cv=10, n_jobs=6)
-            lasso_cv.fit(train_x, train_y)
-            alphas[i, j] = lasso_cv.alpha_
-            paras[i, j :] = lasso_cv.coef_
-            pred_y = lasso_cv.predict(val_x)
-            val_corr[i, j] = np.corrcoef(val_y, pred_y)[0][1]
-            print 'Alpha %s, prediction score %s'%(alphas[i, j], val_corr[i, j])
-    paras = np.array(paras)
-    np.save(paras_file, paras)
-    val_corr = np.array(val_corr)
-    np.save(val_corr_file, val_corr)
-    paras = np.array(alphas)
-    np.save(alphas_file, alphas)
+    #paras_file = os.path.join(prf_dir, 'lassoreg_paras.npy')
+    #paras = np.memmap(paras_file, dtype='float16', mode='w+',
+    #                  shape=(len(vxl_idx), 15360, 46))
+    #val_corr_file = os.path.join(prf_dir, 'lassoreg_pred_corr.npy')
+    #val_corr = np.memmap(val_corr_file, dtype='float16', mode='w+',
+    #                     shape=(len(vxl_idx), 15360))
+    #alphas_file = os.path.join(prf_dir, 'lassoreg_alphas.npy')
+    #alphas = np.memmap(alphas_file, dtype='float16', mode='w+',
+    #                   shape=(len(vxl_idx), 15360))
+    ## for code test
+    #vxl_idx = vxl_idx[:5]
+    #for i in range(len(vxl_idx)):
+    #    print 'Voxel %s'%(i)
+    #    train_y = train_fmri_ts[i]
+    #    val_y = val_fmri_ts[i]
+    #    for j in range(15360):
+    #        print 'Model %s'%(j)
+    #        train_x = np.array(train_models[j, ...]).astype(np.float64)
+    #        val_x = np.array(val_models[j, ...]).astype(np.float64)
+    #        train_x = zscore(train_x).T
+    #        val_x = zscore(val_x).T
+    #        lasso_cv = LassoCV(cv=10, n_jobs=6)
+    #        lasso_cv.fit(train_x, train_y)
+    #        alphas[i, j] = lasso_cv.alpha_
+    #        paras[i, j :] = lasso_cv.coef_
+    #        pred_y = lasso_cv.predict(val_x)
+    #        val_corr[i, j] = np.corrcoef(val_y, pred_y)[0][1]
+    #        print 'Alpha %s, prediction score %s'%(alphas[i, j], val_corr[i, j])
+    #paras = np.array(paras)
+    #np.save(paras_file, paras)
+    #val_corr = np.array(val_corr)
+    #np.save(val_corr_file, val_corr)
+    #alphas = np.array(alphas)
+    #np.save(alphas_file, alphas)
     
     # ridge regression
     ALPHA_NUM = 20
@@ -353,7 +353,7 @@ if __name__ == '__main__':
         train_x = zscore(train_x).T
         val_x = zscore(val_x).T
         wt, vcorr, alpha, bscores, valinds = ridge.bootstrap_ridge(
-                train_x, train_fmri_ts, val_x, val_fmri_ts,
+                train_x, train_fmri_ts.T, val_x, val_fmri_ts.T,
                 alphas=np.logspace(-2, 3, ALPHA_NUM),
                 nboots=BOOTS_NUM, chunklen=720, nchunks=1,
                 single_alpha=False, use_corr=False)
@@ -365,7 +365,7 @@ if __name__ == '__main__':
     np.save(paras_file, paras)
     val_corr = np.array(val_corr)
     np.save(val_corr_file, val_corr)
-    paras = np.array(alphas)
+    alphas = np.array(alphas)
     np.save(alphas_file, alphas)
 
 
