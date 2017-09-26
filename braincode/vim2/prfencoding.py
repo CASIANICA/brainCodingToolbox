@@ -346,14 +346,21 @@ if __name__ == '__main__':
     s = np.std(val_fmri_ts, axis=1, keepdims=True)
     val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
 
+    # split training dataset into model tunning set and model selection set
+    tune_fmri_ts = [:, :(7200*0.9)]
+    sel_fmri_ts = [:, (7200*0.9):]
+
     for i in range(15360):
         print 'Model %s'%(i)
         train_x = np.array(train_models[i, ...]).astype(np.float64)
-        val_x = np.array(val_models[i, ...]).astype(np.float64)
         train_x = zscore(train_x).T
-        val_x = zscore(val_x).T
+        #val_x = np.array(val_models[i, ...]).astype(np.float64)
+        #val_x = zscore(val_x).T
+        # split training dataset into model tunning and selection sets
+        tune_x = train_x[:7200*0.9, :]
+        sel_x = train_x[7200*0.9:, :]
         wt, vcorr, alpha, bscores, valinds = ridge.bootstrap_ridge(
-                train_x, train_fmri_ts.T, val_x, val_fmri_ts.T,
+                tune_x, tune_fmri_ts.T, sel_x, sel_fmri_ts.T,
                 alphas=np.logspace(-2, 3, ALPHA_NUM),
                 nboots=BOOTS_NUM, chunklen=720, nchunks=1,
                 single_alpha=False, use_corr=False)
