@@ -347,8 +347,8 @@ if __name__ == '__main__':
     val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
 
     # split training dataset into model tunning set and model selection set
-    tune_fmri_ts = [:, :(7200*0.9)]
-    sel_fmri_ts = [:, (7200*0.9):]
+    tune_fmri_ts = train_fmri_ts[:, :int(7200*0.9)]
+    sel_fmri_ts = train_fmri_ts[:, int(7200*0.9):]
 
     for i in range(15360):
         print 'Model %s'%(i)
