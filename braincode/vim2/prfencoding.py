@@ -348,6 +348,8 @@ if __name__ == '__main__':
     ## split training dataset into model tunning set and model selection set
     #tune_fmri_ts = [:, :(7200*0.9)]
     #sel_fmri_ts = [:, (7200*0.9):]
+    ## randomize the time course if fMRI response to derive a null hypothesis
+    ## distribution
     ## model testing
     #for i in range(15360):
     #    print 'Model %s'%(i)
