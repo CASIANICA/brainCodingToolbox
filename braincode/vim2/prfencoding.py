@@ -285,8 +285,6 @@ if __name__ == '__main__':
     # load fmri response
     vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_fmri_ts(subj_dir,roi=roi)
     print 'Voxel number: %s'%(len(vxl_idx))
-    del train_fmri_ts
-    del val_fmri_ts
     # load candidate models
     train_models = np.load(os.path.join(feat_dir, 'train_candidate_model.npy'),
                            mmap_mode='r')
@@ -348,16 +346,16 @@ if __name__ == '__main__':
     # randomize the fMRI response to derive a null hypothesis distribution
     train_fmri_ts = np.transpose(np.random.permutation(train_fmri_ts.T))
     # split training dataset into model tunning set and model selection set
-    tune_fmri_ts = train_fmri_ts[:, :(7200*0.9)]
-    sel_fmri_ts = train_fmri_ts[:, (7200*0.9):]
+    tune_fmri_ts = train_fmri_ts[:, :int(7200*0.9)]
+    sel_fmri_ts = train_fmri_ts[:, int(7200*0.9):]
     # model testing
     for i in range(15360):
         print 'Model %s'%(i)
         train_x = np.array(train_models[i, ...]).astype(np.float64)
         train_x = zscore(train_x).T
         # split training dataset into model tunning and selection sets
-        tune_x = train_x[:7200*0.9, :]
-        sel_x = train_x[7200*0.9:, :]
+        tune_x = train_x[:int(7200*0.9), :]
+        sel_x = train_x[int(7200*0.9):, :]
         wt, r, alpha, bscores, valinds = ridge.bootstrap_ridge(
                 tune_x, tune_fmri_ts.T, sel_x, sel_fmri_ts.T,
                 alphas=np.logspace(-2, 3, ALPHA_NUM),
@@ -401,6 +399,8 @@ if __name__ == '__main__':
     #np.save(os.path.join(prf_dir, 'reg_sel_model_corr.npy'), sel_model_corr)
 
     # pRF estimate
+    #del train_fmri_ts
+    #del val_fmri_ts
     #sel_models = np.load(os.path.join(prf_dir, 'reg_sel_model.npy'))
     #sel_paras = np.load(os.path.join(prf_dir, 'reg_sel_paras.npy'))
     #sel_model_corr = np.load(os.path.join(prf_dir, 'reg_sel_model_corr.npy'))
