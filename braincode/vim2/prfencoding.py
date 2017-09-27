@@ -279,7 +279,7 @@ if __name__ == '__main__':
     roi = 'v1lh'
     # directory config
     subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
-    prf_dir = os.path.join(subj_dir, 'prf')
+    prf_dir = os.path.join(subj_dir, 'prf', 'v1lh_random')
     check_path(prf_dir)
     
     # load fmri response
@@ -288,8 +288,8 @@ if __name__ == '__main__':
     del train_fmri_ts
     del val_fmri_ts
     # load candidate models
-    #train_models = np.load(os.path.join(feat_dir, 'train_candidate_model.npy'),
-    #                       mmap_mode='r')
+    train_models = np.load(os.path.join(feat_dir, 'train_candidate_model.npy'),
+                           mmap_mode='r')
     
     # lasso regression
     #paras_file = os.path.join(prf_dir, 'lassoreg_paras.npy')
@@ -328,51 +328,51 @@ if __name__ == '__main__':
     #np.save(alphas_file, alphas)
     
     # ridge regression
-    ## model seletion and tuning
-    #ALPHA_NUM = 20
-    #BOOTS_NUM = 15
-    #paras_file = os.path.join(prf_dir, 'reg_paras.npy')
-    #paras = np.memmap(paras_file, dtype='float64', mode='w+',
-    #                  shape=(15360, len(vxl_idx), 46))
-    #mcorr_file= os.path.join(prf_dir, 'reg_model_corr.npy')
-    #mcorr = np.memmap(mcorr_file, dtype='float64', mode='w+',
-    #                  shape=(15360, len(vxl_idx)))
-    #alphas_file = os.path.join(prf_dir, 'reg_alphas.npy')
-    #alphas = np.memmap(alphas_file, dtype='float64', mode='w+',
-    #                   shape=(15360, len(vxl_idx)))
-    ## fMRI data z-score
-    #print 'fmri data temporal z-score'
-    #m = np.mean(train_fmri_ts, axis=1, keepdims=True)
-    #s = np.std(train_fmri_ts, axis=1, keepdims=True)
-    #train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
-    ## split training dataset into model tunning set and model selection set
-    #tune_fmri_ts = [:, :(7200*0.9)]
-    #sel_fmri_ts = [:, (7200*0.9):]
-    ## randomize the time course if fMRI response to derive a null hypothesis
-    ## distribution
-    ## model testing
-    #for i in range(15360):
-    #    print 'Model %s'%(i)
-    #    train_x = np.array(train_models[i, ...]).astype(np.float64)
-    #    train_x = zscore(train_x).T
-    #    # split training dataset into model tunning and selection sets
-    #    tune_x = train_x[:7200*0.9, :]
-    #    sel_x = train_x[7200*0.9:, :]
-    #    wt, r, alpha, bscores, valinds = ridge.bootstrap_ridge(
-    #            tune_x, tune_fmri_ts.T, sel_x, sel_fmri_ts.T,
-    #            alphas=np.logspace(-2, 3, ALPHA_NUM),
-    #            nboots=BOOTS_NUM, chunklen=720, nchunks=1,
-    #            single_alpha=False, use_corr=False)
-    #    paras[i, ...] = wt.T
-    #    mcorr[i] = r
-    #    alphas[i] = alpha
-    ## save output
-    #paras = np.array(paras)
-    #np.save(paras_file, paras)
-    #mcorr = np.array(mcorr)
-    #np.save(mcorr_file, mcorr)
-    #alphas = np.array(alphas)
-    #np.save(alphas_file, alphas)
+    # model seletion and tuning
+    ALPHA_NUM = 20
+    BOOTS_NUM = 15
+    paras_file = os.path.join(prf_dir, 'reg_paras.npy')
+    paras = np.memmap(paras_file, dtype='float64', mode='w+',
+                      shape=(15360, len(vxl_idx), 46))
+    mcorr_file= os.path.join(prf_dir, 'reg_model_corr.npy')
+    mcorr = np.memmap(mcorr_file, dtype='float64', mode='w+',
+                      shape=(15360, len(vxl_idx)))
+    alphas_file = os.path.join(prf_dir, 'reg_alphas.npy')
+    alphas = np.memmap(alphas_file, dtype='float64', mode='w+',
+                       shape=(15360, len(vxl_idx)))
+    # fMRI data z-score
+    print 'fmri data temporal z-score'
+    m = np.mean(train_fmri_ts, axis=1, keepdims=True)
+    s = np.std(train_fmri_ts, axis=1, keepdims=True)
+    train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
+    # randomize the fMRI response to derive a null hypothesis distribution
+    train_fmri_ts = np.transpose(np.random.permutation(train_fmri_ts.T))
+    # split training dataset into model tunning set and model selection set
+    tune_fmri_ts = train_fmri_ts[:, :(7200*0.9)]
+    sel_fmri_ts = train_fmri_ts[:, (7200*0.9):]
+    # model testing
+    for i in range(15360):
+        print 'Model %s'%(i)
+        train_x = np.array(train_models[i, ...]).astype(np.float64)
+        train_x = zscore(train_x).T
+        # split training dataset into model tunning and selection sets
+        tune_x = train_x[:7200*0.9, :]
+        sel_x = train_x[7200*0.9:, :]
+        wt, r, alpha, bscores, valinds = ridge.bootstrap_ridge(
+                tune_x, tune_fmri_ts.T, sel_x, sel_fmri_ts.T,
+                alphas=np.logspace(-2, 3, ALPHA_NUM),
+                nboots=BOOTS_NUM, chunklen=720, nchunks=1,
+                single_alpha=False, use_corr=False)
+        paras[i, ...] = wt.T
+        mcorr[i] = r
+        alphas[i] = alpha
+    # save output
+    paras = np.array(paras)
+    np.save(paras_file, paras)
+    mcorr = np.array(mcorr)
+    np.save(mcorr_file, mcorr)
+    alphas = np.array(alphas)
+    np.save(alphas_file, alphas)
     
     # select best model for each voxel and validating
     ## load candidate models
@@ -401,45 +401,45 @@ if __name__ == '__main__':
     #np.save(os.path.join(prf_dir, 'reg_sel_model_corr.npy'), sel_model_corr)
 
     # pRF estimate
-    sel_models = np.load(os.path.join(prf_dir, 'reg_sel_model.npy'))
-    sel_paras = np.load(os.path.join(prf_dir, 'reg_sel_paras.npy'))
-    sel_model_corr = np.load(os.path.join(prf_dir, 'reg_sel_model_corr.npy'))
-    prfs = np.zeros((sel_models.shape[0], 128, 128))
-    hue_tunes = np.zeros((sel_models.shape[0], 201))
-    for i in range(sel_models.shape[0]):
-        if sel_model_corr[i] < 0.25:
-            continue
-        # get pRF
-        print 'Voxel %s, Val Corr %s'%(i, sel_model_corr[i])
-        model_idx = int(sel_models[i])
-        # get gaussian pooling field parameters
-        si = model_idx / 1024
-        xi = (model_idx % 1024) / 32
-        yi = (model_idx % 1024) % 32
-        x0 = np.arange(0, 128, 4)[xi]
-        y0 = np.arange(0, 128, 4)[yi]
-        s = np.linspace(1, 50, 15)[si]
-        kernel = make_2d_gaussian(128, s, center=(x0, y0))
-        kpos = np.nonzero(kernel)
-        paras = sel_paras[i]
-        for f in range(5):
-            fwt = np.sum(paras[(f*8):(f*8+8)])
-            fs = np.sqrt(2)**f*4
-            for p in range(kpos[0].shape[0]):
-                tmp = make_2d_gaussian(128, fs, center=(kpos[1][p],
-                                                        kpos[0][p]))
-                prfs[i] += fwt * kernel[kpos[0][p], kpos[1][p]] * tmp
-        prf_file = os.path.join(prf_dir, 'Voxel%s.png'%(i))
-        vutil.save_imshow(prfs[i], prf_file)
-        # get hue selection
-        for h in range(6):
-            x = np.linspace(0, 2*np.pi, 201)
-            tmp = np.sin(x-h*np.pi/3)
-            tmp[tmp<0] = 0
-            tmp = np.square(tmp)
-            hue_tunes[i] += paras[40+h] * tmp
-        hue_file = os.path.join(prf_dir, 'Voxel%s_hue.png'%(i))
-        vutil.save_hue(hue_tunes[i], hue_file)
-    np.save(os.path.join(prf_dir, 'reg_prfs.npy'), prfs)
-    np.save(os.path.join(prf_dir, 'reg_hue_tunes.npy'), hue_tunes)
+    #sel_models = np.load(os.path.join(prf_dir, 'reg_sel_model.npy'))
+    #sel_paras = np.load(os.path.join(prf_dir, 'reg_sel_paras.npy'))
+    #sel_model_corr = np.load(os.path.join(prf_dir, 'reg_sel_model_corr.npy'))
+    #prfs = np.zeros((sel_models.shape[0], 128, 128))
+    #hue_tunes = np.zeros((sel_models.shape[0], 201))
+    #for i in range(sel_models.shape[0]):
+    #    if sel_model_corr[i] < 0.25:
+    #        continue
+    #    # get pRF
+    #    print 'Voxel %s, Val Corr %s'%(i, sel_model_corr[i])
+    #    model_idx = int(sel_models[i])
+    #    # get gaussian pooling field parameters
+    #    si = model_idx / 1024
+    #    xi = (model_idx % 1024) / 32
+    #    yi = (model_idx % 1024) % 32
+    #    x0 = np.arange(0, 128, 4)[xi]
+    #    y0 = np.arange(0, 128, 4)[yi]
+    #    s = np.linspace(1, 50, 15)[si]
+    #    kernel = make_2d_gaussian(128, s, center=(x0, y0))
+    #    kpos = np.nonzero(kernel)
+    #    paras = sel_paras[i]
+    #    for f in range(5):
+    #        fwt = np.sum(paras[(f*8):(f*8+8)])
+    #        fs = np.sqrt(2)**f*4
+    #        for p in range(kpos[0].shape[0]):
+    #            tmp = make_2d_gaussian(128, fs, center=(kpos[1][p],
+    #                                                    kpos[0][p]))
+    #            prfs[i] += fwt * kernel[kpos[0][p], kpos[1][p]] * tmp
+    #    prf_file = os.path.join(prf_dir, 'Voxel%s.png'%(i))
+    #    vutil.save_imshow(prfs[i], prf_file)
+    #    # get hue selection
+    #    for h in range(6):
+    #        x = np.linspace(0, 2*np.pi, 201)
+    #        tmp = np.sin(x-h*np.pi/3)
+    #        tmp[tmp<0] = 0
+    #        tmp = np.square(tmp)
+    #        hue_tunes[i] += paras[40+h] * tmp
+    #    hue_file = os.path.join(prf_dir, 'Voxel%s_hue.png'%(i))
+    #    vutil.save_hue(hue_tunes[i], hue_file)
+    #np.save(os.path.join(prf_dir, 'reg_prfs.npy'), prfs)
+    #np.save(os.path.join(prf_dir, 'reg_hue_tunes.npy'), hue_tunes)
 
