@@ -248,6 +248,14 @@ def save_imshow(data, filename, val_range=None):
     fig.savefig(filename)
     plt.close()
 
+def save_hue(data, filename):
+    """Save hue tune for a voxel."""
+    fig, ax = plt.subplots()
+    x = np.linspace(0, 2*np.pi, 201)
+    ax.plot(x, data)
+    fig.savefig(filename)
+    plt.close()
+
 def fweights_bar(feat_weights):
     """Bar plots for feature weights derived from CCA.
     For each feature/2D feature map, top 20% `abs` weights are averaged
