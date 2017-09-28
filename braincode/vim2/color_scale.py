@@ -1,11 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Feb 28 14:28:50 2013
-
-Produces colormaps by curving through Lch color space, inspired by
-"Lab color scale" by Steve Eddins 09 May 2006 (Updated 10 May 2006)
-(BSD license)
-http://www.mathworks.co.uk/matlabcentral/fileexchange/11037-lab-color-scale
+Produces colormaps by curving through Lch color space
 
 Chroma should probably be limited to the RGB cube in a way that never
 produces sharp angles in the curve, which appear as bands in the gradient.
@@ -19,32 +14,12 @@ This is similar to 'cubehelix', except in Lch space instead of RGB space:
     lab_color_scale(hue=0, rot=-1.5, chroma=30)
 """
 
-from __future__ import division
 from numpy import asarray, linspace, cos, sin, vstack, array, ones, radians
 from matplotlib import cm
-
-"""
-Both libraries produce similar, but not identical, results.
-colormath fails more gracefully when exceeding the RGB color cube.
-
-https://code.google.com/p/python-colormath/
-http://markkness.net/colorpy/ColorPy.html
-"""
-try:
-    from colormath.color_objects import LabColor
-
-    def irgb_from_lab(L, a, b):
-        rgb = array(LabColor(L, a, b).convert_to('rgb').get_value_tuple())
-        return rgb / 255.0
-except ImportError:
-    from colorpy.colormodels import irgb_from_xyz, xyz_from_lab
-
-    def irgb_from_lab(L, a, b):
-        rgb = irgb_from_xyz(xyz_from_lab((L, a, b)))
-        return rgb / 255.0
+from skimage.color import lab2rgb
 
 
-def lch_to_lab(L, c, h):
+def lch2lab(L, c, h):
     """
     L is lightness, 0 (black) to 100 (white)
     c is chroma, 0-100 or more
@@ -53,7 +28,6 @@ def lch_to_lab(L, c, h):
     a = c * cos(radians(h))
     b = c * sin(radians(h))
     return L, a, b
-
 
 def lab_color_scale(lutsize=256, hue=0, chroma=50, rot=1/4, l=None):
     """
@@ -104,13 +78,13 @@ def lab_color_scale(lutsize=256, hue=0, chroma=50, rot=1/4, l=None):
     else:
         L = l * ones(lutsize)
 
-    L, a, b = lch_to_lab(L, chroma, hue)
+    L, a, b = lch2lab(L, chroma, hue)
 
     rgbs = []
     Lab = vstack([L, a, b])
-    for L, a, b in Lab.T:
-        R, G, B = irgb_from_lab(L, a, b)
-        rgbs.append((R, G, B))
+    for item in Lab.T:
+        rgb = lab2rgb(item.reshape(1, 1, 3))
+        rgbs.append((rgb[0, 0, 0], rgb[0, 0, 1], rgb[0, 0, 2]))
 
     return cm.colors.LinearSegmentedColormap.from_list('lab_color_scale', rgbs,
                                                        lutsize)
@@ -129,7 +103,8 @@ if __name__ == "__main__":
 
     plt.figure()
     plt.imshow(Z, vmax=abs(Z).max(), vmin=-abs(Z).max(),
-               cmap=lab_color_scale(hue=200, chroma=30, l=[20, 90], rot=-.3)
+               cmap=lab_color_scale(hue=0, chroma=100, l=45, rot=1)
                )
     plt.colorbar()
     plt.show()
+
