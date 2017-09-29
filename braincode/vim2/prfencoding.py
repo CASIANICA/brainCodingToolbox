@@ -291,7 +291,7 @@ if __name__ == '__main__':
     roi = 'v1lh'
     # directory config
     subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
-    prf_dir = os.path.join(subj_dir, 'prf', 'v1lh_random')
+    prf_dir = os.path.join(subj_dir, 'prf', 'v1lh')
     check_path(prf_dir)
     
     # load fmri response
@@ -355,8 +355,8 @@ if __name__ == '__main__':
     m = np.mean(train_fmri_ts, axis=1, keepdims=True)
     s = np.std(train_fmri_ts, axis=1, keepdims=True)
     train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
-    # randomize the fMRI response to derive a null hypothesis distribution
-    train_fmri_ts = np.transpose(np.random.permutation(train_fmri_ts.T))
+    # XXX randomize the fMRI response to derive a null hypothesis distribution
+    #train_fmri_ts = np.transpose(np.random.permutation(train_fmri_ts.T))
     # split training dataset into model tunning set and model selection set
     tune_fmri_ts = train_fmri_ts[:, :int(7200*0.9)]
     sel_fmri_ts = train_fmri_ts[:, int(7200*0.9):]
@@ -385,30 +385,30 @@ if __name__ == '__main__':
     np.save(alphas_file, alphas)
     
     # select best model for each voxel and validating
-    ## load candidate models
-    #val_models = np.load(os.path.join(feat_dir, 'val_candidate_model.npy'),
-    #                     mmap_mode='r')
-    ## load candidate model parameters 
-    #paras = np.load(os.path.join(prf_dir, 'reg_paras.npy'))
-    #mcorr = np.load(os.path.join(prf_dir, 'reg_model_corr.npy'))
-    #alphas = np.load(os.path.join(prf_dir, 'reg_alphas.npy'))
-    #sel_paras = np.zeros((mcorr.shape[1], 46))
-    #sel_model = np.zeros(mcorr.shape[1])
-    #sel_model_corr = np.zeros(mcorr.shape[1])
-    #for i in range(mcorr.shape[1]):
-    #    maxi = np.argmax(mcorr[:, i])
-    #    print 'Voxel %s - Max corr %s - Model %s'%(i, mcorr[maxi, i], maxi)
-    #    print 'Alpha : %s'%(alphas[maxi, i])
-    #    sel_paras[i] = paras[maxi, i]
-    #    sel_model[i] = maxi
-    #    feats = np.array(val_models[maxi, ...]).astype(np.float64)
-    #    feats = zscore(feats).T
-    #    pred = np.dot(feats, sel_paras[i])
-    #    sel_model_corr[i] = np.corrcoef(pred, val_fmri_ts[i])[0, 1]
-    #    print 'Val Corr : %s'%(sel_model_corr[i])
-    #np.save(os.path.join(prf_dir, 'reg_sel_paras.npy'), sel_paras)
-    #np.save(os.path.join(prf_dir, 'reg_sel_model.npy'), sel_model)
-    #np.save(os.path.join(prf_dir, 'reg_sel_model_corr.npy'), sel_model_corr)
+    # load candidate models
+    val_models = np.load(os.path.join(feat_dir, 'val_candidate_model.npy'),
+                         mmap_mode='r')
+    # load candidate model parameters 
+    paras = np.load(os.path.join(prf_dir, 'reg_paras.npy'))
+    mcorr = np.load(os.path.join(prf_dir, 'reg_model_corr.npy'))
+    alphas = np.load(os.path.join(prf_dir, 'reg_alphas.npy'))
+    sel_paras = np.zeros((mcorr.shape[1], 46))
+    sel_model = np.zeros(mcorr.shape[1])
+    sel_model_corr = np.zeros(mcorr.shape[1])
+    for i in range(mcorr.shape[1]):
+        maxi = np.argmax(mcorr[:, i])
+        print 'Voxel %s - Max corr %s - Model %s'%(i, mcorr[maxi, i], maxi)
+        print 'Alpha : %s'%(alphas[maxi, i])
+        sel_paras[i] = paras[maxi, i]
+        sel_model[i] = maxi
+        feats = np.array(val_models[maxi, ...]).astype(np.float64)
+        feats = zscore(feats).T
+        pred = np.dot(feats, sel_paras[i])
+        sel_model_corr[i] = np.corrcoef(pred, val_fmri_ts[i])[0, 1]
+        print 'Val Corr : %s'%(sel_model_corr[i])
+    np.save(os.path.join(prf_dir, 'reg_sel_paras.npy'), sel_paras)
+    np.save(os.path.join(prf_dir, 'reg_sel_model.npy'), sel_model)
+    np.save(os.path.join(prf_dir, 'reg_sel_model_corr.npy'), sel_model_corr)
 
     # pRF estimate
     #del train_fmri_ts
