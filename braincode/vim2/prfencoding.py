@@ -182,6 +182,18 @@ def model_pro(train_in, val_in, train_out, val_out, xi, yi, si):
     train_out[mi] = tmp.reshape(46, 7200)
     val_out[mi] = kernel.dot(val_in).reshape(46, 540).astype(np.float16)
 
+def para2hue(paras):
+    """Convert hue parameters to hue curve."""
+    hues = np.zeros(201)
+    for i in range(6):
+        x = np.linspace(0, 2*np.pi, 201)
+        tmp = np.sin(x - i*np.pi/3)
+        tmp[tmp<0] = 0
+        tmp = np.square(tmp)
+        hues += paras[i]*tmp
+    return hues
+
+
 if __name__ == '__main__':
     """Main function."""
     # config parser
@@ -432,14 +444,9 @@ if __name__ == '__main__':
     #    prf_file = os.path.join(prf_dir, 'Voxel%s.png'%(vxl_idx[i]))
     #    vutil.save_imshow(prfs[i], prf_file)
     #    ## get hue selection
-    #    #for h in range(6):
-    #    #    x = np.linspace(0, 2*np.pi, 201)
-    #    #    tmp = np.sin(x-h*np.pi/3)
-    #    #    tmp[tmp<0] = 0
-    #    #    tmp = np.square(tmp)
-    #    #    hue_tunes[i] += paras[40+h] * tmp
+    #    #hue_tunes[i] = para2hue(paras[40:])
     #    #hue_file = os.path.join(prf_dir, 'Voxel%s_hue.png'%(i))
     #    #vutil.save_hue(hue_tunes[i], hue_file)
+    ##np.save(os.path.join(prf_dir, 'reg_hue_tunes.npy'), hue_tunes)
     #np.save(os.path.join(prf_dir, 'reg_prfs.npy'), prfs)
-    #np.save(os.path.join(prf_dir, 'reg_hue_tunes.npy'), hue_tunes)
 
