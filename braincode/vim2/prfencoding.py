@@ -405,7 +405,7 @@ if __name__ == '__main__':
     #sel_paras = np.load(os.path.join(prf_dir, 'reg_sel_paras.npy'))
     #sel_model_corr = np.load(os.path.join(prf_dir, 'reg_sel_model_corr.npy'))
     #prfs = np.zeros((sel_models.shape[0], 128, 128))
-    #hue_tunes = np.zeros((sel_models.shape[0], 201))
+    ##hue_tunes = np.zeros((sel_models.shape[0], 201))
     #for i in range(sel_models.shape[0]):
     #    if sel_model_corr[i] < 0.25:
     #        continue
@@ -429,17 +429,17 @@ if __name__ == '__main__':
     #            tmp = make_2d_gaussian(128, fs, center=(kpos[1][p],
     #                                                    kpos[0][p]))
     #            prfs[i] += fwt * kernel[kpos[0][p], kpos[1][p]] * tmp
-    #    prf_file = os.path.join(prf_dir, 'Voxel%s.png'%(i))
+    #    prf_file = os.path.join(prf_dir, 'Voxel%s.png'%(vxl_idx[i]))
     #    vutil.save_imshow(prfs[i], prf_file)
-    #    # get hue selection
-    #    for h in range(6):
-    #        x = np.linspace(0, 2*np.pi, 201)
-    #        tmp = np.sin(x-h*np.pi/3)
-    #        tmp[tmp<0] = 0
-    #        tmp = np.square(tmp)
-    #        hue_tunes[i] += paras[40+h] * tmp
-    #    hue_file = os.path.join(prf_dir, 'Voxel%s_hue.png'%(i))
-    #    vutil.save_hue(hue_tunes[i], hue_file)
+    #    ## get hue selection
+    #    #for h in range(6):
+    #    #    x = np.linspace(0, 2*np.pi, 201)
+    #    #    tmp = np.sin(x-h*np.pi/3)
+    #    #    tmp[tmp<0] = 0
+    #    #    tmp = np.square(tmp)
+    #    #    hue_tunes[i] += paras[40+h] * tmp
+    #    #hue_file = os.path.join(prf_dir, 'Voxel%s_hue.png'%(i))
+    #    #vutil.save_hue(hue_tunes[i], hue_file)
     #np.save(os.path.join(prf_dir, 'reg_prfs.npy'), prfs)
     #np.save(os.path.join(prf_dir, 'reg_hue_tunes.npy'), hue_tunes)
 
