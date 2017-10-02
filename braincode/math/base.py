@@ -149,3 +149,25 @@ def make_2d_gaussian(size, sigma, center=None):
 
     return np.exp(-0.5*((x-x0)**2+(y-y0)**2)/sigma**2)/np.sqrt(2*np.pi)/sigma
 
+def make_cycle(size, radius, center=None):
+    """Make a 2d cycle.
+    `size` is the length of a side of the square;
+    `radius` is radius of the 2D cycle;
+    `center` is the center of the cycle, None: default in center of
+    the square, a cell of (x0, y0) for a specific location; x0 - col, y0 - row.
+    """
+    
+    x = np.arange(0, size, 1, float)
+    y = x[:, np.newaxis]
+
+    if center is None:
+        x0 = y0 = size // 2
+    else:
+        x0 = center[0]
+        y0 = center[1]
+
+    r = np.sqrt((x-x0)**2+(y-y0)**2)
+    m = np.zeros((size, size))
+    m[r<=radius] = 1
+    return m
+
