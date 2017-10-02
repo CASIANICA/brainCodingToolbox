@@ -130,9 +130,6 @@ def stim_pro(feat_ptr, output, orig_size, fps, i):
 def get_candidate_model(feat_dir, kernel='gaussian'):
     """ Get gaussian kernel based receptive field features"""
     # load feature data
-    if kernel == 'round':
-        feat_dir = os.path.join(feat_dir, 'round')
-        check_path(feat_dir)
     train_gabor = np.load(os.path.join(feat_dir, 'train_gabor_trs.npy'))
     train_hue = np.load(os.path.join(feat_dir, 'train_hue_trs.npy'))
     val_gabor = np.load(os.path.join(feat_dir, 'val_gabor_trs.npy'))
@@ -149,6 +146,9 @@ def get_candidate_model(feat_dir, kernel='gaussian'):
     # candidate pooling centers are spaced 0.625 degrees apart (4 pixels)
     # candiante pooling fields included 15 evenly-spaces radii between 0.16
     # degrees (1 pixel) and 7.8 degrees (50 pixels)
+    if kernel == 'round':
+        feat_dir = os.path.join(feat_dir, 'round')
+        check_path(feat_dir)
     out_train = os.path.join(feat_dir, 'train_candidate_model.npy')
     out_val = os.path.join(feat_dir, 'val_candidate_model.npy')
     train_model = np.memmap(out_train, dtype='float16', mode='w+',
