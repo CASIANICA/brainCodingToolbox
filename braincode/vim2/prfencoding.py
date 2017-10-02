@@ -9,7 +9,7 @@ from joblib import Parallel, delayed
 import bob.ip.gabor
 
 from braincode.util import configParser
-from braincode.math import ipl, make_2d_gaussian, ridge
+from braincode.math import ipl, make_2d_gaussian, ridge, make_cycle
 from braincode.timeseries import hrf
 from braincode.math.norm import zscore
 from braincode.vim2 import dataio
