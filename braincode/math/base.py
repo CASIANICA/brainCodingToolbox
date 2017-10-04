@@ -149,6 +149,30 @@ def make_2d_gaussian(size, sigma, center=None):
 
     return np.exp(-0.5*((x-x0)**2+(y-y0)**2)/sigma**2)/np.sqrt(2*np.pi)/sigma
 
+def make_2d_dog(size, c_sigma, s_sigma, c_beta, s_beta, center=None):
+    """Make a square difference of gaussian (DoG) kernel.
+
+    `size` is the length of a side of the square;
+    `c_sigma` is standard deviation of the `center` gaussian;
+    `s_sigma` is standard deviation of the `surround` gaussian;
+    `c_beta` is weight of the `center` gaussian;
+    `s_beta` is weight of the `surround` gaussian;
+    `center` is the center of the gaussian curve, None: default in center of
+    the square, a cell of (x0, y0) for a specific location; x0 - col, y0 - row.
+    """
+    x = np.arange(0, size, 1, float)
+    y = x[:, np.newaxis]
+
+    if center is None:
+        x0 = y0 = size // 2
+    else:
+        x0 = center[0]
+        y0 = center[1]
+
+    cg = np.exp(-0.5*((x-x0)**2+(y-y0)**2)/c_sigma**2)/np.sqrt(2*np.pi)/c_sigma
+    sg = np.exp(-0.5*((x-x0)**2+(y-y0)**2)/s_sigma**2)/np.sqrt(2*np.pi)/s_sigma
+    return c_beta*cg - s_beta*sg
+
 def make_cycle(size, radius, center=None):
     """Make a 2d cycle.
     `size` is the length of a side of the square;
