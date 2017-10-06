@@ -21,7 +21,7 @@ from sklearn.linear_model import LassoCV
 def check_path(dir_path):
     """Check whether the directory does exist, if not, create it."""            
     if not os.path.exists(dir_path):
-        os.mkdir(dir_path, 0755)
+        os.makedirs(dir_path, 0755)
 
 def mat2png(stimulus, prefix_name):
     """Comvert stimulus from mat to png format."""
@@ -363,9 +363,8 @@ if __name__ == '__main__':
     # directory config
     subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
     if kernel=='round':
-        prf_dir = os.path.join(subj_dir, 'prf', kernel)
-        check_path(prf_dir)
-        prf_dir = os.path.join(prf_dir, 'v1lh')
+        feat_dir = os.path.join(feat_dir, 'round')
+        prf_dir = os.path.join(subj_dir, 'prf', kernel, 'v1lh')
     else:
         prf_dir = os.path.join(subj_dir, 'prf', 'v1lh')
     check_path(prf_dir)
