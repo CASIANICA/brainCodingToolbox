@@ -237,30 +237,32 @@ def trash():
     #np.save(alphas_file, alphas)
     pass
 
-def curve_fit():
-    #-- get pRF parameters based on 2D Gaussian curve using model fitting
-    corr_mtx = np.load(os.path.join(cross_corr_dir, 'train_conv1_corr.npy'))
+def curve_fit(prf_dir, prfs, sel_models):
+    #-- get pRF parameters using model fitting based on various kernels
     # last column is curve fitting error based on squared-differnece
-    paras = np.zeros((corr_mtx.shape[0], 6))
-    for i in range(corr_mtx.shape[0]):
-        print i,
-        y = corr_mtx[i, :]
-        if y.max() >= abs(y.min()):
-            x0, y0 = np.unravel_index(np.argmax(y.reshape(55, 55)), (55, 55))
-        else:
-            x0, y0 = np.unravel_index(np.argmin(y.reshape(55, 55)), (55, 55))
-        initial_guess = (x0, y0, 3, 0, 2)
+    paras = np.zeros((sel_models.shape[0], 7))
+    for i in range(sel_models.shape[0]):
+        if np.sum(prfs[i])==0:
+            continue
+        # get prf parameters
+        print 'Voxel %s'%(i)
+        model_idx = int(sel_models[i])
+        xi = (model_idx % 1024) / 32
+        yi = (model_idx % 1024) % 32
+        x0 = np.arange(0, 128, 4)[xi]
+        y0 = np.arange(0, 128, 4)[yi]
+        initial_guess = (x0, y0, 1, 2 , 1, 1)
         try:
-            popt, pcov = opt.curve_fit(vutil.sugar_gaussian_f, 55, y,
+            popt, pcov = opt.curve_fit(vutil.sugar_dog_f, 128, prfs[i],
                                        p0=initial_guess)
             #print popt
-            paras[i, :5] = popt
-            pred_y = vutil.sugar_gaussian_f(55, *popt)
-            paras[i, 5] = np.square(y-pred_y).sum()
+            paras[i, :6] = popt
+            pred_y = vutil.sugar_dog_f(128, *popt)
+            paras[i, 6] = np.square(prfs[i]-pred_y).sum()
         except RuntimeError:
             print 'Error - curve_fit failed'
             paras[i, :] = np.nan
-    np.save(os.path.join(cross_corr_dir, 'curve_fit_paras.npy'), paras)
+    np.save(os.path.join(prf_dir, 'prf_curve_fit_paras.npy'), paras)
 
 
 if __name__ == '__main__':
@@ -354,24 +356,24 @@ if __name__ == '__main__':
 
     #-- gaussian kernel based receptive field model
     #get_candidate_model(feat_dir, kernel='gaussian')
-    get_candidate_model(feat_dir, kernel='round')
+    #get_candidate_model(feat_dir, kernel='round')
 
     #-- pRF model fitting
-    #subj_id = 1
-    #roi = 'v1lh'
-    #kernel = 'round'
-    ## directory config
-    #subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
-    #if kernel=='round':
-    #    feat_dir = os.path.join(feat_dir, 'round')
-    #    prf_dir = os.path.join(subj_dir, 'prf', kernel+'_kernel', 'v1lh')
-    #else:
-    #    prf_dir = os.path.join(subj_dir, 'prf', 'v1lh')
-    #check_path(prf_dir)
+    subj_id = 1
+    roi = 'v1lh'
+    kernel = 'gaussian'
+    # directory config
+    subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
+    if kernel=='round':
+        feat_dir = os.path.join(feat_dir, 'round')
+        prf_dir = os.path.join(subj_dir, 'prf', kernel+'_kernel', 'v1lh')
+    else:
+        prf_dir = os.path.join(subj_dir, 'prf', kernel+'_kernel', 'v1lh')
+    check_path(prf_dir)
     
     # load fmri response
-    #vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_fmri_ts(subj_dir,roi=roi)
-    #print 'Voxel number: %s'%(len(vxl_idx))
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_fmri_ts(subj_dir,roi=roi)
+    print 'Voxel number: %s'%(len(vxl_idx))
     ## load candidate models
     #train_models = np.load(os.path.join(feat_dir, 'train_candidate_model.npy'),
     #                       mmap_mode='r')
@@ -450,42 +452,44 @@ if __name__ == '__main__':
     #np.save(os.path.join(prf_dir, 'reg_sel_model_corr.npy'), sel_model_corr)
 
     # pRF estimate
-    #del train_fmri_ts
-    #del val_fmri_ts
-    #sel_models = np.load(os.path.join(prf_dir, 'reg_sel_model.npy'))
-    #sel_paras = np.load(os.path.join(prf_dir, 'reg_sel_paras.npy'))
-    #sel_model_corr = np.load(os.path.join(prf_dir, 'reg_sel_model_corr.npy'))
-    #prfs = np.zeros((sel_models.shape[0], 128, 128))
-    ##hue_tunes = np.zeros((sel_models.shape[0], 201))
-    #for i in range(sel_models.shape[0]):
-    #    if sel_model_corr[i] < 0.25:
-    #        continue
-    #    # get pRF
-    #    print 'Voxel %s, Val Corr %s'%(i, sel_model_corr[i])
-    #    model_idx = int(sel_models[i])
-    #    # get gaussian pooling field parameters
-    #    si = model_idx / 1024
-    #    xi = (model_idx % 1024) / 32
-    #    yi = (model_idx % 1024) % 32
-    #    x0 = np.arange(0, 128, 4)[xi]
-    #    y0 = np.arange(0, 128, 4)[yi]
-    #    s = np.linspace(1, 50, 15)[si]
-    #    kernel = make_2d_gaussian(128, s, center=(x0, y0))
-    #    kpos = np.nonzero(kernel)
-    #    paras = sel_paras[i]
-    #    for f in range(5):
-    #        fwt = np.sum(paras[(f*8):(f*8+8)])
-    #        fs = np.sqrt(2)**f*4
-    #        for p in range(kpos[0].shape[0]):
-    #            tmp = make_2d_gaussian(128, fs, center=(kpos[1][p],
-    #                                                    kpos[0][p]))
-    #            prfs[i] += fwt * kernel[kpos[0][p], kpos[1][p]] * tmp
-    #    prf_file = os.path.join(prf_dir, 'Voxel%s.png'%(vxl_idx[i]))
-    #    vutil.save_imshow(prfs[i], prf_file)
-    #    ## get hue selection
-    #    #hue_tunes[i] = para2hue(paras[40:])
-    #    #hue_file = os.path.join(prf_dir, 'Voxel%s_hue.png'%(i))
-    #    #vutil.save_hue(hue_tunes[i], hue_file)
-    ##np.save(os.path.join(prf_dir, 'reg_hue_tunes.npy'), hue_tunes)
-    #np.save(os.path.join(prf_dir, 'reg_prfs.npy'), prfs)
+    del train_fmri_ts
+    del val_fmri_ts
+    sel_models = np.load(os.path.join(prf_dir, 'reg_sel_model.npy'))
+    sel_paras = np.load(os.path.join(prf_dir, 'reg_sel_paras.npy'))
+    sel_model_corr = np.load(os.path.join(prf_dir, 'reg_sel_model_corr.npy'))
+    prfs = np.zeros((sel_models.shape[0], 128, 128))
+    #hue_tunes = np.zeros((sel_models.shape[0], 201))
+    for i in range(sel_models.shape[0]):
+        if sel_model_corr[i] < 0.25:
+            continue
+        # get pRF
+        print 'Voxel %s, Val Corr %s'%(i, sel_model_corr[i])
+        model_idx = int(sel_models[i])
+        # get gaussian pooling field parameters
+        si = model_idx / 1024
+        xi = (model_idx % 1024) / 32
+        yi = (model_idx % 1024) % 32
+        x0 = np.arange(0, 128, 4)[xi]
+        y0 = np.arange(0, 128, 4)[yi]
+        s = np.linspace(1, 50, 15)[si]
+        kernel = make_2d_gaussian(128, s, center=(x0, y0))
+        kpos = np.nonzero(kernel)
+        paras = sel_paras[i]
+        for f in range(5):
+            fwt = np.sum(paras[(f*8):(f*8+8)])
+            fs = np.sqrt(2)**f*4
+            for p in range(kpos[0].shape[0]):
+                tmp = make_2d_gaussian(128, fs, center=(kpos[1][p],
+                                                        kpos[0][p]))
+                prfs[i] += fwt * kernel[kpos[0][p], kpos[1][p]] * tmp
+        prf_file = os.path.join(prf_dir, 'Voxel%s.png'%(vxl_idx[i]))
+        vutil.save_imshow(prfs[i], prf_file)
+        ## get hue selection
+        #hue_tunes[i] = para2hue(paras[40:])
+        #hue_file = os.path.join(prf_dir, 'Voxel%s_hue.png'%(i))
+        #vutil.save_hue(hue_tunes[i], hue_file)
+    #np.save(os.path.join(prf_dir, 'reg_hue_tunes.npy'), hue_tunes)
+    np.save(os.path.join(prf_dir, 'reg_prfs.npy'), prfs)
+    # get pRF parameters using curve-fitting
+    curve_fit(prf_dir, prfs, sel_models)
 
