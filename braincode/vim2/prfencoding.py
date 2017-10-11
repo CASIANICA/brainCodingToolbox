@@ -251,14 +251,15 @@ def curve_fit(prf_dir, prfs, sel_models):
         yi = (model_idx % 1024) % 32
         x0 = np.arange(0, 128, 4)[xi]
         y0 = np.arange(0, 128, 4)[yi]
-        initial_guess = (x0, y0, 1, 2 , 1, 1)
+        initial_guess = (y0, x0, 1, 2 , 1, 1)
         try:
-            popt, pcov = opt.curve_fit(vutil.sugar_dog_f, 128, prfs[i],
+            y = prfs[i].flatten()
+            popt, pcov = opt.curve_fit(vutil.sugar_dog_f, 128, y,
                                        p0=initial_guess)
             #print popt
             paras[i, :6] = popt
             pred_y = vutil.sugar_dog_f(128, *popt)
-            paras[i, 6] = np.square(prfs[i]-pred_y).sum()
+            paras[i, 6] = np.square(y-pred_y).sum()
         except RuntimeError:
             print 'Error - curve_fit failed'
             paras[i, :] = np.nan
@@ -482,7 +483,7 @@ if __name__ == '__main__':
                 tmp = make_2d_gaussian(128, fs, center=(kpos[1][p],
                                                         kpos[0][p]))
                 prfs[i] += fwt * kernel[kpos[0][p], kpos[1][p]] * tmp
-        prf_file = os.path.join(prf_dir, 'Voxel%s.png'%(vxl_idx[i]))
+        prf_file = os.path.join(prf_dir, 'Voxel_%s_%s.png'%(i+1, vxl_idx[i]))
         vutil.save_imshow(prfs[i], prf_file)
         ## get hue selection
         #hue_tunes[i] = para2hue(paras[40:])
