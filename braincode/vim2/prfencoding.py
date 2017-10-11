@@ -245,13 +245,13 @@ def curve_fit(prf_dir, prfs, sel_models):
         if np.sum(prfs[i])==0:
             continue
         # get prf parameters
-        print 'Voxel %s'%(i)
+        print 'Voxel %s'%(i+1)
         model_idx = int(sel_models[i])
         xi = (model_idx % 1024) / 32
         yi = (model_idx % 1024) % 32
         x0 = np.arange(0, 128, 4)[xi]
         y0 = np.arange(0, 128, 4)[yi]
-        initial_guess = (y0, x0, 1, 2 , 1, 1)
+        initial_guess = (y0, x0, 1, 2 , 1, 0.5)
         try:
             y = prfs[i].flatten()
             popt, pcov = opt.curve_fit(vutil.sugar_dog_f, 128, y,

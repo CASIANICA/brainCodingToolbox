@@ -147,7 +147,7 @@ def make_2d_gaussian(size, sigma, center=None):
         x0 = center[0]
         y0 = center[1]
 
-    return np.exp(-0.5*((x-x0)**2+(y-y0)**2)/sigma**2)/np.sqrt(2*np.pi)/sigma
+    return np.exp(-0.5*((x-x0)**2+(y-y0)**2)/sigma**2)/(2*np.pi*sigma**2)
 
 def make_2d_dog(size, c_sigma, s_sigma, c_beta, s_beta, center=None):
     """Make a square difference of gaussian (DoG) kernel.
@@ -169,8 +169,8 @@ def make_2d_dog(size, c_sigma, s_sigma, c_beta, s_beta, center=None):
         x0 = center[0]
         y0 = center[1]
 
-    cg = np.exp(-0.5*((x-x0)**2+(y-y0)**2)/c_sigma**2)/np.sqrt(2*np.pi)/c_sigma
-    sg = np.exp(-0.5*((x-x0)**2+(y-y0)**2)/s_sigma**2)/np.sqrt(2*np.pi)/s_sigma
+    cg = np.exp(-0.5*((x-x0)**2+(y-y0)**2)/c_sigma**2)/(2*np.pi*c_sigma**2)
+    sg = np.exp(-0.5*((x-x0)**2+(y-y0)**2)/s_sigma**2)/(2*np.pi*s_sigma**2)
     return c_beta*cg - s_beta*sg
 
 def make_cycle(size, radius, center=None):
