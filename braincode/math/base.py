@@ -133,8 +133,7 @@ def make_2d_gaussian(size, sigma, center=None):
     """Make a square gaussian kernel.
 
     `size` is the length of a side of the square;
-    `sigma` is standard deviation of the 2D gaussian, which can be thought of
-        the radius;
+    `sigma` is standard deviation of the 2D gaussian;
     `center` is the center of the gaussian curve, None: default in center of
     the square, a cell of (x0, y0) for a specific location; x0 - col, y0 - row.
     """
@@ -172,6 +171,26 @@ def make_2d_dog(size, c_sigma, s_sigma, c_beta, s_beta, center=None):
     cg = np.exp(-0.5*((x-x0)**2+(y-y0)**2)/c_sigma**2)/(2*np.pi*c_sigma**2)
     sg = np.exp(-0.5*((x-x0)**2+(y-y0)**2)/s_sigma**2)/(2*np.pi*s_sigma**2)
     return c_beta*cg - s_beta*sg
+
+def make_2d_log(size, sigma, center=None):
+    """Make a square Laplacian of Gaussian (LoG) kernel.
+
+    `size` is the length of a side of the square;
+    `sigma` is standard deviation of the 2D gaussian, which can be thought of
+        the radius;
+    `center` is the center of the gaussian curve, None: default in center of
+    the square, a cell of (x0, y0) for a specific location; x0 - col, y0 - row.
+    """
+    x = np.arange(0, size, 1, float)
+    y = x[:, np.newaxis]
+
+    if center is None:
+        x0 = y0 = size // 2
+    else:
+        x0 = center[0]
+        y0 = center[1]
+
+    return -1*np.exp(-0.5*((x-x0)**2+(y-y0)**2)/sigma**2)*((x-x0)**2+(y-y0)**2-2*sigma**2)/(4*sigma**4)
 
 def make_cycle(size, radius, center=None):
     """Make a 2d cycle.

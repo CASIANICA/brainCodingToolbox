@@ -8,7 +8,7 @@ import nibabel as nib
 import matplotlib.pylab as plt
 import matplotlib.image as mpimg
 
-from braincode.math import corr2_coef, make_2d_gaussian, make_2d_dog
+from braincode.math import corr2_coef, make_2d_gaussian, make_2d_dog, make_2d_log
 
 def idx2coord(vec_idx):
     """Convert row index in response data matrix into 3D coordinate in
@@ -372,14 +372,20 @@ def make_gaussian_prf(size):
                                                    center=(j, i))
     return prfs
 
-def sugar_gaussian_f(size, x0, y0, fwhm, offset, amplitude):
+def sugar_gaussian_f(size, x0, y0, sigma, offset, beta):
     """Sugar function for model fitting."""
-    g = make_2d_gaussian(size, fwhm=fwhm, center=(y0, x0))
-    g = offset + amplitude * g
+    g = make_2d_gaussian(size, sigma, center=(y0, x0))
+    g = offset + beta * g
     return g.ravel()
 
 def sugar_dog_f(size, x0, y0, c_sigma, s_sigma, c_beta, s_beta):
     """Sugar function for model fitting."""
     g = make_2d_dog(size, c_sigma, s_sigma, c_beta, s_beta, center=(y0, x0))
+    return g.ravel()
+
+def sugar_log_f(size, x0, y0, sigma, offset, beta):
+    """Sugar function for model fitting."""
+    g = make_2d_log(size, sigma, center=(y0, x0))
+    g = offset + beta * g
     return g.ravel()
 
