@@ -156,7 +156,7 @@ def get_candidate_model(feat_dir, kernel='gaussian'):
                             shape=(32*32*15, 46, 7200))
     val_model = np.memmap(out_val, dtype='float16', mode='w+',
                           shape=(32*32*15, 46, 540))
-    Parallel(n_jobs=3)(delayed(model_pro)(train_feat, val_feat, train_model,
+    Parallel(n_jobs=5)(delayed(model_pro)(train_feat, val_feat, train_model,
                                           val_model, kernel, xi, yi, si)
                     for si in range(15) for xi in range(32) for yi in range(32))
     
