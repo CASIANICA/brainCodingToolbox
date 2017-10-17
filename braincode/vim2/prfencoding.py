@@ -179,7 +179,7 @@ def model_pro(train_in, val_in, train_out, val_out, kernel, xi, yi, si):
     if kernel == 'gaussian':
         kernel = make_2d_gaussian(128, s, center=(x0, y0))
     else:
-        kernel = 0.1 * make_cycle(128, s, center=(x0, y0))
+        kernel = 0.01 * make_cycle(128, s, center=(x0, y0))
     kernel = kernel.flatten()
     tmp = np.zeros((331200, ), dtype=np.float16)
     for i in range(23):
