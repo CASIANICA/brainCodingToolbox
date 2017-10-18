@@ -368,9 +368,9 @@ if __name__ == '__main__':
     subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
     if kernel=='round':
         feat_dir = os.path.join(feat_dir, 'round')
-        prf_dir = os.path.join(subj_dir, 'prf', kernel+'_kernel', 'v1lh')
+        prf_dir = os.path.join(subj_dir, 'prf', kernel+'_kernel', roi)
     else:
-        prf_dir = os.path.join(subj_dir, 'prf', kernel+'_kernel', 'v1lh')
+        prf_dir = os.path.join(subj_dir, 'prf', kernel+'_kernel', roi)
     check_path(prf_dir)
     
     # load fmri response
