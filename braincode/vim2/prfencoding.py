@@ -200,6 +200,180 @@ def para2hue(paras):
         hues += paras[i]*tmp
     return hues
 
+def ridge_fitting(feat_dir, subj_dir, roi, prf_dir):
+    """pRF model fitting using ridge regression.
+    90% trainning data used for model tuning, and another 10% data used for
+    model seletion.
+    """
+    # load fmri response
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_fmri(subj_dir, roi=roi)
+    del val_fmri_ts
+    print 'Voxel number: %s'%(len(vxl_idx))
+    ## load candidate models
+    train_models = np.load(os.path.join(feat_dir, 'train_candidate_model.npy'),
+                           mmap_mode='r')
+    # model seletion and tuning
+    ALPHA_NUM = 20
+    BOOTS_NUM = 15
+    paras_file = os.path.join(prf_dir, 'reg_paras.npy')
+    paras = np.memmap(paras_file, dtype='float64', mode='w+',
+                      shape=(15360, len(vxl_idx), 46))
+    mcorr_file= os.path.join(prf_dir, 'reg_model_corr.npy')
+    mcorr = np.memmap(mcorr_file, dtype='float64', mode='w+',
+                      shape=(15360, len(vxl_idx)))
+    alphas_file = os.path.join(prf_dir, 'reg_alphas.npy')
+    alphas = np.memmap(alphas_file, dtype='float64', mode='w+',
+                       shape=(15360, len(vxl_idx)))
+    # fMRI data z-score
+    print 'fmri data temporal z-score'
+    m = np.mean(train_fmri_ts, axis=1, keepdims=True)
+    s = np.std(train_fmri_ts, axis=1, keepdims=True)
+    train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
+    # XXX randomize the fMRI response to derive a null hypothesis distribution
+    #train_fmri_ts = np.transpose(np.random.permutation(train_fmri_ts.T))
+    # split training dataset into model tunning set and model selection set
+    tune_fmri_ts = train_fmri_ts[:, :int(7200*0.9)]
+    sel_fmri_ts = train_fmri_ts[:, int(7200*0.9):]
+    # model testing
+    for i in range(15360):
+        print 'Model %s'%(i)
+        train_x = np.array(train_models[i, ...]).astype(np.float64)
+        train_x = zscore(train_x).T
+        # split training dataset into model tunning and selection sets
+        tune_x = train_x[:int(7200*0.9), :]
+        sel_x = train_x[int(7200*0.9):, :]
+        wt, r, alpha, bscores, valinds = ridge.bootstrap_ridge(
+                tune_x, tune_fmri_ts.T, sel_x, sel_fmri_ts.T,
+                alphas=np.logspace(-2, 3, ALPHA_NUM),
+                nboots=BOOTS_NUM, chunklen=720, nchunks=1,
+                single_alpha=False, use_corr=False)
+        paras[i, ...] = wt.T
+        mcorr[i] = r
+        alphas[i] = alpha
+    # save output
+    paras = np.array(paras)
+    np.save(paras_file, paras)
+    mcorr = np.array(mcorr)
+    np.save(mcorr_file, mcorr)
+    alphas = np.array(alphas)
+    np.save(alphas_file, alphas)
+
+def prf_selection(feat_dir, subj_dir, roi, prf_dir):
+    """Select best model for each voxel and validating."""
+    # load fmri response
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_fmri(subj_dir, roi=roi)
+    del train_fmri_ts
+    print 'Voxel number: %s'%(len(vxl_idx))
+    # load candidate models
+    val_models = np.load(os.path.join(feat_dir, 'val_candidate_model.npy'),
+                         mmap_mode='r')
+    # load candidate model parameters 
+    paras = np.load(os.path.join(prf_dir, 'reg_paras.npy'))
+    mcorr = np.load(os.path.join(prf_dir, 'reg_model_corr.npy'))
+    alphas = np.load(os.path.join(prf_dir, 'reg_alphas.npy'))
+    sel_paras = np.zeros((mcorr.shape[1], 46))
+    sel_model = np.zeros(mcorr.shape[1])
+    sel_model_corr = np.zeros(mcorr.shape[1])
+    for i in range(mcorr.shape[1]):
+        maxi = np.argmax(mcorr[:, i])
+        print 'Voxel %s - Max corr %s - Model %s'%(i, mcorr[maxi, i], maxi)
+        print 'Alpha : %s'%(alphas[maxi, i])
+        sel_paras[i] = paras[maxi, i]
+        sel_model[i] = maxi
+        feats = np.array(val_models[maxi, ...]).astype(np.float64)
+        feats = zscore(feats).T
+        pred = np.dot(feats, sel_paras[i])
+        sel_model_corr[i] = np.corrcoef(pred, val_fmri_ts[i])[0, 1]
+        print 'Val Corr : %s'%(sel_model_corr[i])
+    np.save(os.path.join(prf_dir, 'reg_sel_paras.npy'), sel_paras)
+    np.save(os.path.join(prf_dir, 'reg_sel_model.npy'), sel_model)
+    np.save(os.path.join(prf_dir, 'reg_sel_model_corr.npy'), sel_model_corr)
+
+def prf_recon(subj_dir, roi, prf_dir):
+    """Reconstruct pRF based on selected model."""
+    # load fmri response
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_fmri(subj_dir, roi=roi)
+    del train_fmri_ts
+    del val_fmri_ts
+    print 'Voxel number: %s'%(len(vxl_idx))
+    # pRF estimate
+    sel_models = np.load(os.path.join(prf_dir, 'reg_sel_model.npy'))
+    sel_paras = np.load(os.path.join(prf_dir, 'reg_sel_paras.npy'))
+    sel_model_corr = np.load(os.path.join(prf_dir, 'reg_sel_model_corr.npy'))
+    prfs = np.zeros((sel_models.shape[0], 128, 128))
+    hue_tunes = np.zeros((sel_models.shape[0], 201))
+    for i in range(sel_models.shape[0]):
+        if sel_model_corr[i] < 0.25:
+            prfs[i, ...] = np.nan
+            hue_tunes[i, ...] = np.nan
+            continue
+        # get pRF
+        print 'Voxel %s, Val Corr %s'%(i, sel_model_corr[i])
+        model_idx = int(sel_models[i])
+        # get gaussian pooling field parameters
+        si = model_idx / 1024
+        xi = (model_idx % 1024) / 32
+        yi = (model_idx % 1024) % 32
+        x0 = np.arange(0, 128, 4)[xi]
+        y0 = np.arange(0, 128, 4)[yi]
+        s = np.linspace(1, 50, 15)[si]
+        kernel = make_2d_gaussian(128, s, center=(x0, y0))
+        kpos = np.nonzero(kernel)
+        paras = sel_paras[i]
+        for f in range(5):
+            fwt = np.sum(paras[(f*8):(f*8+8)])
+            fs = np.sqrt(2)**f*4
+            for p in range(kpos[0].shape[0]):
+                tmp = make_2d_gaussian(128, fs, center=(kpos[1][p],
+                                                        kpos[0][p]))
+                prfs[i] += fwt * kernel[kpos[0][p], kpos[1][p]] * tmp
+        prf_file = os.path.join(prf_dir, 'Voxel_%s_%s.png'%(i+1, vxl_idx[i]))
+        vutil.save_imshow(prfs[i], prf_file)
+        # get hue selection
+        hue_tunes[i] = para2hue(paras[40:])
+        hue_file = os.path.join(prf_dir, 'Voxel_%s_%s_hue.png'%(i+1,vxl_idx[i]))
+        vutil.save_hue(hue_tunes[i], hue_file)
+    np.save(os.path.join(prf_dir, 'reg_hue_tunes.npy'), hue_tunes)
+    np.save(os.path.join(prf_dir, 'reg_prfs.npy'), prfs)
+
+def retinotopic_mapping(prf_dir):
+    """Get eccentricity and angle based on pRF center for each voxel."""
+    # load selected model index
+    sel_models = np.load(os.path.join(prf_dir, 'reg_sel_model.npy'))
+    pass
+
+def curve_fit(prf_dir):
+    """Get pRF parameters using model fitting based on various kernels."""
+    # load pRF maps and the selected model index
+    prfs = np.load(os.path.join(prf_dir, 'reg_prfs.npy'))
+    sel_models = np.load(os.path.join(prf_dir, 'reg_sel_model.npy'))
+    # last column is curve fitting error based on squared-differnece
+    paras = np.zeros((sel_models.shape[0], 6))
+    for i in range(sel_models.shape[0]):
+        if np.sum(prfs[i])==0:
+            paras[i, :] = np.nan
+            continue
+        # get prf parameters
+        print 'Voxel %s'%(i+1)
+        model_idx = int(sel_models[i])
+        xi = (model_idx % 1024) / 32
+        yi = (model_idx % 1024) % 32
+        x0 = np.arange(0, 128, 4)[xi]
+        y0 = np.arange(0, 128, 4)[yi]
+        initial_guess = (y0, x0, 1, 0, 1)
+        try:
+            y = prfs[i].flatten()
+            popt, pcov = opt.curve_fit(vutil.sugar_gaussian_f, 128, y,
+                                       p0=initial_guess)
+            #print popt
+            paras[i, :5] = popt
+            pred_y = vutil.sugar_gaussian_f(128, *popt)
+            paras[i, 5] = np.square(y-pred_y).sum()
+        except RuntimeError:
+            print 'Error - curve_fit failed'
+            paras[i, :] = np.nan
+    np.save(os.path.join(prf_dir, 'prf_curve_fit_paras.npy'), paras)
+
 def trash():
     """Trash section."""
     # lasso regression
@@ -236,35 +410,6 @@ def trash():
     #alphas = np.array(alphas)
     #np.save(alphas_file, alphas)
     pass
-
-def curve_fit(prf_dir, prfs, sel_models):
-    #-- get pRF parameters using model fitting based on various kernels
-    # last column is curve fitting error based on squared-differnece
-    paras = np.zeros((sel_models.shape[0], 6))
-    for i in range(sel_models.shape[0]):
-        if np.sum(prfs[i])==0:
-            paras[i, :] = np.nan
-            continue
-        # get prf parameters
-        print 'Voxel %s'%(i+1)
-        model_idx = int(sel_models[i])
-        xi = (model_idx % 1024) / 32
-        yi = (model_idx % 1024) % 32
-        x0 = np.arange(0, 128, 4)[xi]
-        y0 = np.arange(0, 128, 4)[yi]
-        initial_guess = (y0, x0, 1, 0, 1)
-        try:
-            y = prfs[i].flatten()
-            popt, pcov = opt.curve_fit(vutil.sugar_gaussian_f, 128, y,
-                                       p0=initial_guess)
-            #print popt
-            paras[i, :5] = popt
-            pred_y = vutil.sugar_gaussian_f(128, *popt)
-            paras[i, 5] = np.square(y-pred_y).sum()
-        except RuntimeError:
-            print 'Error - curve_fit failed'
-            paras[i, :] = np.nan
-    np.save(os.path.join(prf_dir, 'prf_curve_fit_paras.npy'), paras)
 
 
 if __name__ == '__main__':
@@ -372,127 +517,15 @@ if __name__ == '__main__':
     else:
         prf_dir = os.path.join(subj_dir, 'prf', kernel+'_kernel', roi)
     check_path(prf_dir)
-    
-    # load fmri response
-    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_fmri_ts(subj_dir,roi=roi)
-    print 'Voxel number: %s'%(len(vxl_idx))
-    ## load candidate models
-    train_models = np.load(os.path.join(feat_dir, 'train_candidate_model.npy'),
-                           mmap_mode='r')
-    
-    # ridge regression
-    # model seletion and tuning
-    ALPHA_NUM = 20
-    BOOTS_NUM = 15
-    paras_file = os.path.join(prf_dir, 'reg_paras.npy')
-    paras = np.memmap(paras_file, dtype='float64', mode='w+',
-                      shape=(15360, len(vxl_idx), 46))
-    mcorr_file= os.path.join(prf_dir, 'reg_model_corr.npy')
-    mcorr = np.memmap(mcorr_file, dtype='float64', mode='w+',
-                      shape=(15360, len(vxl_idx)))
-    alphas_file = os.path.join(prf_dir, 'reg_alphas.npy')
-    alphas = np.memmap(alphas_file, dtype='float64', mode='w+',
-                       shape=(15360, len(vxl_idx)))
-    # fMRI data z-score
-    print 'fmri data temporal z-score'
-    m = np.mean(train_fmri_ts, axis=1, keepdims=True)
-    s = np.std(train_fmri_ts, axis=1, keepdims=True)
-    train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
-    # XXX randomize the fMRI response to derive a null hypothesis distribution
-    #train_fmri_ts = np.transpose(np.random.permutation(train_fmri_ts.T))
-    # split training dataset into model tunning set and model selection set
-    tune_fmri_ts = train_fmri_ts[:, :int(7200*0.9)]
-    sel_fmri_ts = train_fmri_ts[:, int(7200*0.9):]
-    # model testing
-    for i in range(15360):
-        print 'Model %s'%(i)
-        train_x = np.array(train_models[i, ...]).astype(np.float64)
-        train_x = zscore(train_x).T
-        # split training dataset into model tunning and selection sets
-        tune_x = train_x[:int(7200*0.9), :]
-        sel_x = train_x[int(7200*0.9):, :]
-        wt, r, alpha, bscores, valinds = ridge.bootstrap_ridge(
-                tune_x, tune_fmri_ts.T, sel_x, sel_fmri_ts.T,
-                alphas=np.logspace(-2, 3, ALPHA_NUM),
-                nboots=BOOTS_NUM, chunklen=720, nchunks=1,
-                single_alpha=False, use_corr=False)
-        paras[i, ...] = wt.T
-        mcorr[i] = r
-        alphas[i] = alpha
-    # save output
-    paras = np.array(paras)
-    np.save(paras_file, paras)
-    mcorr = np.array(mcorr)
-    np.save(mcorr_file, mcorr)
-    alphas = np.array(alphas)
-    np.save(alphas_file, alphas)
-    
-    # select best model for each voxel and validating
-    # load candidate models
-    val_models = np.load(os.path.join(feat_dir, 'val_candidate_model.npy'),
-                         mmap_mode='r')
-    # load candidate model parameters 
-    paras = np.load(os.path.join(prf_dir, 'reg_paras.npy'))
-    mcorr = np.load(os.path.join(prf_dir, 'reg_model_corr.npy'))
-    alphas = np.load(os.path.join(prf_dir, 'reg_alphas.npy'))
-    sel_paras = np.zeros((mcorr.shape[1], 46))
-    sel_model = np.zeros(mcorr.shape[1])
-    sel_model_corr = np.zeros(mcorr.shape[1])
-    for i in range(mcorr.shape[1]):
-        maxi = np.argmax(mcorr[:, i])
-        print 'Voxel %s - Max corr %s - Model %s'%(i, mcorr[maxi, i], maxi)
-        print 'Alpha : %s'%(alphas[maxi, i])
-        sel_paras[i] = paras[maxi, i]
-        sel_model[i] = maxi
-        feats = np.array(val_models[maxi, ...]).astype(np.float64)
-        feats = zscore(feats).T
-        pred = np.dot(feats, sel_paras[i])
-        sel_model_corr[i] = np.corrcoef(pred, val_fmri_ts[i])[0, 1]
-        print 'Val Corr : %s'%(sel_model_corr[i])
-    np.save(os.path.join(prf_dir, 'reg_sel_paras.npy'), sel_paras)
-    np.save(os.path.join(prf_dir, 'reg_sel_model.npy'), sel_model)
-    np.save(os.path.join(prf_dir, 'reg_sel_model_corr.npy'), sel_model_corr)
-
-    # pRF estimate
-    #del train_fmri_ts
-    #del val_fmri_ts
-    #sel_models = np.load(os.path.join(prf_dir, 'reg_sel_model.npy'))
-    #sel_paras = np.load(os.path.join(prf_dir, 'reg_sel_paras.npy'))
-    #sel_model_corr = np.load(os.path.join(prf_dir, 'reg_sel_model_corr.npy'))
-    #prfs = np.zeros((sel_models.shape[0], 128, 128))
-    ##hue_tunes = np.zeros((sel_models.shape[0], 201))
-    #for i in range(sel_models.shape[0]):
-    #    if sel_model_corr[i] < 0.25:
-    #        continue
-    #    # get pRF
-    #    print 'Voxel %s, Val Corr %s'%(i, sel_model_corr[i])
-    #    model_idx = int(sel_models[i])
-    #    # get gaussian pooling field parameters
-    #    si = model_idx / 1024
-    #    xi = (model_idx % 1024) / 32
-    #    yi = (model_idx % 1024) % 32
-    #    x0 = np.arange(0, 128, 4)[xi]
-    #    y0 = np.arange(0, 128, 4)[yi]
-    #    s = np.linspace(1, 50, 15)[si]
-    #    kernel = make_2d_gaussian(128, s, center=(x0, y0))
-    #    kpos = np.nonzero(kernel)
-    #    paras = sel_paras[i]
-    #    for f in range(5):
-    #        fwt = np.sum(paras[(f*8):(f*8+8)])
-    #        fs = np.sqrt(2)**f*4
-    #        for p in range(kpos[0].shape[0]):
-    #            tmp = make_2d_gaussian(128, fs, center=(kpos[1][p],
-    #                                                    kpos[0][p]))
-    #            prfs[i] += fwt * kernel[kpos[0][p], kpos[1][p]] * tmp
-    #    prf_file = os.path.join(prf_dir, 'Voxel_%s_%s.png'%(i+1, vxl_idx[i]))
-    #    vutil.save_imshow(prfs[i], prf_file)
-    #    ## get hue selection
-    #    #hue_tunes[i] = para2hue(paras[40:])
-    #    #hue_file = os.path.join(prf_dir, 'Voxel%s_hue.png'%(i))
-    #    #vutil.save_hue(hue_tunes[i], hue_file)
-    ##np.save(os.path.join(prf_dir, 'reg_hue_tunes.npy'), hue_tunes)
-    #np.save(os.path.join(prf_dir, 'reg_prfs.npy'), prfs)
+   
+    # pRF model tuning
+    ridge_fitting(feat_dir, subj_dir, roi, prf_dir)
+    # pRF model selection and validation
+    prf_selection(feat_dir, subj_dir, roi, prf_dir)
+    # pRF reconstruction
+    prf_recon(subj_dir, roi, prf_dir)
+    # get eccentricity and angle based on pRF center for each voxel
+    retinotopic_mapping(prf_dir)
     # get pRF parameters using curve-fitting
-    ##prfs = np.load(os.path.join(prf_dir, 'reg_prfs.npy'))
-    #curve_fit(prf_dir, prfs, sel_models)
+    #curve_fit(prf_dir)
 

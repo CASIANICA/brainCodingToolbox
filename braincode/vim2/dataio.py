@@ -16,7 +16,7 @@ def data_swap(nifti_file):
     ndata = np.rollaxis(ndata, 0, 3)
     return ndata
 
-def load_fmri_ts(subj_dir, roi=None):
+def load_fmri(subj_dir, roi=None):
     """Load fmri time courses for each voxel within specified ROI."""
     fmri_file = os.path.join(subj_dir, 'VoxelResponses.mat')
     tf = tables.open_file(fmri_file)
