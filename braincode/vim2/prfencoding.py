@@ -11,12 +11,13 @@ import bob.ip.gabor
 
 from braincode.util import configParser
 from braincode.math import ipl, make_2d_gaussian, ridge, make_cycle
+from braincode.pipeline import retinotopy
 from braincode.timeseries import hrf
 from braincode.math.norm import zscore
 from braincode.vim2 import dataio
 from braincode.vim2 import util as vutil
 
-from sklearn.linear_model import LassoCV
+#from sklearn.linear_model import LassoCV
 
 def check_path(dir_path):
     """Check whether the directory does exist, if not, create it."""            
@@ -340,7 +341,23 @@ def retinotopic_mapping(prf_dir):
     """Get eccentricity and angle based on pRF center for each voxel."""
     # load selected model index
     sel_models = np.load(os.path.join(prf_dir, 'reg_sel_model.npy'))
-    pass
+    # output variables
+    ecc = np.zeros_like(sel_models)
+    angle = np.zeros_like(sel_models)
+    for i in range(sel_modes.shape[0]):
+        print 'Voxel %s'%(i+1)
+        model_idx = int(sel_models[i])
+        xi = (model_idx % 1024) / 32
+        yi = (model_idx % 1024) % 32
+        # col
+        x0 = np.arange(0, 128, 4)[xi]
+        # row
+        y0 = np.arange(0, 128, 4)[yi]
+        # get ecc and angle
+        ecc[i] = retinotopy.coord2ecc((y0, x0), 128, 20)
+        angle[i] = retinotopy.coord2angle((y0, x0), 128)
+    np.save(os.path.join(prf_dir, 'ecc.npy'), ecc)
+    np.save(os.path.join(prf_dir, 'angle.npy'), angle)
 
 def curve_fit(prf_dir):
     """Get pRF parameters using model fitting based on various kernels."""
@@ -517,7 +534,6 @@ if __name__ == '__main__':
     else:
         prf_dir = os.path.join(subj_dir, 'prf', kernel+'_kernel', roi)
     check_path(prf_dir)
-   
     # pRF model tuning
     ridge_fitting(feat_dir, subj_dir, roi, prf_dir)
     # pRF model selection and validation
