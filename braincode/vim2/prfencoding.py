@@ -313,8 +313,8 @@ def prf_recon(subj_dir, roi, prf_dir):
         x0 = np.arange(0, 128, 4)[xi]
         y0 = np.arange(0, 128, 4)[yi]
         s = np.linspace(1, 50, 15)[si]
-        kernel = make_cycle(128, s, center=(x0, y0))
-        #kernel = make_2d_gaussian(128, s, center=(x0, y0))
+        #kernel = make_cycle(128, s, center=(x0, y0))
+        kernel = make_2d_gaussian(128, s, center=(x0, y0))
         kpos = np.nonzero(kernel)
         paras = sel_paras[i]
         for f in range(5):
@@ -542,7 +542,7 @@ if __name__ == '__main__':
     #-- pRF model fitting
     subj_id = 1
     roi = 'v1lh'
-    kernel = 'round'
+    kernel = 'gaussian'
     # directory config
     subj_dir = os.path.join(db_dir, 'vS%s'%(subj_id))
     if kernel=='round':
