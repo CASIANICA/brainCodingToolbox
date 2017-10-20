@@ -327,7 +327,7 @@ def prf_recon(subj_dir, roi, prf_dir):
         if sel_model_corr[i]>=0.25:
             prf_file = os.path.join(prf_dir,'Voxel_%s_%s.png'%(i+1, vxl_idx[i]))
             vutil.save_imshow(prfs[i], prf_file)
-    np.save(os.path.join(prf_dir, 'reg_prfs.npy'), prfs)
+    np.save(os.path.join(prf_dir, 'prfs.npy'), prfs)
 
 def get_hue_selectivity(subj_dir, roi, prf_dir):
     """Get hue tunning curve for each voxel and calculate hue selectivity."""
@@ -351,8 +351,8 @@ def get_hue_selectivity(subj_dir, roi, prf_dir):
             hue_file = os.path.join(prf_dir,
                                     'Voxel_%s_%s_hue.png'%(i+1, vxl_idx[i]))
             vutil.save_hue(hue_tunes[i], hue_file)
-    np.save(os.path.join(prf_dir, 'reg_hue_tunes.npy'), hue_tunes)
-    np.save(os.path.join(prf_dir, 'reg_hue_selectivity.npy'), hue_sel)
+    np.save(os.path.join(prf_dir, 'hue_tunes.npy'), hue_tunes)
+    np.save(os.path.join(prf_dir, 'hue_selectivity.npy'), hue_sel)
 
 def retinotopic_mapping(prf_dir):
     """Get eccentricity and angle based on pRF center for each voxel."""
