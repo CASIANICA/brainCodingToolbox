@@ -340,8 +340,8 @@ def get_hue_selectivity(subj_dir, roi, prf_dir):
     sel_paras = np.load(os.path.join(prf_dir, 'reg_sel_paras.npy'))
     sel_model_corr = np.load(os.path.join(prf_dir, 'reg_sel_model_corr.npy'))
     hue_tunes = np.zeros((sel_models.shape[0], 201))
-    hue_sel = np.zeros(sel_models.shape[0])
-    for i in range(sel_models.shape[0]):
+    hue_sel = np.zeros(len(vxl_idx))
+    for i in range(len(vxl_idx)):
         print 'Voxel %s, Val Corr %s'%(i, sel_model_corr[i])
         paras = sel_paras[i]
         # get hue selection
