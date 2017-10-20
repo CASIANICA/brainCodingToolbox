@@ -339,7 +339,7 @@ def get_hue_selectivity(subj_dir, roi, prf_dir):
     # pRF estimate
     sel_paras = np.load(os.path.join(prf_dir, 'reg_sel_paras.npy'))
     sel_model_corr = np.load(os.path.join(prf_dir, 'reg_sel_model_corr.npy'))
-    hue_tunes = np.zeros((sel_models.shape[0], 201))
+    hue_tunes = np.zeros((len(vxl_idx), 201))
     hue_sel = np.zeros(len(vxl_idx))
     for i in range(len(vxl_idx)):
         print 'Voxel %s, Val Corr %s'%(i, sel_model_corr[i])
@@ -361,7 +361,8 @@ def retinotopic_mapping(prf_dir):
     # output variables
     ecc = np.zeros_like(sel_models)
     angle = np.zeros_like(sel_models)
-    for i in range(sel_modes.shape[0]):
+    coords = np.zeros((sel_models.shape[0], 2))
+    for i in range(sel_models.shape[0]):
         print 'Voxel %s'%(i+1)
         model_idx = int(sel_models[i])
         xi = (model_idx % 1024) / 32
@@ -370,9 +371,10 @@ def retinotopic_mapping(prf_dir):
         x0 = np.arange(0, 128, 4)[xi]
         # row
         y0 = np.arange(0, 128, 4)[yi]
-        # get ecc and angle
-        ecc[i] = retinotopy.coord2ecc((y0, x0), 128, 20)
-        angle[i] = retinotopy.coord2angle((y0, x0), 128)
+        coords[i] = [y0, x0]
+    # get ecc and angle
+    ecc = retinotopy.coord2ecc(coords, 128, 20)
+    angle = retinotopy.coord2angle(coords, 128)
     np.save(os.path.join(prf_dir, 'ecc.npy'), ecc)
     np.save(os.path.join(prf_dir, 'angle.npy'), angle)
 
