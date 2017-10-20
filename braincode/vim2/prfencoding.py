@@ -302,12 +302,7 @@ def prf_recon(subj_dir, roi, prf_dir):
     sel_paras = np.load(os.path.join(prf_dir, 'reg_sel_paras.npy'))
     sel_model_corr = np.load(os.path.join(prf_dir, 'reg_sel_model_corr.npy'))
     prfs = np.zeros((sel_models.shape[0], 128, 128))
-    hue_tunes = np.zeros((sel_models.shape[0], 201))
     for i in range(sel_models.shape[0]):
-        if sel_model_corr[i] < 0.25:
-            prfs[i, ...] = np.nan
-            hue_tunes[i, ...] = np.nan
-            continue
         # get pRF
         print 'Voxel %s, Val Corr %s'%(i, sel_model_corr[i])
         model_idx = int(sel_models[i])
@@ -318,7 +313,8 @@ def prf_recon(subj_dir, roi, prf_dir):
         x0 = np.arange(0, 128, 4)[xi]
         y0 = np.arange(0, 128, 4)[yi]
         s = np.linspace(1, 50, 15)[si]
-        kernel = make_2d_gaussian(128, s, center=(x0, y0))
+        kernel = make_cycle(128, s, center=(x0, y0))
+        #kernel = make_2d_gaussian(128, s, center=(x0, y0))
         kpos = np.nonzero(kernel)
         paras = sel_paras[i]
         for f in range(5):
@@ -328,14 +324,35 @@ def prf_recon(subj_dir, roi, prf_dir):
                 tmp = make_2d_gaussian(128, fs, center=(kpos[1][p],
                                                         kpos[0][p]))
                 prfs[i] += fwt * kernel[kpos[0][p], kpos[1][p]] * tmp
-        prf_file = os.path.join(prf_dir, 'Voxel_%s_%s.png'%(i+1, vxl_idx[i]))
-        vutil.save_imshow(prfs[i], prf_file)
+        if sel_model_corr[i]>=0.25:
+            prf_file = os.path.join(prf_dir,'Voxel_%s_%s.png'%(i+1, vxl_idx[i]))
+            vutil.save_imshow(prfs[i], prf_file)
+    np.save(os.path.join(prf_dir, 'reg_prfs.npy'), prfs)
+
+def get_hue_selectivity(subj_dir, roi, prf_dir):
+    """Get hue tunning curve for each voxel and calculate hue selectivity."""
+    # load fmri response
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_fmri(subj_dir, roi=roi)
+    del train_fmri_ts
+    del val_fmri_ts
+    print 'Voxel number: %s'%(len(vxl_idx))
+    # pRF estimate
+    sel_paras = np.load(os.path.join(prf_dir, 'reg_sel_paras.npy'))
+    sel_model_corr = np.load(os.path.join(prf_dir, 'reg_sel_model_corr.npy'))
+    hue_tunes = np.zeros((sel_models.shape[0], 201))
+    hue_sel = np.zeros(sel_models.shape[0])
+    for i in range(sel_models.shape[0]):
+        print 'Voxel %s, Val Corr %s'%(i, sel_model_corr[i])
+        paras = sel_paras[i]
         # get hue selection
         hue_tunes[i] = para2hue(paras[40:])
-        hue_file = os.path.join(prf_dir, 'Voxel_%s_%s_hue.png'%(i+1,vxl_idx[i]))
-        vutil.save_hue(hue_tunes[i], hue_file)
+        hue_sel[i] = abs(hue_tunes[i].max()-hue_tunes[i].min())
+        if sel_model_corr[i]>=0.25:
+            hue_file = os.path.join(prf_dir,
+                                    'Voxel_%s_%s_hue.png'%(i+1, vxl_idx[i]))
+            vutil.save_hue(hue_tunes[i], hue_file)
     np.save(os.path.join(prf_dir, 'reg_hue_tunes.npy'), hue_tunes)
-    np.save(os.path.join(prf_dir, 'reg_prfs.npy'), prfs)
+    np.save(os.path.join(prf_dir, 'reg_hue_selectivity.npy'), hue_sel)
 
 def retinotopic_mapping(prf_dir):
     """Get eccentricity and angle based on pRF center for each voxel."""
@@ -540,6 +557,8 @@ if __name__ == '__main__':
     prf_selection(feat_dir, subj_dir, roi, prf_dir)
     # pRF reconstruction
     prf_recon(subj_dir, roi, prf_dir)
+    # get hue selectivity for each voxel
+    get_hue_selectivity(subj_dir, roi, prf_dir)
     # get eccentricity and angle based on pRF center for each voxel
     retinotopic_mapping(prf_dir)
     # get pRF parameters using curve-fitting
