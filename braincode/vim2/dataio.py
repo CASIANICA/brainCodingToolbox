@@ -6,8 +6,6 @@ import numpy as np
 import tables
 import nibabel as nib
 
-from braincode.util import configParser
-
 def data_swap(nifti_file):                                                      
     """Convert nifti data into original data shape."""
     data = nib.load(nifti_file).get_data()
@@ -45,5 +43,14 @@ def load_fmri(subj_dir, roi=None):
 
 def load_prf_data(roi_dir):
     """Load all pRF data for specific ROI."""
-    pass
+    prf_data = {}
+    data_type = {'angle': 'angle',
+                 'ecc': 'ecc',
+                 'sel_model_idx': 'reg_sel_model',
+                 'val_corr': 'reg_sel_model_corr',
+                 'paras': 'reg_sel_paras'}
+    for item in data_type.keys():
+        dfile = os.path.join(roi_dir, data_type[item]+'.npy')
+        prf_data[item] = np.load(dfile)
+    return prf_data
 
