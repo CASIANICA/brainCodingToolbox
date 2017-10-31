@@ -410,9 +410,9 @@ def curve_fit(roi_dir):
             paras[i, :] = np.nan
     np.save(os.path.join(roi_dir, 'prf_curve_fit_paras.npy'), paras)
 
-def show_retinotopy(prf_dir):
+def show_retinotopy(prf_dir, data_type):
     """Show estimate parameters on brain."""
-    data_type = 'ecc'
+    #data_type = 'ecc'
     vol = np.empty((73728,))
     vol[:] = np.NaN
     subj_dir = '/'.join(prf_dir.split('/')[:-2])
@@ -586,5 +586,5 @@ if __name__ == '__main__':
     #curve_fit(roi_dir)
 
     #-- show retinotopic mapping
-    show_retinotopy(prf_dir)
+    show_retinotopy(prf_dir, 'ecc')
 

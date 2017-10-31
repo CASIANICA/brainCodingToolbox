@@ -43,4 +43,7 @@ def load_fmri(subj_dir, roi=None):
     tf.close()
     return vxl_idx, train_ts, val_ts
 
+def load_prf_data(roi_dir):
+    """Load all pRF data for specific ROI."""
+    pass
 
