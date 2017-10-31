@@ -40,6 +40,7 @@ def load_fmri(subj_dir, roi=None):
     train_ts = np.nan_to_num(train_ts[vxl_idx])
     val_ts = tf.get_node('/rv')[:]
     val_ts = np.nan_to_num(val_ts[vxl_idx])
+    tf.close()
     return vxl_idx, train_ts, val_ts
 
 
