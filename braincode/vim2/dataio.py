@@ -41,16 +41,3 @@ def load_fmri(subj_dir, roi=None):
     tf.close()
     return vxl_idx, train_ts, val_ts
 
-def load_prf_data(roi_dir):
-    """Load all pRF data for specific ROI."""
-    prf_data = {}
-    data_type = {'angle': 'angle',
-                 'ecc': 'ecc',
-                 'sel_model_idx': 'reg_sel_model',
-                 'val_corr': 'reg_sel_model_corr',
-                 'paras': 'reg_sel_paras'}
-    for item in data_type.keys():
-        dfile = os.path.join(roi_dir, data_type[item]+'.npy')
-        prf_data[item] = np.load(dfile)
-    return prf_data
-

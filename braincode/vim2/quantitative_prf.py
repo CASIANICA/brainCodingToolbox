@@ -3,30 +3,47 @@
 
 import os
 import numpy as np
+import pandas as pd
+
 import matplotlib.pylab as plt
+import seaborn as sns
 
-from braincode.vim2.dataio import load_prf_data
+def load_prf_data(roi_dir):
+    """Load all pRF data for specific ROI."""                                   
+    orig_data = {}
+    # load estimated data
+    data_type = {'angle': 'angle',
+                 'ecc': 'ecc',
+                 'sel_model_idx': 'reg_sel_model',
+                 'val_corr': 'reg_sel_model_corr',
+                 'paras': 'reg_sel_paras'}
+    for item in data_type.keys():
+        dfile = os.path.join(roi_dir, data_type[item]+'.npy')
+        orig_data[item] = np.load(dfile)
+    # select significantly predicted voxels
+    thr = 0.17
+    sel_vxl = orig_data['val_corr']>=thr
+    # get tunning contribution of different spatial frequencies
+    vxl_num = sel_vxl.shape[0]
+    gabor_corr = np.load(os.path.join(roi_dir, 'gabor_contributes.npy'))
+    #gabor_r2 = np.square(gabor_corr)
+    df_dict = {}
+    for i in range(5):
+        #x = np.sum(orig_data['paras'][:, (i*8):(i*8+8)], axis=1)
+        #df_dict['wt_sum_%s'%(i+1)] = x[sel_vxl]
+        df_dict['wt_sum_%s'%(i+1)] = gabor_corr[sel_vxl, i]
+        #df_dict['wt_sum_%s'%(i+1)] = gabor_r2[sel_vxl, i]
+    df_dict['ecc'] = orig_data['ecc'][sel_vxl]
+    df = pd.DataFrame(df_dict)
 
-root_dir = r'/Users/sealhuang/project/brainCoding'
-prf_dir = os.path.join(root_dir, 'subjects', 'vS1', 'prf',
-                       'gaussian_kernel', 'v1lh')
+    return orig_data, df
 
-prf_data = load_prf_data(prf_dir)
-
-# select significantly predicted voxels
-thr = 0.25
-sel_vxl = prf_data['val_corr']>=thr
-
-# relation between type of pooling size and eccentricity
-model_type = prf_data['sel_model_idx'] / 1024
-plt.scatter(prf_data['ecc'][sel_vxl], model_type[sel_vxl], 5);plt.show()
-np.corrcoef(prf_data['ecc'][sel_vxl], model_type[sel_vxl])
-
-# relation between weight sum of different spatial frequencies and eccentricity
-wt_sum = np.zeros((490, 5))
-for i in range(5):
-    wt_sum[:, i] = np.sum(prf_data['paras'][:, (i*8):(i*8+8)], axis=1)
-    np.corrcoef(prf_data['ecc'][sel_vxl], wt_sum[sel_vxl, i])
-    plt.scatter(prf_data['ecc'][sel_vxl], wt_sum[sel_vxl, i]);plt.show()
-
+def plot_gabor_contrib(roi, df):
+    """Plot tunning contribution of each gabor sub-banks VS. ecc."""
+    sns.set(color_codes=True)
+    for i in range(5):
+        g = sns.lmplot(x='ecc', y='wt_sum_%s'%(i+1), data=df, x_bins=10,
+                       size=6, order=2)
+        g.set(xlim=(0, 14), ylim=(-0.3, 0.8))
+        g.savefig('gabor_contrib_%s_sp%s.png'%(roi, i+1))
 

@@ -290,6 +290,53 @@ def prf_selection(feat_dir, subj_dir, roi, roi_dir):
     np.save(os.path.join(roi_dir, 'reg_sel_model.npy'), sel_model)
     np.save(os.path.join(roi_dir, 'reg_sel_model_corr.npy'), sel_model_corr)
 
+def null_distribution_prf_tunning(feat_dir, subj_dir, roi, roi_dir):
+    """Generate Null distribution of pRF model tunning using validation data."""
+    # load fmri response
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_fmri(subj_dir, roi=roi)
+    del train_fmri_ts
+    print 'Voxel number: %s'%(len(vxl_idx))
+    # load candidate models
+    val_models = np.load(os.path.join(feat_dir, 'val_candidate_model.npy'),
+                         mmap_mode='r')
+    # load selected model parameters
+    paras = np.load(os.path.join(roi_dir, 'reg_sel_paras.npy'))
+    sel_model = np.load(os.path.join(roi_dir, 'reg_sel_model.npy'))
+    null_corr = np.zeros((paras.shape[0], 1000))
+    for i in range(paras.shape[0]):
+        print 'Voxel %s'%(i)
+        # load features
+        feats = np.array(val_models[int(sel_model[i]), ...]).astype(np.float64)
+        feats = zscore(feats).T
+        pred = np.dot(feats, paras[i])
+        for j in range(1000):
+            shuffled_val_ts = np.random.permutation(val_fmri_ts[i])
+            null_corr[i, j] = np.corrcoef(pred, shuffled_val_ts)[0, 1]
+    np.save(os.path.join(roi_dir, 'random_corr.npy'), null_corr)
+
+def gabor_contribution2prf(feat_dir, subj_dir, roi, roi_dir):
+    """Calculate tunning contribution of each gabor sub-banks."""
+    # load fmri response
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_fmri(subj_dir, roi=roi)
+    del train_fmri_ts
+    print 'Voxel number: %s'%(len(vxl_idx))
+    # load candidate models
+    val_models = np.load(os.path.join(feat_dir, 'val_candidate_model.npy'),
+                         mmap_mode='r')
+    # load selected model parameters
+    paras = np.load(os.path.join(roi_dir, 'reg_sel_paras.npy'))
+    sel_model = np.load(os.path.join(roi_dir, 'reg_sel_model.npy'))
+    gabor_corr = np.zeros((paras.shape[0], 5))
+    for i in range(paras.shape[0]):
+        print 'Voxel %s'%(i)
+        # load features
+        feats = np.array(val_models[int(sel_model[i]), ...]).astype(np.float64)
+        feats = zscore(feats).T
+        for j in range(5):
+            pred = np.dot(feats[:, (j*8):(j*8+8)], paras[i, (j*8):(j*8+8)])
+            gabor_corr[i, j] = np.corrcoef(pred, val_fmri_ts[i])[0, 1]
+    np.save(os.path.join(roi_dir, 'gabor_contributes.npy'), gabor_corr)
+
 def prf_recon(subj_dir, roi, roi_dir):
     """Reconstruct pRF based on selected model."""
     # load fmri response
@@ -417,8 +464,10 @@ def show_retinotopy(prf_dir, data_type):
     vol[:] = np.NaN
     subj_dir = '/'.join(prf_dir.split('/')[:-2])
     # get roi list
+    roi_list = ['v1lh', 'v2lh', 'v3lh', 'v4lh',
+                'v1rh', 'v2rh', 'v3rh', 'v4rh']
     rois = os.listdir(prf_dir)
-    #rois = [roi for roi in rois if roi[-2:]=='lh']
+    rois = [roi for roi in rois if roi in roi_list]
     for roi in rois:
         vxl_idx, train_ts, val_ts = dataio.load_fmri(subj_dir, roi=roi)
         del train_ts, val_ts
@@ -567,15 +616,17 @@ if __name__ == '__main__':
 
     #-- pRF model fitting
     # parameter config
-    #roi = 'v1lh'
-    #roi_dir = os.path.join(prf_dir,  roi)
-    #check_path(roi_dir)
-    #if kernel=='round':
-    #    feat_dir = os.path.join(feat_dir, 'round')
+    roi = 'v1lh'
+    roi_dir = os.path.join(prf_dir,  roi)
+    check_path(roi_dir)
+    if kernel=='round':
+        feat_dir = os.path.join(feat_dir, 'round')
     # pRF model tuning
     #ridge_fitting(feat_dir, subj_dir, roi, roi_dir)
     # pRF model selection and validation
     #prf_selection(feat_dir, subj_dir, roi, roi_dir)
+    # get null distribution of pRF tunning
+    #null_distribution_prf_tunning(feat_dir, subj_dir, roi, roi_dir)
     # pRF reconstruction
     #prf_recon(subj_dir, roi, roi_dir)
     # get hue selectivity for each voxel
@@ -584,7 +635,9 @@ if __name__ == '__main__':
     #retinotopic_mapping(roi_dir)
     # get pRF parameters using curve-fitting
     #curve_fit(roi_dir)
+    # calculate tunning contribution of each gabor sub-banks
+    gabor_contribution2prf(feat_dir, subj_dir, roi, roi_dir)
 
     #-- show retinotopic mapping
-    show_retinotopy(prf_dir, 'ecc')
+    #show_retinotopy(prf_dir, 'ecc')
 
