@@ -59,14 +59,14 @@ def plot_gabor_contrib(prf_dir, roi, lhmerged=True):
             hemi_flags[hemis.index(hemi)] = 0
             continue
         # if roi_dir exists, load prf data
-        ecc = np.load(roi_dir, 'ecc.npy')
-        gabor_corr = np.load(roi_dir, 'gabor_contributes.npy')
-        val_corr = np.load(roi_dir, 'reg_sel_model_corr.npy')
+        ecc = np.load(os.path.join(roi_dir, 'ecc.npy'))
+        gabor_corr = np.load(os.path.join(roi_dir, 'gabor_contributes.npy'))
+        val_corr = np.load(os.path.join(roi_dir, 'reg_sel_model_corr.npy'))
         # select significantly predicted voxels
         thr = 0.17
         sel_vxl = val_corr>=thr
         hemi_dict = {'corr': gabor_corr[sel_vxl, :].flatten(),
-                     'frequenct': [1, 2, 3, 4, 5] * sel_vxl.sum(),
+                     'frequency': [1, 2, 3, 4, 5] * sel_vxl.sum(),
                      'ecc': np.repeat(ecc[sel_vxl], 5)}
         df_list.append(pd.DataFrame(hemi_dict))
     if not np.sum(hemi_flags):
@@ -74,18 +74,18 @@ def plot_gabor_contrib(prf_dir, roi, lhmerged=True):
         return
     # plot
     sns.set(color_codes=True)
-    if lh_merged and np.sum(hemi_flags)==2:
+    if lhmerged and np.sum(hemi_flags)==2:
         df = pd.concat(df_list)
         g = sns.lmplot(x='ecc', y='corr', hue='frequency', col='frequency',
                        data=df, order=2, x_bins=np.arange(1, 11, 1))
         g.savefig('%s_gabor_contrib.png'%(roi))
     else:
         if np.sum(hemi_flags)==2:
-            for df in df_list:
+            for i in range(2):
                 g = sns.lmplot(x='ecc', y='corr', hue='frequency',
-                               col='frequency', data=df, order=2,
+                               col='frequency', data=df_list[i], order=2,
                                x_bins=np.arange(1, 11, 1))
-                g.savefig('%s_gabor_contrib.png'%(roi+hemis[df_list.index(df)]))
+                g.savefig('%s_gabor_contrib.png'%(roi+hemis[i]))
         else:
             g = sns.lmplot(x='ecc', y='corr', hue='frequency', col='frequency',
                            data=df, order=2, x_bins=np.arange(1, 11, 1))
