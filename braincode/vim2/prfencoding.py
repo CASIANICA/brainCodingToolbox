@@ -349,6 +349,8 @@ def prf_recon(subj_dir, roi, roi_dir):
     sel_paras = np.load(os.path.join(roi_dir, 'reg_sel_paras.npy'))
     sel_model_corr = np.load(os.path.join(roi_dir, 'reg_sel_model_corr.npy'))
     prfs = np.zeros((sel_models.shape[0], 128, 128))
+    fig_dir = os.path.join(roi_dir, 'figs')
+    check_path(fig_dir)
     for i in range(sel_models.shape[0]):
         # get pRF
         print 'Voxel %s, Val Corr %s'%(i, sel_model_corr[i])
@@ -372,7 +374,7 @@ def prf_recon(subj_dir, roi, roi_dir):
                                                         kpos[0][p]))
                 prfs[i] += fwt * kernel[kpos[0][p], kpos[1][p]] * tmp
         if sel_model_corr[i]>=0.25:
-            prf_file = os.path.join(roi_dir,'Voxel_%s_%s.png'%(i+1, vxl_idx[i]))
+            prf_file = os.path.join(fig_dir,'Voxel_%s_%s.png'%(i+1, vxl_idx[i]))
             vutil.save_imshow(prfs[i], prf_file)
     np.save(os.path.join(roi_dir, 'prfs.npy'), prfs)
 
@@ -520,7 +522,7 @@ if __name__ == '__main__':
     cf = configParser.Config('config')
     root_dir = cf.get('base', 'path')
     stim_dir = os.path.join(root_dir, 'stimulus')
-    feat_dir = os.path.join(root_dir, 'sfeatures')
+    feat_dir = os.path.join(root_dir, 'sfeatures', 'vim2')
     db_dir = os.path.join(root_dir, 'subjects')
 
     #-- load original stimulus data
