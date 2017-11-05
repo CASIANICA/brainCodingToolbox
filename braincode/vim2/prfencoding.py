@@ -230,8 +230,6 @@ def ridge_fitting(feat_dir, subj_dir, roi, roi_dir):
     m = np.mean(train_fmri_ts, axis=1, keepdims=True)
     s = np.std(train_fmri_ts, axis=1, keepdims=True)
     train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
-    # XXX randomize the fMRI response to derive a null hypothesis distribution
-    #train_fmri_ts = np.transpose(np.random.permutation(train_fmri_ts.T))
     # split training dataset into model tunning set and model selection set
     tune_fmri_ts = train_fmri_ts[:, :int(7200*0.9)]
     sel_fmri_ts = train_fmri_ts[:, int(7200*0.9):]
@@ -392,8 +390,10 @@ def filter_recon(subj_dir, roi, roi_dir):
     filters = np.zeros((sel_models.shape[0], 128, 128))
     fig_dir = os.path.join(roi_dir, 'filters')
     check_path(fig_dir)
+    thr = 0.17
     for i in range(sel_models.shape[0]):
-        # get pRF
+        if sel_model_corr[i]<thr:
+            continue
         print 'Voxel %s, Val Corr %s'%(i, sel_model_corr[i])
         model_idx = int(sel_models[i])
         # get gaussian pooling field parameters
@@ -408,21 +408,44 @@ def filter_recon(subj_dir, roi, roi_dir):
         paras = sel_paras[i]
         gwt = bob.ip.gabor.Transform()
         gwt.generate_wavelets(128, 128)
-        for f in range(5):
-            for d in range(8):
-                gwt_idx = int(f*8 + d)
-                wt = paras[gwt_idx]
-                w = bob.ip.gabor.Wavelet(resolution=(128, 128),
-                                    frequency=gwt.wavelet_frequencies[gwt_idx])
-                sw = bob.sp.ifft(w.wavelet.astype(np.complex128)) 
-                arsw = np.roll(np.roll(np.real(sw), 64, 0), 64, 1)
-                for p in range(kpos[0].shape[0]):
-                    tmp = img_offset(arsw, (kpos[0][p], kpos[1][p]))
-                    filters[i] += wt * kernel[kpos[0][p], kpos[1][p]] * tmp
-        if sel_model_corr[i]>=0.25:
+        for gwt_idx in range(40):
+            wt = paras[gwt_idx]
+            w = bob.ip.gabor.Wavelet(resolution=(128, 128),
+                                frequency=gwt.wavelet_frequencies[gwt_idx])
+            sw = bob.sp.ifft(w.wavelet.astype(np.complex128)) 
+            arsw = np.roll(np.roll(np.real(sw), 64, 0), 64, 1)
+            for p in range(kpos[0].shape[0]):
+                tmp = img_offset(arsw, (kpos[0][p], kpos[1][p]))
+                filters[i] += wt * kernel[kpos[0][p], kpos[1][p]] * tmp
+        if sel_model_corr[i]>=thr:
             im_file = os.path.join(fig_dir, 'Voxel_%s_%s.png'%(i+1, vxl_idx[i]))
             vutil.save_imshow(filters[i], im_file)
     np.save(os.path.join(roi_dir, 'filters.npy'), filters)
+
+def stimuli_recon(subj_dir, roi, roi_dir):
+    """Reconstruct stimulus based on pRF model."""
+    # load fmri response
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_fmri(subj_dir, roi=roi)
+    del train_fmri_ts
+    print 'Voxel number: %s'%(len(vxl_idx))
+    # load model parameters
+    val_corr = np.load(os.path.join(roi_dir, 'reg_sel_model_corr.npy'))
+    filters = np.load(os.path.join(roi_dir, 'filters.npy'))
+    recon_imgs = np.zeros((val_fmri_ts.shape[1], 128, 128))
+    # fMRI data z-score
+    print 'fmri data temporal z-score'
+    m = np.mean(val_fmri_ts, axis=1, keepdims=True)
+    s = np.std(val_fmri_ts, axis=1, keepdims=True)
+    val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
+    # select significant predicted voxels
+    sel_vxls = np.nonzero(val_corr>=0.17)[0]
+    for i in range(val_fmri_ts.shape[1]):
+        print 'Reconstruct stimilus %s'%(i+1)
+        tmp = np.zeros((128, 128))
+        for j in sel_vxls:
+            tmp += val_fmri_ts[int(j), int(i)] * filters[j]
+        recon_imgs[i] = tmp
+    np.save(os.path.join(roi_dir, 'recon_img.npy'), recon_imgs)
 
 def get_hue_selectivity(subj_dir, roi, roi_dir):
     """Get hue tunning curve for each voxel and calculate hue selectivity."""
@@ -662,6 +685,8 @@ if __name__ == '__main__':
     #prf_recon(subj_dir, roi, roi_dir)
     # filter reconstruction
     filter_recon(subj_dir, roi, roi_dir)
+    # validation stimuli reconstruction
+    #stimuli_recon(subj_dir, roi, roi_dir)
     # get hue selectivity for each voxel
     #get_hue_selectivity(subj_dir, roi, roi_dir)
     # get eccentricity and angle based on pRF center for each voxel
