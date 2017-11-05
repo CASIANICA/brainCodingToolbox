@@ -250,7 +250,7 @@ def save_imshow(data, filename, val_range=None):
     else:
         vmin = data.min()
         vmax = data.max()
-    cax = ax.imshow(data.astype(np.float64), vmin=vmin, vmax=vmax)
+    cax = ax.imshow(data.astype(np.float64), vmin=vmin, vmax=vmax, cmap='gray')
     fig.colorbar(cax)
     fig.savefig(filename)
     plt.close()

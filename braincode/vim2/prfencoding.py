@@ -8,6 +8,7 @@ from scipy.misc import imsave
 import scipy.optimize as opt
 from joblib import Parallel, delayed
 import bob.ip.gabor
+import bob.sp
 
 from braincode.util import configParser
 from braincode.math import ipl, make_2d_gaussian, ridge, make_cycle
@@ -17,7 +18,6 @@ from braincode.math.norm import zscore
 from braincode.vim2 import dataio
 from braincode.vim2 import util as vutil
 
-#from sklearn.linear_model import LassoCV
 
 def check_path(dir_path):
     """Check whether the directory does exist, if not, create it."""            
@@ -378,6 +378,52 @@ def prf_recon(subj_dir, roi, roi_dir):
             vutil.save_imshow(prfs[i], prf_file)
     np.save(os.path.join(roi_dir, 'prfs.npy'), prfs)
 
+def filter_recon(subj_dir, roi, roi_dir):
+    """Reconstruct filter map of each voxel based on selected model."""
+    # load fmri response
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_fmri(subj_dir, roi=roi)
+    del train_fmri_ts
+    del val_fmri_ts
+    print 'Voxel number: %s'%(len(vxl_idx))
+    # pRF estimate
+    sel_models = np.load(os.path.join(roi_dir, 'reg_sel_model.npy'))
+    sel_paras = np.load(os.path.join(roi_dir, 'reg_sel_paras.npy'))
+    sel_model_corr = np.load(os.path.join(roi_dir, 'reg_sel_model_corr.npy'))
+    filters = np.zeros((sel_models.shape[0], 128, 128))
+    fig_dir = os.path.join(roi_dir, 'filters')
+    check_path(fig_dir)
+    for i in range(sel_models.shape[0]):
+        # get pRF
+        print 'Voxel %s, Val Corr %s'%(i, sel_model_corr[i])
+        model_idx = int(sel_models[i])
+        # get gaussian pooling field parameters
+        si = model_idx / 1024
+        xi = (model_idx % 1024) / 32
+        yi = (model_idx % 1024) % 32
+        x0 = np.arange(0, 128, 4)[xi]
+        y0 = np.arange(0, 128, 4)[yi]
+        s = np.linspace(1, 50, 15)[si]
+        kernel = make_2d_gaussian(128, s, center=(x0, y0))
+        kpos = np.nonzero(kernel)
+        paras = sel_paras[i]
+        gwt = bob.ip.gabor.Transform()
+        gwt.generate_wavelets(128, 128)
+        for f in range(5):
+            for d in range(8):
+                gwt_idx = int(f*8 + d)
+                wt = paras[gwt_idx]
+                w = bob.ip.gabor.Wavelet(resolution=(128, 128),
+                                    frequency=gwt.wavelet_frequencies[gwt_idx])
+                sw = bob.sp.ifft(w.wavelet.astype(np.complex128)) 
+                arsw = np.roll(np.roll(np.real(sw), 64, 0), 64, 1)
+                for p in range(kpos[0].shape[0]):
+                    tmp = img_offset(arsw, (kpos[0][p], kpos[1][p]))
+                    filters[i] += wt * kernel[kpos[0][p], kpos[1][p]] * tmp
+        if sel_model_corr[i]>=0.25:
+            im_file = os.path.join(fig_dir, 'Voxel_%s_%s.png'%(i+1, vxl_idx[i]))
+            vutil.save_imshow(filters[i], im_file)
+    np.save(os.path.join(roi_dir, 'filters.npy'), filters)
+
 def get_hue_selectivity(subj_dir, roi, roi_dir):
     """Get hue tunning curve for each voxel and calculate hue selectivity."""
     # load fmri response
@@ -478,42 +524,25 @@ def show_retinotopy(prf_dir, data_type):
     vol = vol.reshape(18, 64, 64)
     vutil.save2nifti(vol, os.path.join(prf_dir, data_type+'.nii.gz'))
 
-def trash():
-    """Trash section."""
-    # lasso regression
-    #paras_file = os.path.join(prf_dir, 'lassoreg_paras.npy')
-    #paras = np.memmap(paras_file, dtype='float16', mode='w+',
-    #                  shape=(len(vxl_idx), 15360, 46))
-    #val_corr_file = os.path.join(prf_dir, 'lassoreg_pred_corr.npy')
-    #val_corr = np.memmap(val_corr_file, dtype='float16', mode='w+',
-    #                     shape=(len(vxl_idx), 15360))
-    #alphas_file = os.path.join(prf_dir, 'lassoreg_alphas.npy')
-    #alphas = np.memmap(alphas_file, dtype='float16', mode='w+',
-    #                   shape=(len(vxl_idx), 15360))
-    #for i in range(len(vxl_idx)):
-    #    print 'Voxel %s'%(i)
-    #    train_y = train_fmri_ts[i]
-    #    val_y = val_fmri_ts[i]
-    #    for j in range(15360):
-    #        print 'Model %s'%(j)
-    #        train_x = np.array(train_models[j, ...]).astype(np.float64)
-    #        val_x = np.array(val_models[j, ...]).astype(np.float64)
-    #        train_x = zscore(train_x).T
-    #        val_x = zscore(val_x).T
-    #        lasso_cv = LassoCV(cv=10, n_jobs=6)
-    #        lasso_cv.fit(train_x, train_y)
-    #        alphas[i, j] = lasso_cv.alpha_
-    #        paras[i, j :] = lasso_cv.coef_
-    #        pred_y = lasso_cv.predict(val_x)
-    #        val_corr[i, j] = np.corrcoef(val_y, pred_y)[0][1]
-    #        print 'Alpha %s, prediction score %s'%(alphas[i, j],val_corr[i, j])
-    #paras = np.array(paras)
-    #np.save(paras_file, paras)
-    #val_corr = np.array(val_corr)
-    #np.save(val_corr_file, val_corr)
-    #alphas = np.array(alphas)
-    #np.save(alphas_file, alphas)
-    pass
+def img_offset(orig_img, new_center):
+    """Move original image to new position based on new center coordinate.
+    new_center is (x0, y0), x0 indicates row coordinate, y0 indicates col
+    coordinate.
+    """
+    img_r, img_c = orig_img.shape
+    new_img = np.zeros_like(orig_img)
+    # move image position based on new center coordinates
+    old_x0 = img_r // 2
+    old_y0 = img_c // 2
+    offset0 = int(np.rint(new_center[0] - old_x0))
+    offset1 = int(np.rint(new_center[1] - old_y0))
+    pixs = np.mgrid[0:img_r, 0:img_c].reshape(2, img_r*img_c)
+    new_x = pixs[0] + offset0
+    new_y = pixs[1] + offset1
+    pix_idx = (new_x>=0) * (new_x<img_r) * (new_y>=0) * (new_y<img_c)
+    new_img[new_x[pix_idx], new_y[pix_idx]] = orig_img[pixs[0, pix_idx],
+                                                       pixs[1, pix_idx]]
+    return new_img
 
 
 if __name__ == '__main__':
@@ -631,6 +660,8 @@ if __name__ == '__main__':
     #null_distribution_prf_tunning(feat_dir, subj_dir, roi, roi_dir)
     # pRF reconstruction
     #prf_recon(subj_dir, roi, roi_dir)
+    # filter reconstruction
+    filter_recon(subj_dir, roi, roi_dir)
     # get hue selectivity for each voxel
     #get_hue_selectivity(subj_dir, roi, roi_dir)
     # get eccentricity and angle based on pRF center for each voxel
@@ -638,7 +669,7 @@ if __name__ == '__main__':
     # get pRF parameters using curve-fitting
     #curve_fit(roi_dir)
     # calculate tunning contribution of each gabor sub-banks
-    gabor_contribution2prf(feat_dir, subj_dir, roi, roi_dir)
+    #gabor_contribution2prf(feat_dir, subj_dir, roi, roi_dir)
 
     #-- show retinotopic mapping
     #show_retinotopy(prf_dir, 'ecc')
