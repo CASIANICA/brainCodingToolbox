@@ -391,6 +391,15 @@ def filter_recon(subj_dir, roi, roi_dir):
     fig_dir = os.path.join(roi_dir, 'filters')
     check_path(fig_dir)
     thr = 0.17
+    # gabor bank generation
+    gwt = bob.ip.gabor.Transform()
+    gwt.generate_wavelets(128, 128)
+    spatial_gabors = np.zeros((40, 128, 128))
+    for i in range(40):
+        w = bob.ip.gabor.Wavelet(resolution=(128, 128),
+                        frequency=gwt.wavelet_frequencies[i])
+        sw = bob.sp.ifft(w.wavelet.astype(np.complex128)) 
+        spatial_gabors[i, ...] = np.roll(np.roll(np.real(sw), 64, 0), 64, 1)
     for i in range(sel_models.shape[0]):
         if sel_model_corr[i]<thr:
             continue
@@ -406,14 +415,9 @@ def filter_recon(subj_dir, roi, roi_dir):
         kernel = make_2d_gaussian(128, s, center=(x0, y0))
         kpos = np.nonzero(kernel)
         paras = sel_paras[i]
-        gwt = bob.ip.gabor.Transform()
-        gwt.generate_wavelets(128, 128)
         for gwt_idx in range(40):
             wt = paras[gwt_idx]
-            w = bob.ip.gabor.Wavelet(resolution=(128, 128),
-                                frequency=gwt.wavelet_frequencies[gwt_idx])
-            sw = bob.sp.ifft(w.wavelet.astype(np.complex128)) 
-            arsw = np.roll(np.roll(np.real(sw), 64, 0), 64, 1)
+            arsw = spatial_gabors[gwt_idx]
             for p in range(kpos[0].shape[0]):
                 tmp = img_offset(arsw, (kpos[0][p], kpos[1][p]))
                 filters[i] += wt * kernel[kpos[0][p], kpos[1][p]] * tmp
@@ -670,7 +674,7 @@ if __name__ == '__main__':
 
     #-- pRF model fitting
     # parameter config
-    roi = 'v1lh'
+    roi = 'v1rh'
     roi_dir = os.path.join(prf_dir,  roi)
     check_path(roi_dir)
     if kernel=='round':
