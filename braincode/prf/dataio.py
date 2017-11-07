@@ -14,9 +14,9 @@ def data_swap(nifti_file):
     ndata = np.rollaxis(ndata, 0, 3)
     return ndata
 
-def load_fmri(subj_dir, roi=None):
+def load_vim2_fmri(db_dir, subj_id, roi=None):
     """Load fmri time courses for each voxel within specified ROI."""
-    fmri_file = os.path.join(subj_dir, 'VoxelResponses.mat')
+    fmri_file = os.path.join(db_dir, 'VoxelResponses_subject%s.mat'%(subj_id))
     tf = tables.open_file(fmri_file)
     # create mask
     # train data shape: (73728, 7200)
@@ -28,7 +28,8 @@ def load_fmri(subj_dir, roi=None):
         roi_mask = tf.get_node('/roi/%s'%(roi))[:].flatten()
         vxl_idx = np.nonzero(roi_mask==1)[0]
     else:
-        full_mask_file = os.path.join(subj_dir, 'func_mask.nii.gz')
+        full_mask_file = os.path.join(db_dir, 'func_mask',
+                                'func_mask_subject%s.nii.gz'%(subj_id))
         full_mask = data_swap(full_mask_file).flatten()
         vxl_idx = np.nonzero(full_mask==1)[0]
     vxl_idx = np.intersect1d(vxl_idx, non_nan_idx)
