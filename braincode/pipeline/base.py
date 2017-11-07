@@ -4,7 +4,7 @@
 import os
 import numpy as np
 from joblib import Parallel, delayed
-from brainDecTool.math import corr2_coef, ols_fit, ridge
+from braincode.math import corr2_coef, ols_fit, ridge
 
 
 def random_cross_modal_corr(fmri_ts, feat_ts, voxel_num, iter_num, filename):

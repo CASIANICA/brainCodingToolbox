@@ -10,10 +10,10 @@ from joblib import Parallel, delayed
 from skimage.color import rgb2gray
 from skimage.measure import compare_ssim
 
-from brainDecTool.util import configParser
-from brainDecTool.timeseries import hrf
-from brainDecTool.math import down_sample, img_resize
-from brainDecTool.vim2 import util as vutil
+from braincode.util import configParser
+from braincode.timeseries import hrf
+from braincode.math import down_sample, img_resize
+from braincode.vim2 import util as vutil
 
 
 def img_recon(orig_img):
