@@ -63,7 +63,7 @@ def load_vim1_fmri(db_dir, subj_id, roi=None):
     else:
         vxl_idx = non_nan_idx
     # load fmri response
-    # data shape: (#voxel, 7200/540)
+    # data shape: (#voxel, 1750/XXX)
     train_ts = np.nan_to_num(train_ts[vxl_idx])
     val_ts = tf.get_node('/dataValS%s'%(subj_id))[:]
     val_ts = val_ts.T

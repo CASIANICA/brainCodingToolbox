@@ -14,11 +14,11 @@ def get_gabor_features(img):
     img = img.astype(np.float64)
     gwt = bob.ip.gabor.Transform(number_of_scales=9)
     trafo_img = gwt(img)
-    out_feat = np.zeros((500, 500, 72))
+    out_feat = np.zeros((72, 500, 500))
     for i in range(trafo_img.shape[0]):
         real_p = np.real(trafo_img[i, ...])
         imag_p = np.imag(trafo_img[i, ...])
-        out_feat[..., i] = np.sqrt(np.square(real_p)+np.square(imag_p))
+        out_feat[i, ...] = np.sqrt(np.square(real_p)+np.square(imag_p))
     return out_feat
 
 def get_stim_features(db_dir, feat_dir, data_type):
@@ -32,12 +32,12 @@ def get_stim_features(db_dir, feat_dir, data_type):
             tf = tables.open_file(mat_file)
             imgs = tf.get_node('/stimTrn')[:]
             tf.close()
-            # output matrix: row x col x channel x image-number
+            # output matrix: image-number x channel x row x col
             print 'image size %s'%(imgs.shape[2])
-            out_features = np.zeros((500, 500, 72, imgs.shape[2]))
+            out_features = np.zeros((imgs.shape[2], 72, 500, 500))
             for j in range(imgs.shape[2]):
                 x = imgs[..., j].T
-                out_features[..., j] = get_gabor_features(x)
+                out_features[j, ...] = get_gabor_features(x)
             out_file = prefix['train']+'_%02d_gabor_features.npy'%(i+1)
             out_file = os.path.join(feat_dir, out_file)
             np.save(out_file, out_features)
@@ -46,11 +46,11 @@ def get_stim_features(db_dir, feat_dir, data_type):
         print 'Load file %s ...'%(mat_file)
         tf = tables.open_file(mat_file)
         imgs = tf.get_node('/stimVal')[:]
-        # output matrix: row x col x channel x image-number
-        out_features = np.zeros((500, 500, 72, imgs.shape[2]))
+        # output matrix: image-number x channel x row x col
+        out_features = np.zeros((imgs.shape[2], 72, 500, 500))
         for j in range(imgs.shape[2]):
             x = imgs[..., j].T
-            out_features[..., j] = get_gabor_features(x)
+            out_features[j, ...] = get_gabor_features(x)
         out_file = prefix['val']+'_gabor_features.npy'
         out_file = os.path.join(feat_dir, out_file)
         np.save(out_file, out_features)
