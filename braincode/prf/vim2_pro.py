@@ -605,7 +605,7 @@ if __name__ == '__main__':
     db_dir = os.path.join(db_dir, 'vim2')
     # directory config for analysis
     root_dir = cf.get('base', 'path')
-    stim_dir = os.path.join(root_dir, 'stimulus')
+    stim_dir = os.path.join(root_dir, 'stimulus', 'vim2')
     feat_dir = os.path.join(root_dir, 'sfeatures', 'vim2')
     res_dir = os.path.join(root_dir, 'subjects')
 
@@ -698,7 +698,7 @@ if __name__ == '__main__':
     kernel = 'gaussian'
     roi = 'v1rh'
     # directory config
-    subj_dir = os.path.join(res_dir, 'vS%s'%(subj_id))
+    subj_dir = os.path.join(res_dir, 'vim2_S%s'%(subj_id))
     prf_dir = os.path.join(subj_dir, 'prf', kernel+'_kernel')
     if kernel=='round':
         feat_dir = os.path.join(feat_dir, 'round')
