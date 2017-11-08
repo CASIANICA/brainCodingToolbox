@@ -82,7 +82,7 @@ def get_candidate_model(feat_dir, data_type):
     # 55, 60, 70, 80, 90, 100 pixels) between 0.04 degree (1 pixel) and 4
     # degree (100 pixels)
     out_file = os.path.join(feat_dir, '%s_candidate_model.npy'%(data_type))
-    cand_model = np.memmap(out_file, dtype='float16', model='w+',
+    cand_model = np.memmap(out_file, dtype='float16', mode='w+',
                            shape=(50*50*17, time_count, 72))
     Parallel(n_jobs=4)(delayed(model_pro)(feat_ptr, cand_model, xi, yi, si)
                     for si in range(17) for xi in range(50) for yi in range(50))
@@ -109,7 +109,6 @@ def model_pro(feat_ptr, cand_model, xi, yi, si):
             tmp = feat[idx_head:(idx_head+10), ...]
             tmp = tmp.reshape(720, 250000)
             res = tmp.dot(kernel).astype(np.float16)
-            print res.max(), res.min()
             cand_model[mi, idx_head:(idx_head+10), ...] = res.reshape(10, 72)
             idx_head += 10
 
