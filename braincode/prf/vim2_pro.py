@@ -146,7 +146,7 @@ def get_candidate_model(feat_dir, kernel='gaussian'):
     del val_hue
     # derived gaussian-based features
     # candidate pooling centers are spaced 0.625 degrees apart (4 pixels)
-    # candiante pooling fields included 15 evenly-spaces radii between 0.16
+    # candidate pooling fields included 15 evenly-spaces radii between 0.16
     # degrees (1 pixel) and 7.8 degrees (50 pixels)
     if kernel == 'round':
         feat_dir = os.path.join(feat_dir, 'round')
@@ -168,7 +168,7 @@ def get_candidate_model(feat_dir, kernel='gaussian'):
     np.save(out_val, val_array)
 
 def model_pro(train_in, val_in, train_out, val_out, kernel, xi, yi, si):
-    """Sugar function for generating  candidate model"""
+    """Sugar function for generating candidate model"""
     mi = si*32*32 + xi*32 + yi
     center_x = np.arange(0, 128, 4)
     center_y = np.arange(0, 128, 4)

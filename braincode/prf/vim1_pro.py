@@ -5,8 +5,10 @@ import os
 import numpy as np
 import tables
 import bob.ip.gabor
+from joblib import Parallel, delayed
 
 from braincode.util import configParser
+from braincode.math import make_2d_gaussian
 
 
 def get_gabor_features(img):
@@ -55,6 +57,62 @@ def get_stim_features(db_dir, feat_dir, data_type):
         out_file = os.path.join(feat_dir, out_file)
         np.save(out_file, out_features)
 
+def get_candidate_model(feat_dir, data_type):
+    """Get gaussian kernel based on receptivefield features."""
+    prefix = {'train': 'Stimuli_Trn_FullRes', 'val': 'Stimuli_Val_FullRes'}
+    feat_ptr = []
+    if data_type == 'train':
+        time_count = 0
+        for i in range(15):
+            tmp_file = os.path.join(feat_dir,
+                    prefix['train']+'_%02d_gabor_features.npy'%(i+1))
+            tmp = np.load(tmp_file, mmap_mode='r')
+            time_count += tmp.shape[0]
+            feat_ptr.append(tmp)
+    else:
+        tmp_file = os.path.join(feat_dir, prefix['val']+'_gabor_features.npy')
+        tmp = np.load(tmp_file, mmap_mode='r')
+        time_count = tmp.shape[0]
+        feat_ptr.append(tmp)
+    print 'Time series length: %s'%(time_count)
+
+    # derived gauusian-kernel based features
+    # candidate pooling centers are spaces 0.4 degrees apart (10 pixels)
+    # candidate pooling fields included 17 radii (1, 5, 10, 15, 20, ..., 
+    # 55, 60, 70, 80, 90, 100 pixels) between 0.04 degree (1 pixel) and 4
+    # degree (100 pixels)
+    out_file = os.path.join(feat_dir, '%s_candidate_model.npy'%(data_type))
+    cand_model = np.memmap(out_file, dtype='float16', model='w+',
+                           shape=(50*50*17, time_count, 72))
+    Parallel(n_jobs=4)(delayed(model_pro)(feat_ptr, cand_model, xi, yi, si)
+                    for si in range(17) for xi in range(50) for yi in range(50))
+    # save memmap object as a numpy.array
+    model_array = np.array(cand_model)
+    np.save(out_file, model_array)
+
+def model_pro(feat_ptr, cand_model, xi, yi, si):
+    """Sugar function for generating candidate model."""
+    mi = si*50*50 + xi*50 + yi
+    center_x = np.arange(5, 500, 10)
+    center_y = np.arange(5, 500, 10)
+    sigma = [1] + [n*5 for n in range(1, 13)] + [70, 80, 90, 100]
+    x0 = center_x[xi]
+    y0 = center_y[yi]
+    s = sigma[si]
+    print 'Model %s : center - (%s, %s), sigma %s'%(mi, y0, x0, s)
+    kernel = make_2d_gaussian(500, s, center=(x0, y0))
+    kernel = kernel.flatten()
+    idx_head = 0
+    for feat in feat_ptr:
+        parts = feat.shape[0] / 10
+        for i in range(parts):
+            tmp = feat[idx_head:(idx_head+10), ...]
+            tmp = tmp.reshape(720, 250000)
+            res = tmp.dot(kernel).astype(np.float16)
+            print res.max(), res.min()
+            cand_model[mi, idx_head:(idx_head+10), ...] = res.reshape(10, 72)
+            idx_head += 10
+
 def stim_downsample():
     """Stimuli processing."""
     #db_dir = r'/home/huanglijie/workingdir/brainDecoding/vim1/gabor_features'
@@ -96,5 +154,7 @@ if __name__ == '__main__':
     res_dir = os.path.join(root_dir, 'subjects')
  
     # get gabor features
-    get_stim_features(db_dir, feat_dir, 'train')
+    #get_stim_features(db_dir, feat_dir, 'train')
+    # get candidate models
+    get_candidate_model(feat_dir, 'val')
 
