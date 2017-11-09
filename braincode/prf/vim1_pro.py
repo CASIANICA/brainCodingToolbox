@@ -59,38 +59,57 @@ def get_stim_features(db_dir, feat_dir, data_type):
 
 def get_candidate_model(feat_dir, data_type):
     """Get gaussian kernel based on receptivefield features."""
+    # derived gauusian-kernel based features
+    # candidate pooling centers are spaces 0.4 degrees apart (10 pixels)
+    # candidate pooling fields included 17 radii (1, 5, 10, 15, 20, ..., 
+    # 55, 60, 70, 80, 90, 100 pixels) between 0.04 degree (1 pixel) and 4
+    # degree (100 pixels)
     prefix = {'train': 'Stimuli_Trn_FullRes', 'val': 'Stimuli_Val_FullRes'}
     feat_ptr = []
-    if data_type == 'train':
+    if data_type=='train':
         time_count = 0
         for i in range(15):
             tmp_file = os.path.join(feat_dir,
                     prefix['train']+'_%02d_gabor_features.npy'%(i+1))
             tmp = np.load(tmp_file, mmap_mode='r')
             time_count += tmp.shape[0]
-            feat_ptr.append(tmp)
+            out_file = os.path.join(feat_dir,
+                                    'train_candidate_model_%02d.npy'%(i+1))
+            cand_model = np.memmap(out_file, dtype='float16', mode='w+',
+                    shape=(50*50*17, tmp.shape[0], 72))
+            Parallel(n_jobs=4)(delayed(model_pro)(tmp, cand_model, xi, yi, si)
+                    for si in range(17) for xi in range(50) for yi in range(50))
+            # save memmap object as a numpy.array
+            model_array = np.array(cand_model)
+            np.save(out_file, model_array)
+        # merge parts
+        print 'Time series length: %s'%(time_count)
+        out_file = os.path.join(feat_dir, 'train_candidate_model.npy')
+        cand_model = np.memmap(out_file, dtype='float16', mode='w+',
+                               shape=(50*50*17, time_count, 72))
+        c = 0
+        for i in range(15):
+            pf = os.path.join(feat_dir, 'train_candidate_model_%02d.npy'%(i+1))
+            data = np.load(pf)
+            cand_model[:, c:(c+data.shape[1]), :] = data
+            c += data.shape[1]
+        # save memmap object as a numpy.array
+        model_array = np.array(cand_model)
+        np.save(out_file, model_array)
     else:
         tmp_file = os.path.join(feat_dir, prefix['val']+'_gabor_features.npy')
         tmp = np.load(tmp_file, mmap_mode='r')
         time_count = tmp.shape[0]
-        feat_ptr.append(tmp)
-    print 'Time series length: %s'%(time_count)
-
-    # derived gauusian-kernel based features
-    # candidate pooling centers are spaces 0.4 degrees apart (10 pixels)
-    # candidate pooling fields included 17 radii (1, 5, 10, 15, 20, ..., 
-    # 55, 60, 70, 80, 90, 100 pixels) between 0.04 degree (1 pixel) and 4
-    # degree (100 pixels)
-    out_file = os.path.join(feat_dir, '%s_candidate_model.npy'%(data_type))
-    cand_model = np.memmap(out_file, dtype='float16', mode='w+',
-                           shape=(50*50*17, time_count, 72))
-    Parallel(n_jobs=4)(delayed(model_pro)(feat_ptr, cand_model, xi, yi, si)
+        out_file = os.path.join(feat_dir, '%s_candidate_model.npy'%(data_type))
+        cand_model = np.memmap(out_file, dtype='float16', mode='w+',
+                               shape=(50*50*17, time_count, 72))
+        Parallel(n_jobs=4)(delayed(model_pro)(tmp, cand_model, xi, yi, si)
                     for si in range(17) for xi in range(50) for yi in range(50))
-    # save memmap object as a numpy.array
-    model_array = np.array(cand_model)
-    np.save(out_file, model_array)
+        # save memmap object as a numpy.array
+        model_array = np.array(cand_model)
+        np.save(out_file, model_array)
 
-def model_pro(feat_ptr, cand_model, xi, yi, si):
+def model_pro(feat, cand_model, xi, yi, si):
     """Sugar function for generating candidate model."""
     mi = si*50*50 + xi*50 + yi
     center_x = np.arange(5, 500, 10)
@@ -103,14 +122,13 @@ def model_pro(feat_ptr, cand_model, xi, yi, si):
     kernel = make_2d_gaussian(500, s, center=(x0, y0))
     kernel = kernel.flatten()
     idx_head = 0
-    for feat in feat_ptr:
-        parts = feat.shape[0] / 10
-        for i in range(parts):
-            tmp = feat[idx_head:(idx_head+10), ...]
-            tmp = tmp.reshape(720, 250000)
-            res = tmp.dot(kernel).astype(np.float16)
-            cand_model[mi, idx_head:(idx_head+10), ...] = res.reshape(10, 72)
-            idx_head += 10
+    parts = feat.shape[0] / 10
+    for i in range(parts):
+        tmp = feat[(i*10):(i*10+10), ...]
+        tmp = tmp.reshape(720, 250000)
+        res = tmp.dot(kernel).astype(np.float16)
+        cand_model[mi, idx_head:(idx_head+10), ...] = res.reshape(10, 72)
+        idx_head += 10
 
 def stim_downsample():
     """Stimuli processing."""
