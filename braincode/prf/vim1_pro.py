@@ -9,9 +9,13 @@ from joblib import Parallel, delayed
 
 from braincode.util import configParser
 from braincode.math import make_2d_gaussian, ridge
-from brain.math.norm import zscore
-from brain.prf import dataio
+from braincode.math.norm import zscore
+from braincode.prf import dataio
 
+
+def check_path(dir_path):
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path, 0755)
 
 def get_gabor_features(img):
     """Get Gabor features from input image."""
@@ -171,8 +175,19 @@ def ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi):
     # model testing
     for i in range(42500):
         print 'Model %s'%(i)
+        # remove models which centered outside the 20 degree of visual angle
+        xi = (i % 2500) / 50
+        yi = (i % 2500) % 50
+        x0 = np.arange(5, 500, 10)[xi]
+        y0 = np.arange(5, 500, 10)[yi]
+        d = np.sqrt(np.square(x0-250)+np.square(y0-250))
+        if d > 249:
+            print 'Model center outside the visual angle'
+            paras[i, ...] = np.NaN
+            mcorr[i] = np.NaN
+            alphas[i] = np.NaN
+            continue
         train_x = np.array(train_models[i, ...]).astype(np.float64)
-        # TODO: modify this line
         train_x = zscore(train_x.T).T
         # split training dataset into model tunning and selection sets
         tune_x = train_x[:int(1750*0.9), :]
