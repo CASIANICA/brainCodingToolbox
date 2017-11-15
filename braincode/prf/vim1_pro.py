@@ -228,7 +228,7 @@ def prf_selection(feat_dir, prf_dir, db_dir, subj_id, roi):
     sel_model = np.zeros(mcorr.shape[1])
     sel_model_corr = np.zeros(mcorr.shape[1])
     for i in range(mcorr.shape[1]):
-        maxi = np.argmax(mcorr[:, i])
+        maxi = np.argmax(np.nan_to_num(mcorr[:, i]))
         print 'Voxel %s - Max corr %s - Model %s'%(i, mcorr[maxi, i], maxi)
         print 'Alpha : %s'%(alphas[maxi, i])
         sel_paras[i] = paras[maxi, i]
@@ -267,6 +267,6 @@ if __name__ == '__main__':
 
     #-- pRF model fitting
     # pRF model tunning
-    ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
-    #prf_selection(feat_dir, prf_dir, db_dir, subj_id, roi)
+    #ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
+    prf_selection(feat_dir, prf_dir, db_dir, subj_id, roi)
 
