@@ -350,7 +350,7 @@ def gabor_contribution2prf(feat_dir, prf_dir, db_dir, subj_id, roi):
 def prf_recon(prf_dir, db_dir, subj_id, roi):
     """Reconstruct pRF based on selected model."""
     # load fmri response
-    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.loadvim2__fmri(db_dir, subj_id,
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_vim2_fmri(db_dir, subj_id,
                                                                 roi=roi)
     del train_fmri_ts
     del val_fmri_ts
@@ -394,7 +394,7 @@ def prf_recon(prf_dir, db_dir, subj_id, roi):
 def filter_recon(prf_dir, db_dir, subj_id, roi):
     """Reconstruct filter map of each voxel based on selected model."""
     # load fmri response
-    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.loadvim2__fmri(db_dir, subj_id,
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_vim2_fmri(db_dir, subj_id,
                                                                 roi=roi)
     del train_fmri_ts
     del val_fmri_ts

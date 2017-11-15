@@ -269,6 +269,157 @@ def null_distribution_prf_tunning(feat_dir, prf_dir, db_dir, subj_id, roi):
             null_corr[i, j] = np.corrcoef(pred, shuffled_val_ts)[0, 1]
     np.save(os.path.join(roi_dir, 'random_corr.npy'), null_corr)
 
+def gabor_contribution2prf(feat_dir, prf_dir, db_dir, subj_id, roi):
+    """Calculate tunning contribution of each gabor sub-banks."""
+    # load fmri response
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_vim1_fmri(db_dir, subj_id,
+                                                                roi=roi)
+    del train_fmri_ts
+    print 'Voxel number: %s'%(len(vxl_idx))
+    # load candidate models
+    val_models = np.load(os.path.join(feat_dir, 'val_candidate_model.npy'),
+                         mmap_mode='r')
+    # load selected model parameters
+    roi_dir = os.path.join(prf_dir, roi)
+    paras = np.load(os.path.join(roi_dir, 'reg_sel_paras.npy'))
+    sel_model = np.load(os.path.join(roi_dir, 'reg_sel_model.npy'))
+    gabor_corr = np.zeros((paras.shape[0], 9))
+    for i in range(paras.shape[0]):
+        print 'Voxel %s'%(i)
+        # load features
+        feats = np.array(val_models[int(sel_model[i]), ...]).astype(np.float64)
+        feats = zscore(feats).T
+        for j in range(9):
+            pred = np.dot(feats[:, (j*8):(j*8+8)], paras[i, (j*8):(j*8+8)])
+            gabor_corr[i, j] = np.corrcoef(pred, val_fmri_ts[i])[0, 1]
+    np.save(os.path.join(roi_dir, 'gabor_contributes.npy'), gabor_corr)
+
+def prf_recon(prf_dir, db_dir, subj_id, roi):
+    """Reconstruct pRF based on selected model."""
+    # load fmri response
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_vim1_fmri(db_dir, subj_id,
+                                                                roi=roi)
+    del train_fmri_ts
+    del val_fmri_ts
+    print 'Voxel number: %s'%(len(vxl_idx))
+    # output directory config
+    roi_dir = os.path.join(prf_dir, roi)
+    # pRF estimate
+    sel_models = np.load(os.path.join(roi_dir, 'reg_sel_model.npy'))
+    sel_paras = np.load(os.path.join(roi_dir, 'reg_sel_paras.npy'))
+    sel_model_corr = np.load(os.path.join(roi_dir, 'reg_sel_model_corr.npy'))
+    prfs = np.zeros((sel_models.shape[0], 500, 500))
+    fig_dir = os.path.join(roi_dir, 'figs')
+    check_path(fig_dir)
+    for i in range(sel_models.shape[0]):
+        # get pRF
+        print 'Voxel %s, Val Corr %s'%(i, sel_model_corr[i])
+        model_idx = int(sel_models[i])
+        # get gaussian pooling field parameters
+        si = model_idx / 2500
+        xi = (model_idx % 2500) / 50
+        yi = (model_idx % 2500) % 50
+        x0 = np.arange(5, 500, 10)[xi]
+        y0 = np.arange(5, 500, 10)[yi]
+        sigma = [1] + [n*5 for n in range(1, 13)] + [70, 80, 90, 100]
+        s = sigma[si]
+        kernel = make_2d_gaussian(500, s, center=(x0, y0))
+        kpos = np.nonzero(kernel)
+        paras = sel_paras[i]
+        for f in range(9):
+            fwt = np.sum(paras[(f*8):(f*8+8)])
+            fs = np.sqrt(2)**f*4
+            for p in range(kpos[0].shape[0]):
+                tmp = make_2d_gaussian(500, fs, center=(kpos[1][p],
+                                                        kpos[0][p]))
+                prfs[i] += fwt * kernel[kpos[0][p], kpos[1][p]] * tmp
+        if sel_model_corr[i]>=0.24:
+            prf_file = os.path.join(fig_dir,'Voxel_%s_%s.png'%(i+1, vxl_idx[i]))
+            vutil.save_imshow(prfs[i], prf_file)
+    np.save(os.path.join(roi_dir, 'prfs.npy'), prfs)
+
+def filter_recon(prf_dir, db_dir, subj_id, roi):
+    """Reconstruct filter map of each voxel based on selected model."""
+    # load fmri response
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_vim1_fmri(db_dir, subj_id,
+                                                                roi=roi)
+    del train_fmri_ts
+    del val_fmri_ts
+    print 'Voxel number: %s'%(len(vxl_idx))
+    # output config
+    roi_dir os.path.join(prf_dir, roi)
+    # pRF estimate
+    sel_models = np.load(os.path.join(roi_dir, 'reg_sel_model.npy'))
+    sel_paras = np.load(os.path.join(roi_dir, 'reg_sel_paras.npy'))
+    sel_model_corr = np.load(os.path.join(roi_dir, 'reg_sel_model_corr.npy'))
+    filters = np.zeros((sel_models.shape[0], 500, 500))
+    fig_dir = os.path.join(roi_dir, 'filters')
+    check_path(fig_dir)
+    thr = 0.24
+    # gabor bank generation
+    gwt = bob.ip.gabor.Transform(number_of_scales=9)
+    gwt.generate_wavelets(500, 500)
+    spatial_gabors = np.zeros((72, 500, 500))
+    for i in range(72):
+        w = bob.ip.gabor.Wavelet(resolution=(500, 500),
+                        frequency=gwt.wavelet_frequencies[i])
+        sw = bob.sp.ifft(w.wavelet.astype(np.complex128)) 
+        spatial_gabors[i, ...] = np.roll(np.roll(np.real(sw), 250, 0), 250, 1)
+    for i in range(sel_models.shape[0]):
+        if sel_model_corr[i]<thr:
+            continue
+        print 'Voxel %s, Val Corr %s'%(i, sel_model_corr[i])
+        model_idx = int(sel_models[i])
+        # get gaussian pooling field parameters
+        si = model_idx / 2500
+        xi = (model_idx % 2500) / 50
+        yi = (model_idx % 2500) % 50
+        x0 = np.arange(5, 500, 10)[xi]
+        y0 = np.arange(5, 500, 10)[yi]
+        sigma = [1] + [n*5 for n in range(1, 13)] + [70, 80, 90, 100]
+        s = sigma[si]
+        kernel = make_2d_gaussian(500, s, center=(x0, y0))
+        kpos = np.nonzero(kernel)
+        paras = sel_paras[i]
+        for gwt_idx in range(72):
+            wt = paras[gwt_idx]
+            arsw = spatial_gabors[gwt_idx]
+            for p in range(kpos[0].shape[0]):
+                tmp = img_offset(arsw, (kpos[0][p], kpos[1][p]))
+                filters[i] += wt * kernel[kpos[0][p], kpos[1][p]] * tmp
+        if sel_model_corr[i]>=thr:
+            im_file = os.path.join(fig_dir, 'Voxel_%s_%s.png'%(i+1, vxl_idx[i]))
+            vutil.save_imshow(filters[i], im_file)
+    np.save(os.path.join(roi_dir, 'filters.npy'), filters)
+
+def stimuli_recon(prf_dir, db_dir, subj_id, roi):
+    """Reconstruct stimulus based on pRF model."""
+    # load fmri response
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_vim1_fmri(db_dir, subj_id,
+                                                                roi=roi)
+    del train_fmri_ts
+    print 'Voxel number: %s'%(len(vxl_idx))
+    # load model parameters
+    roi_dir = os.path.join(prf_dir, roi)
+    val_corr = np.load(os.path.join(roi_dir, 'reg_sel_model_corr.npy'))
+    filters = np.load(os.path.join(roi_dir, 'filters.npy'))
+    recon_imgs = np.zeros((val_fmri_ts.shape[1], 500, 500))
+    # fMRI data z-score
+    print 'fmri data temporal z-score'
+    m = np.mean(val_fmri_ts, axis=1, keepdims=True)
+    s = np.std(val_fmri_ts, axis=1, keepdims=True)
+    val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
+    # select significant predicted voxels
+    sel_vxls = np.nonzero(val_corr>=0.24)[0]
+    for i in range(val_fmri_ts.shape[1]):
+        print 'Reconstruct stimilus %s'%(i+1)
+        tmp = np.zeros((500, 500))
+        for j in sel_vxls:
+            tmp += val_fmri_ts[int(j), int(i)] * filters[j]
+        recon_imgs[i] = tmp
+    np.save(os.path.join(roi_dir, 'recon_img.npy'), recon_imgs)
+
+
 if __name__ == '__main__':
     """Main function."""
     # config parser
@@ -297,5 +448,13 @@ if __name__ == '__main__':
     #ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
     #prf_selection(feat_dir, prf_dir, db_dir, subj_id, roi)
     # get null distribution of tunning performance
-    null_distribution_prf_tunning(feat_dir, prf_dir, db_dir, subj_id, roi)
+    #null_distribution_prf_tunning(feat_dir, prf_dir, db_dir, subj_id, roi)
+    # calculate tunning contribution of each gabor sub-banks
+    gabor_contribution2prf(feat_dir, prf_dir, db_dir, subj_id, roi)
+    # pRF reconstruction
+    #prf_recon(prf_dir, db_dir, subj_id, roi)
+    # filter reconstruction
+    #filter_recon(prf_dir, db_dir, subj_id, roi)
+    # validation stimuli reconstruction
+    #stimuli_recon(prf_dir, db_dir, subj_id, roi)
 
