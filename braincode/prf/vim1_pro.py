@@ -242,6 +242,33 @@ def prf_selection(feat_dir, prf_dir, db_dir, subj_id, roi):
     np.save(os.path.join(roi_dir, 'reg_sel_model.npy'), sel_model)
     np.save(os.path.join(roi_dir, 'reg_sel_model_corr.npy'), sel_model_corr)
 
+def null_distribution_prf_tunning(feat_dir, prf_dir, db_dir, subj_id, roi):
+    """Generate Null distribution of pRF model tunning using validation data."""
+    # load fmri response
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_vim1_fmri(db_dir, subj_id,
+                                                                roi=roi)
+    del train_fmri_ts
+    print 'Voxel number: %s'%(len(vxl_idx))
+    # load candidate models
+    val_models = np.load(os.path.join(feat_dir, 'val_candidate_model.npy'),
+                         mmap_mode='r')
+    # output directory config
+    roi_dir = os.path.join(prf_dir, roi)
+    # load selected model parameters
+    paras = np.load(os.path.join(roi_dir, 'reg_sel_paras.npy'))
+    sel_model = np.load(os.path.join(roi_dir, 'reg_sel_model.npy'))
+    null_corr = np.zeros((paras.shape[0], 1000))
+    for i in range(paras.shape[0]):
+        print 'Voxel %s'%(i)
+        # load features
+        feats = np.array(val_models[int(sel_model[i]), ...]).astype(np.float64)
+        feats = zscore(feats.T).T
+        pred = np.dot(feats, paras[i])
+        for j in range(1000):
+            shuffled_val_ts = np.random.permutation(val_fmri_ts[i])
+            null_corr[i, j] = np.corrcoef(pred, shuffled_val_ts)[0, 1]
+    np.save(os.path.join(roi_dir, 'random_corr.npy'), null_corr)
+
 if __name__ == '__main__':
     """Main function."""
     # config parser
@@ -268,5 +295,7 @@ if __name__ == '__main__':
     #-- pRF model fitting
     # pRF model tunning
     #ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
-    prf_selection(feat_dir, prf_dir, db_dir, subj_id, roi)
+    #prf_selection(feat_dir, prf_dir, db_dir, subj_id, roi)
+    # get null distribution of tunning performance
+    null_distribution_prf_tunning(feat_dir, prf_dir, db_dir, subj_id, roi)
 
