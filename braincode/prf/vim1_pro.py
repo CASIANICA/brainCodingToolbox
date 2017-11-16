@@ -379,6 +379,7 @@ def filter_recon(prf_dir, db_dir, subj_id, roi):
         y0 = np.arange(5, 500, 10)[yi]
         sigma = [1] + [n*5 for n in range(1, 13)] + [70, 80, 90, 100]
         s = sigma[si]
+        print 'center: %s, %s, sigma: %s'%(y0, x0, s)
         kernel = make_2d_gaussian(500, s, center=(x0, y0))
         kpos = np.nonzero(kernel)
         paras = sel_paras[i]
@@ -386,11 +387,11 @@ def filter_recon(prf_dir, db_dir, subj_id, roi):
             wt = paras[gwt_idx]
             arsw = spatial_gabors[gwt_idx]
             for p in range(kpos[0].shape[0]):
+                print '%s / %s'%(p, kpos[0].shape[0])
                 tmp = img_offset(arsw, (kpos[0][p], kpos[1][p]))
                 filters[i] += wt * kernel[kpos[0][p], kpos[1][p]] * tmp
-        if sel_model_corr[i]>=thr:
-            im_file = os.path.join(fig_dir, 'Voxel_%s_%s.png'%(i+1, vxl_idx[i]))
-            vutil.save_imshow(filters[i], im_file)
+        im_file = os.path.join(fig_dir, 'Voxel_%s_%s.png'%(i+1, vxl_idx[i]))
+        vutil.save_imshow(filters[i], im_file)
     np.save(os.path.join(roi_dir, 'filters.npy'), filters)
 
 def stimuli_recon(prf_dir, db_dir, subj_id, roi):
