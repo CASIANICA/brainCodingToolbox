@@ -501,9 +501,9 @@ if __name__ == '__main__':
     # pRF reconstruction
     #prf_recon(prf_dir, db_dir, subj_id, roi)
     # filter reconstruction
-    #filter_recon(prf_dir, db_dir, subj_id, roi)
+    filter_recon(prf_dir, db_dir, subj_id, roi)
     # validation stimuli reconstruction
     #stimuli_recon(prf_dir, db_dir, subj_id, roi)
     # retinotopic mapping
-    retinotopic_mapping(prf_dir, roi)
+    #retinotopic_mapping(prf_dir, roi)
 
