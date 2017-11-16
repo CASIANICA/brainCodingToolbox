@@ -386,7 +386,7 @@ def filter_recon(prf_dir, db_dir, subj_id, roi):
         tmp_file = os.path.join(fig_dir, 'tmp_kernel.npy')
         tmp_filter = np.memmap(tmp_file, dtype='float64', mode='w+',
                                shape=(72, 500, 500))
-        Parallel(n_jobs=10)(delayed(filter_pro)(tmp_filter, paras, kernel,
+        Parallel(n_jobs=20)(delayed(filter_pro)(tmp_filter, paras, kernel,
                                                 kpos, spatial_gabors, gwt_idx)
                                     for gwt_idx in range(72))
         tmp_filter = np.array(tmp_filter)
@@ -403,11 +403,14 @@ def filter_recon(prf_dir, db_dir, subj_id, roi):
     np.save(os.path.join(roi_dir, 'filters.npy'), filters)
 
 def filter_pro(tmp_filter, paras, kernel, kpos, spatial_gabors, gwt_idx):
+    print gwt_idx
+    data = np.zeros((500, 500))
     wt = paras[gwt_idx]
     arsw = spatial_gabors[gwt_idx]
     for p in range(kpos[0].shape[0]):
         tmp = img_offset(arsw, (kpos[0][p], kpos[1][p]))
-        tmp_filter[gwt_idx] += wt * kernel[kpos[0][p], kpos[1][p]] * tmp
+        data += wt * kernel[kpos[0][p], kpos[1][p]] * tmp
+    tmp_filter[gwt_idx] = data
 
 def stimuli_recon(prf_dir, db_dir, subj_id, roi):
     """Reconstruct stimulus based on pRF model."""
