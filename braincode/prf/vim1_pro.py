@@ -288,7 +288,7 @@ def gabor_contribution2prf(feat_dir, prf_dir, db_dir, subj_id, roi):
         print 'Voxel %s'%(i)
         # load features
         feats = np.array(val_models[int(sel_model[i]), ...]).astype(np.float64)
-        feats = zscore(feats).T
+        feats = zscore(feats.T).T
         for j in range(9):
             pred = np.dot(feats[:, (j*8):(j*8+8)], paras[i, (j*8):(j*8+8)])
             gabor_corr[i, j] = np.corrcoef(pred, val_fmri_ts[i])[0, 1]
@@ -347,7 +347,7 @@ def filter_recon(prf_dir, db_dir, subj_id, roi):
     del val_fmri_ts
     print 'Voxel number: %s'%(len(vxl_idx))
     # output config
-    roi_dir os.path.join(prf_dir, roi)
+    roi_dir = os.path.join(prf_dir, roi)
     # pRF estimate
     sel_models = np.load(os.path.join(roi_dir, 'reg_sel_model.npy'))
     sel_paras = np.load(os.path.join(roi_dir, 'reg_sel_paras.npy'))
@@ -419,6 +419,31 @@ def stimuli_recon(prf_dir, db_dir, subj_id, roi):
         recon_imgs[i] = tmp
     np.save(os.path.join(roi_dir, 'recon_img.npy'), recon_imgs)
 
+def retinotopic_mapping(prf_dir, roi):
+    """Get eccentricity and angle based on pRF center for each voxel."""
+    roi_dir = os.path.join(prf_dir, roi)
+    # load selected model index
+    sel_models = np.load(os.path.join(roi_dir, 'reg_sel_model.npy'))
+    # output variables
+    ecc = np.zeros_like(sel_models)
+    angle = np.zeros_like(sel_models)
+    coords = np.zeros((sel_models.shape[0], 2))
+    for i in range(sel_models.shape[0]):
+        print 'Voxel %s'%(i+1)
+        model_idx = int(sel_models[i])
+        xi = (model_idx % 2500) / 50
+        yi = (model_idx % 2500) % 50
+        # col
+        x0 = np.arange(5, 500, 10)[xi]
+        # row
+        y0 = np.arange(5, 500, 10)[yi]
+        coords[i] = [y0, x0]
+    # get ecc and angle
+    ecc = retinotopy.coord2ecc(coords, 500, 20)
+    angle = retinotopy.coord2angle(coords, 500)
+    np.save(os.path.join(roi_dir, 'ecc.npy'), ecc)
+    np.save(os.path.join(roi_dir, 'angle.npy'), angle)
+
 
 if __name__ == '__main__':
     """Main function."""
@@ -457,4 +482,6 @@ if __name__ == '__main__':
     #filter_recon(prf_dir, db_dir, subj_id, roi)
     # validation stimuli reconstruction
     #stimuli_recon(prf_dir, db_dir, subj_id, roi)
+    # retinotopic mapping
+    #retinotopic_mapping(prf_dir, roi)
 
