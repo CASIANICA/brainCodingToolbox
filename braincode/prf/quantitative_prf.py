@@ -83,3 +83,30 @@ def load_gabor_contrib(roi_dir):
                  'ecc': np.repeat(ecc[sel_vxl], 5)}
     return pd.DataFrame(hemi_dict)
 
+def vim1_plot_gabor_contrib(prf_dir, roi):
+    """Plot tunning contribution of each gabor sub-banks VS. ecc."""
+    roi_dir = os.path.join(prf_dir, roi)
+    if not os.path.exists(roi_dir):
+        print '%s data does not exists'%(roi)
+        return
+    # if roi_dir exists, load prf data
+    df = vim1_load_gabor_contrib(roi_dir))
+    # plot
+    sns.set(color_codes=True)
+    g = sns.lmplot(x='ecc', y='corr', hue='frequency', col='frequency',
+                   data=df, order=2, x_bins=np.arange(1, 11, 1))
+    g.savefig('%s_gabor_contrib.png'%(roi))
+
+def vim1_load_gabor_contrib(roi_dir):
+    """Load tunning contribution of different gabor sub-banks."""
+    ecc = np.load(os.path.join(roi_dir, 'ecc.npy'))
+    gabor_corr = np.load(os.path.join(roi_dir, 'gabor_contributes.npy'))
+    val_corr = np.load(os.path.join(roi_dir, 'reg_sel_model_corr.npy'))
+    # select significantly predicted voxels
+    thr = 0.24
+    sel_vxl = val_corr>=thr
+    hemi_dict = {'corr': gabor_corr[sel_vxl, :].flatten(),
+                 'frequency': [1, 2, 3, 4, 5, 6, 7, 8, 9] * sel_vxl.sum(),
+                 'ecc': np.repeat(ecc[sel_vxl], 9)}
+    return pd.DataFrame(hemi_dict)
+
