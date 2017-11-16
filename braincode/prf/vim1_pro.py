@@ -386,11 +386,11 @@ def filter_recon(prf_dir, db_dir, subj_id, roi):
         tmp_file = os.path.join(fig_dir, 'tmp_kernel.npy')
         tmp_filter = np.memmap(tmp_file, dtype='float64', mode='w+',
                                shape=(72, 500, 500))
-        Parallel(n_jobs=20)(delayed(filter_pro)(tmp_filter, paras, kernel,
+        Parallel(n_jobs=25)(delayed(filter_pro)(tmp_filter, paras, kernel,
                                                 kpos, spatial_gabors, gwt_idx)
                                     for gwt_idx in range(72))
         tmp_filter = np.array(tmp_filter)
-        filters[i] = tmp_filters.sum(axis=0)
+        filters[i] = tmp_filter.sum(axis=0)
         os.system('rm %s'%(tmp_file))
         #for gwt_idx in range(72):
         #    wt = paras[gwt_idx]
