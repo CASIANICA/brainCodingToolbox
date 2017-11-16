@@ -11,6 +11,7 @@ from braincode.util import configParser
 from braincode.math import make_2d_gaussian, ridge
 from braincode.math.norm import zscore
 from braincode.prf import dataio
+from braincode.pipeline import retinotopy
 
 
 def check_path(dir_path):
@@ -475,7 +476,7 @@ if __name__ == '__main__':
     # get null distribution of tunning performance
     #null_distribution_prf_tunning(feat_dir, prf_dir, db_dir, subj_id, roi)
     # calculate tunning contribution of each gabor sub-banks
-    gabor_contribution2prf(feat_dir, prf_dir, db_dir, subj_id, roi)
+    #gabor_contribution2prf(feat_dir, prf_dir, db_dir, subj_id, roi)
     # pRF reconstruction
     #prf_recon(prf_dir, db_dir, subj_id, roi)
     # filter reconstruction
@@ -483,5 +484,5 @@ if __name__ == '__main__':
     # validation stimuli reconstruction
     #stimuli_recon(prf_dir, db_dir, subj_id, roi)
     # retinotopic mapping
-    #retinotopic_mapping(prf_dir, roi)
+    retinotopic_mapping(prf_dir, roi)
 
