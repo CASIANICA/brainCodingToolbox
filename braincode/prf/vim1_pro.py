@@ -383,15 +383,31 @@ def filter_recon(prf_dir, db_dir, subj_id, roi):
         kernel = make_2d_gaussian(500, s, center=(x0, y0))
         kpos = np.nonzero(kernel>0.00000001)
         paras = sel_paras[i]
-        for gwt_idx in range(72):
-            wt = paras[gwt_idx]
-            arsw = spatial_gabors[gwt_idx]
-            for p in range(kpos[0].shape[0]):
-                tmp = img_offset(arsw, (kpos[0][p], kpos[1][p]))
-                filters[i] += wt * kernel[kpos[0][p], kpos[1][p]] * tmp
+        tmp_file = os.path.join(fig_dir, 'tmp_kernel.npy')
+        tmp_filter = np.memmap(tmp_file, dtype='float64', mode='w+',
+                               shape=(72, 500, 500))
+        Parallel(n_jobs=10)(delayed(filter_pro)(tmp_filter, paras, kernel,
+                                                kpos, spatial_gabors, gwt_idx)
+                                    for gwt_idx in range(72))
+        tmp_filter = np.array(tmp_filter)
+        filters[i] = tmp_filters.sum(axis=0)
+        os.system('rm %s'%(tmp_file))
+        #for gwt_idx in range(72):
+        #    wt = paras[gwt_idx]
+        #    arsw = spatial_gabors[gwt_idx]
+        #    for p in range(kpos[0].shape[0]):
+        #        tmp = img_offset(arsw, (kpos[0][p], kpos[1][p]))
+        #        filters[i] += wt * kernel[kpos[0][p], kpos[1][p]] * tmp
         im_file = os.path.join(fig_dir, 'Voxel_%s_%s.png'%(i+1, vxl_idx[i]))
         vutil.save_imshow(filters[i], im_file)
     np.save(os.path.join(roi_dir, 'filters.npy'), filters)
+
+def filter_pro(tmp_filter, paras, kernel, kpos, spatial_gabors, gwt_idx):
+    wt = paras[gwt_idx]
+    arsw = spatial_gabors[gwt_idx]
+    for p in range(kpos[0].shape[0]):
+        tmp = img_offset(arsw, (kpos[0][p], kpos[1][p]))
+        tmp_filter[gwt_idx] += wt * kernel[kpos[0][p], kpos[1][p]] * tmp
 
 def stimuli_recon(prf_dir, db_dir, subj_id, roi):
     """Reconstruct stimulus based on pRF model."""
