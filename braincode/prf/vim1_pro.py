@@ -444,6 +444,26 @@ def retinotopic_mapping(prf_dir, roi):
     np.save(os.path.join(roi_dir, 'ecc.npy'), ecc)
     np.save(os.path.join(roi_dir, 'angle.npy'), angle)
 
+def img_offset(orig_img, new_center):
+    """Move original image to new position based on new center coordinate.
+    new_center is (x0, y0), x0 indicates row coordinate, y0 indicates col
+    coordinate.
+    """
+    img_r, img_c = orig_img.shape
+    new_img = np.zeros_like(orig_img)
+    # move image position based on new center coordinates
+    old_x0 = img_r // 2
+    old_y0 = img_c // 2
+    offset0 = int(np.rint(new_center[0] - old_x0))
+    offset1 = int(np.rint(new_center[1] - old_y0))
+    pixs = np.mgrid[0:img_r, 0:img_c].reshape(2, img_r*img_c)
+    new_x = pixs[0] + offset0
+    new_y = pixs[1] + offset1
+    pix_idx = (new_x>=0) * (new_x<img_r) * (new_y>=0) * (new_y<img_c)
+    new_img[new_x[pix_idx], new_y[pix_idx]] = orig_img[pixs[0, pix_idx],
+                                                       pixs[1, pix_idx]]
+    return new_img
+
 
 if __name__ == '__main__':
     """Main function."""
