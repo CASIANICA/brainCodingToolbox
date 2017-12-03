@@ -11,6 +11,7 @@ from braincode.util import configParser
 from braincode.math import make_2d_gaussian, ridge
 from braincode.math.norm import zscore
 from braincode.prf import dataio
+from braincode.prf import util as vutil
 from braincode.pipeline import retinotopy
 
 
@@ -392,18 +393,11 @@ def filter_recon(prf_dir, db_dir, subj_id, roi):
         tmp_filter = np.array(tmp_filter)
         filters[i] = tmp_filter.sum(axis=0)
         os.system('rm %s'%(tmp_file))
-        #for gwt_idx in range(72):
-        #    wt = paras[gwt_idx]
-        #    arsw = spatial_gabors[gwt_idx]
-        #    for p in range(kpos[0].shape[0]):
-        #        tmp = img_offset(arsw, (kpos[0][p], kpos[1][p]))
-        #        filters[i] += wt * kernel[kpos[0][p], kpos[1][p]] * tmp
         im_file = os.path.join(fig_dir, 'Voxel_%s_%s.png'%(i+1, vxl_idx[i]))
         vutil.save_imshow(filters[i], im_file)
     np.save(os.path.join(roi_dir, 'filters.npy'), filters)
 
 def filter_pro(tmp_filter, paras, kernel, kpos, spatial_gabors, gwt_idx):
-    print gwt_idx
     data = np.zeros((500, 500))
     wt = paras[gwt_idx]
     arsw = spatial_gabors[gwt_idx]
