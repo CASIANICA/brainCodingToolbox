@@ -26,7 +26,8 @@ def reconstructor(gabor_bank, vxl_coding_paras):
     vxl_wts = vxl_coding_paras['wt']
     vxl_bias = vxl_coding_paras['bias']
     vxl_conv = tf.nn.conv2d(gabor_pool, vxl_wts, strides=[1, 1, 1, 1],
-                             padding='VALID')
+                            padding='VALID')
+    vxl_conv = tf.reshape(vxl_wts.shape[3])
     vxl_out = vxl_conv - bias
 
 
