@@ -6,9 +6,10 @@ import numpy as np
 import tensorflow as tf
 
 from braincode.util import configParser
+from braincode.math import make_2d_gaussian
 
 
-def reconstructor(gabor_bank, wts):
+def reconstructor(gabor_bank, vxl_coding_paras):
     """Stimuli reconstructor based on Activation Maximization"""
     # var for input stimuli
     img = tf.Variable(tf.zeros([1, 500, 500, 1]))
@@ -20,9 +21,14 @@ def reconstructor(gabor_bank, wts):
     imag_conv = tf.nn.conv2d(img, gabor_imag, strides=[1, 1, 1, 1],
                              padding='SAME')
     gabor_energy = tf.sqrt(tf.square(real_conv) + tf.square(imag_conv))
+    gabor_pool = tf.nn.max_pool(gabor_energy, ksize=[1, 2, 2, 1],
+                                strides=[1, 2, 2, 1], padding='SAME')
+    vxl_wts = vxl_coding_paras['wt']
+    vxl_bias = vxl_coding_paras['bias']
+    vxl_conv = tf.nn.conv2d(gabor_pool, vxl_wts, strides=[1, 1, 1, 1],
+                             padding='VALID')
+    vxl_out = vxl_conv - bias
 
-
-    
 
 
 if __name__ == '__main__':
@@ -42,4 +48,7 @@ if __name__ == '__main__':
     # directory config
     subj_dir = os.path.join(res_dir, 'vim1_S%s'%(subj_id))
     prf_dir = os.path.join(subj_dir, 'prf')
+
+    wt, bias = get_vxl_coding_wts(feat_dir, prf_dir, roi)
+    np.savez('coding_paras', wt=wt, bias=bias)
 
