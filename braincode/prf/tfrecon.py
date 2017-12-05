@@ -47,14 +47,14 @@ def model_test(input_imgs, gabor_bank, vxl_coding_paras):
     vxl_bias = vxl_coding_paras['bias']
     vxl_conv = tf.nn.conv2d(gabor_pool, vxl_wts, strides=[1, 1, 1, 1],
                             padding='VALID')
-    vxl_conv = tf.reshape(vxl_wts.shape[3])
-    vxl_out = vxl_conv - bias
+    vxl_conv = tf.reshape(vxl_conv, [-1])
+    vxl_out = vxl_conv - vxl_bias
     with tf.Session() as sess:
         sess.run(tf.initialize_all_variables())
         for i in range(input_imgs.shape[2]):
             x = input_imgs[..., i].T
             x = np.expand_dims(x, 0)
-            x = np.expand_dims(x, 2)
+            x = np.expand_dims(x, 3)
             resp = sess.run(vxl_out, feed_dict={img: x})
             print resp
 
@@ -82,6 +82,7 @@ if __name__ == '__main__':
     vxl_coding_paras_file = os.path.join(prf_dir, roi, 'tfrecon',
                                          'vxl_coding_wts.npz')
     vxl_coding_paras = np.load(vxl_coding_paras_file)
-    imgs = np.load(r'')
+    img_file = os.path.join(root_dir, 'example_imgs.npy')
+    imgs = np.load(img_file)
     model_test(imgs, gabor_bank, vxl_coding_paras)
 
