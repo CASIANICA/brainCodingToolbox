@@ -87,6 +87,31 @@ def get_vxl_coding_wts(feat_dir, prf_dir, roi):
     outfile = os.path.join(outdir, 'vxl_coding_wts.npz')
     np.savez(outfile, wt=wt, bias=bias)
 
+def get_vxl_coding_resp(feat_dir, prf_dir, roi):
+    """Generate voxel-wise encoding model of specific roi."""
+    roi_dir = os.path.join(prf_dir, roi)
+    # load model parameters
+    sel_models = np.load(os.path.join(roi_dir, 'reg_sel_model.npy'))
+    sel_paras = np.load(os.path.join(roi_dir, 'reg_sel_paras.npy'))
+    sel_model_corr = np.load(os.path.join(roi_dir, 'reg_sel_model_corr.npy'))
+    # load candidate model
+    tmodels = np.load(os.path.join(feat_dir, 'train_candidate_model.npy'),
+                      mmap_mode='r')
+    # select voxels
+    thr = 0.3
+    sel_vxl_idx = np.array([4, 5, 6])
+    #sel_vxl_idx = np.nonzero(sel_model_corr>thr)[0]
+    for i in range(sel_vxl_idx.shape[0]):
+        print 'Voxel %s'%(sel_vxl_idx[i])
+        model_idx = int(sel_models[sel_vxl_idx[i]])
+        tx = np.array(tmodels[model_idx, ...]).astype(np.float64)
+        m = np.mean(tx, axis=0, keepdims=True)
+        s = np.std(tx, axis=0, keepdims=True)
+        tx = (tx - m) / (s + 1e-5)
+        wts = sel_paras[sel_vxl_idx[i]]
+        pred = np.dot(tx, wts)
+        print pred[:10]
+
 
 if __name__ == '__main__':
     """Main function."""
