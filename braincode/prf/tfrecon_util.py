@@ -50,9 +50,9 @@ def get_vxl_coding_wts(feat_dir, prf_dir, roi):
     norm_paras = np.load(os.path.join(feat_dir, 'model_norm_paras.npz'))
     # select voxels
     thr = 0.3
-    sel_vxl_idx = np.nonzero(sel_model_corr>thr)[0]
+    sel_vxl_idx = np.array([4, 5, 6])
+    #sel_vxl_idx = np.nonzero(sel_model_corr>thr)[0]
     wt = np.zeros((250, 250, 72, sel_vxl_idx.shape[0]), dtype=np.float32)
-    #wt = np.zeros((500, 500, 72, sel_vxl_idx.shape[0]))
     bias = np.zeros(sel_vxl_idx.shape[0])
     for i in range(sel_vxl_idx.shape[0]):
         print 'Voxel %s'%(sel_vxl_idx[i])
