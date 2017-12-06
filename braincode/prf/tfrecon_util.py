@@ -91,7 +91,7 @@ def get_vxl_coding_wts(feat_dir, prf_dir, roi):
         if not os.path.exists(outdir):
             os.makedirs(outdir, 0755)
         outfile = os.path.join(outdir, 'vxl_coding_wts_%s.npz'%(p+1))
-        np.savez(outfile, wt=wt, bias=bias)
+        np.savez(outfile, vxl_idx=tmp_idx, wt=wt, bias=bias)
 
 def get_vxl_coding_resp(feat_dir, prf_dir, roi):
     """Generate voxel-wise encoding model of specific roi."""

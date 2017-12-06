@@ -3,12 +3,13 @@
 
 import os
 import numpy as np
+import tables
 import tensorflow as tf
 
 from braincode.util import configParser
 
 
-def reconstructor(gabor_bank, vxl_coding_paras):
+def reconstructor(gabor_bank, vxl_coding_paras, y):
     """Stimuli reconstructor based on Activation Maximization"""
     # var for input stimuli
     img = tf.Variable(tf.zeros([1, 500, 500, 1]))
@@ -75,13 +76,46 @@ if __name__ == '__main__':
     subj_dir = os.path.join(res_dir, 'vim1_S%s'%(subj_id))
     prf_dir = os.path.join(subj_dir, 'prf')
 
-    # test encoding model
+    # parameter preparation
     gabor_bank_file = os.path.join(feat_dir, 'gabor_kernels.npz')
     gabor_bank = np.load(gabor_bank_file)
     vxl_coding_paras_file = os.path.join(prf_dir, roi, 'tfrecon',
                                          'vxl_coding_wts.npz')
     vxl_coding_paras = np.load(vxl_coding_paras_file)
-    img_file = os.path.join(root_dir, 'example_imgs.npy')
-    imgs = np.load(img_file)
-    model_test(imgs, gabor_bank, vxl_coding_paras)
+
+    #-- test encoding model
+    #img_file = os.path.join(root_dir, 'example_imgs.npy')
+    #imgs = np.load(img_file)
+    #model_test(imgs, gabor_bank, vxl_coding_paras)
+
+    #-- stimuli reconstruction
+    resp_file = os.path.join(db_dir, 'EstimatedResponses.mat')
+    resp_mat = tables.open_file(resp_file)
+    # create mask
+    # train data shape: (1750, ~25000)
+    train_ts = tf.get_node('/dataTrnS%s'%(subj_id))[:]
+    train_ts = train_ts.T
+    # get non-NaN voxel index
+    fmri_s = train_ts.sum(axis=1)
+    non_nan_idx = np.nonzero(np.logical_not(np.isnan(fmri_s)))[0]
+    rois = tf.get_node('/roiS%s'%(subj_id))[:]
+    rois = rois[0]
+    roi_idx = {'v1': 1, 'v2': 2, 'v3': 3, 'v3a': 4,
+               'v3b': 5, 'v4': 6, 'LO': 7}
+    vxl_idx = np.nonzero(rois==roi_idx[roi])[0]
+    vxl_idx = np.intersect1d(vxl_idx, non_nan_idx)
+    # load fmri response: data shape (#voxel, 1750/120)
+    train_ts = np.nan_to_num(train_ts[vxl_idx])
+    m = np.mean(train_ts, axis=1, keepdims=True)
+    s = np.std(train_ts, axis=1, keepdims=True)
+    train_ts = (train_ts - m) / (s + 1e-5)
+    #val_ts = tf.get_node('/dataValS%s'%(subj_id))[:]
+    #val_ts = val_ts.T
+    #val_ts = np.nan_to_num(val_ts[vxl_idx])
+    tf.close()
+    y_ = train_ts[vxl_coding_paras['vxl_idx']]
+    # shape: (#voxel, 1750)
+    print y_.shape
+    reconstructor(gabor_bank, vxl_coding_paras, y_)
+
 
