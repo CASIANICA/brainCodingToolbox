@@ -82,7 +82,7 @@ def get_vxl_coding_wts(feat_dir, prf_dir, roi):
         kernel = np.swapaxes(kernel, 0, 1)
         kernel = np.swapaxes(kernel, 1, 2)
         wt[..., i] = kernel
-        bias[i] = np.sum(coding_wts * norm_mean/2 / norm_std)
+        bias[i] = np.sum(coding_wts * norm_mean/4 / norm_std)
     outdir = os.path.join(roi_dir, 'tfrecon')
     if not os.path.exists(outdir):
         os.makedirs(outdir, 0755)
