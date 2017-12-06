@@ -8,6 +8,8 @@ import skimage.measure
 
 from braincode.util import configParser
 from braincode.math import make_2d_gaussian
+from braincode.math import img_resize
+
 
 def get_gabor_kernels(feat_dir):
     """gabor bank generation"""
@@ -67,7 +69,9 @@ def get_vxl_coding_wts(feat_dir, prf_dir, roi):
         s = sigma[si]
         print 'center: %s, %s, sigma: %s'%(y0, x0, s)
         kernel = make_2d_gaussian(500, s, center=(x0, y0))
-        kernel = skimage.measure.block_reduce(kernel, (2, 2), np.mean)
+        kernel = np.expand_dims(kernel, 2)
+        kernel = img_resize(kernel, (250, 250))[..., 0]
+        #kernel = skimage.measure.block_reduce(kernel, (2, 2), np.mean)
         kernel = np.expand_dims(kernel, 0)
         kernel = np.repeat(kernel, 72, 0)
         coding_wts = sel_paras[sel_vxl_idx[i]]
