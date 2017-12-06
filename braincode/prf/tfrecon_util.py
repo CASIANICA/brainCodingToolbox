@@ -73,10 +73,8 @@ def get_vxl_coding_wts(feat_dir, prf_dir, roi):
         coding_wts = sel_paras[sel_vxl_idx[i]]
         norm_mean = norm_paras['model_mean'][model_idx]
         norm_std = norm_paras['model_std'][model_idx]
-        #b = 0
         for c in range(72):
             kernel[c, ...] = kernel[c, ...] * coding_wts[c] / norm_std[c]
-            #b = b + coding_wts[c] * norm_mean[c] / norm_std[c]
         kernel = np.swapaxes(kernel, 0, 1)
         kernel = np.swapaxes(kernel, 1, 2)
         wt[..., i] = kernel
@@ -134,4 +132,4 @@ if __name__ == '__main__':
     #get_gabor_kernels(feat_dir)
     #get_model_zparas(feat_dir)
     get_vxl_coding_wts(feat_dir, prf_dir, roi)
-
+    #get_vxl_coding_resp(feat_dir, prf_dir, roi)

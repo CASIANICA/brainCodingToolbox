@@ -41,7 +41,7 @@ def model_test(input_imgs, gabor_bank, vxl_coding_paras):
     imag_conv = tf.nn.conv2d(img, gabor_imag, strides=[1, 1, 1, 1],
                              padding='SAME')
     gabor_energy = tf.sqrt(tf.square(real_conv) + tf.square(imag_conv))
-    gabor_pool = tf.nn.max_pool(gabor_energy, ksize=[1, 2, 2, 1],
+    gabor_pool = tf.nn.avg_pool(gabor_energy, ksize=[1, 2, 2, 1],
                                 strides=[1, 2, 2, 1], padding='SAME')
     vxl_wts = vxl_coding_paras['wt']
     vxl_bias = vxl_coding_paras['bias']
