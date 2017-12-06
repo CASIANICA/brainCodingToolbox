@@ -24,8 +24,8 @@ def reconstructor(gabor_bank, vxl_coding_paras):
     vxl_bias = vxl_coding_paras['bias']
     vxl_conv = tf.nn.conv2d(gabor_energy, vxl_wts, strides=[1, 1, 1, 1],
                             padding='VALID')
-    vxl_conv = tf.reshape(vxl_wts.shape[3])
-    vxl_out = vxl_conv - bias
+    vxl_conv = tf.reshape(vxl_conv, [-1])
+    vxl_out = vxl_conv - vxl_bias
 
 def model_test(input_imgs, gabor_bank, vxl_coding_paras):
     """Stimuli reconstructor based on Activation Maximization"""
