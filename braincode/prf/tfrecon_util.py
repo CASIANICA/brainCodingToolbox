@@ -52,9 +52,9 @@ def get_vxl_coding_wts(feat_dir, prf_dir, roi):
     norm_paras = np.load(os.path.join(feat_dir, 'model_norm_paras.npz'))
     # select voxels
     thr = 0.3
-    sel_vxl_idx = np.array([4, 5, 6])
+    sel_vxl_idx = np.array([4, 6, 40, 160])
     #sel_vxl_idx = np.nonzero(sel_model_corr>thr)[0]
-    wt = np.zeros((250, 250, 72, sel_vxl_idx.shape[0]), dtype=np.float32)
+    wt = np.zeros((500, 500, 72, sel_vxl_idx.shape[0]), dtype=np.float32)
     bias = np.zeros(sel_vxl_idx.shape[0])
     for i in range(sel_vxl_idx.shape[0]):
         print 'Voxel %s'%(sel_vxl_idx[i])
@@ -69,9 +69,7 @@ def get_vxl_coding_wts(feat_dir, prf_dir, roi):
         s = sigma[si]
         print 'center: %s, %s, sigma: %s'%(y0, x0, s)
         kernel = make_2d_gaussian(500, s, center=(x0, y0))
-        kernel = skimage.measure.block_reduce(kernel, (2, 2), np.mean)
-        #kernel = np.expand_dims(kernel, 2)
-        #kernel = img_resize(kernel, (250, 250))[..., 0]
+        #kernel = skimage.measure.block_reduce(kernel, (2, 2), np.mean)
         kernel = np.expand_dims(kernel, 0)
         kernel = np.repeat(kernel, 72, 0)
         coding_wts = sel_paras[sel_vxl_idx[i]]
@@ -82,7 +80,7 @@ def get_vxl_coding_wts(feat_dir, prf_dir, roi):
         kernel = np.swapaxes(kernel, 0, 1)
         kernel = np.swapaxes(kernel, 1, 2)
         wt[..., i] = kernel
-        bias[i] = np.sum(coding_wts * norm_mean/4 / norm_std)
+        bias[i] = np.sum(coding_wts * norm_mean / norm_std)
     outdir = os.path.join(roi_dir, 'tfrecon')
     if not os.path.exists(outdir):
         os.makedirs(outdir, 0755)
