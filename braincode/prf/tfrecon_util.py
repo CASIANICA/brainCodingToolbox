@@ -52,40 +52,46 @@ def get_vxl_coding_wts(feat_dir, prf_dir, roi):
     norm_paras = np.load(os.path.join(feat_dir, 'model_norm_paras.npz'))
     # select voxels
     thr = 0.3
-    sel_vxl_idx = np.array([4, 6, 40, 160])
-    #sel_vxl_idx = np.nonzero(sel_model_corr>thr)[0]
-    wt = np.zeros((500, 500, 72, sel_vxl_idx.shape[0]), dtype=np.float32)
-    bias = np.zeros(sel_vxl_idx.shape[0])
-    for i in range(sel_vxl_idx.shape[0]):
-        print 'Voxel %s'%(sel_vxl_idx[i])
-        model_idx = int(sel_models[sel_vxl_idx[i]])
-        # get gaussian pooling field parameters
-        si = model_idx / 2500
-        xi = (model_idx % 2500) / 50
-        yi = (model_idx % 2500) % 50
-        x0 = np.arange(5, 500, 10)[xi]
-        y0 = np.arange(5, 500, 10)[yi]
-        sigma = [1] + [n*5 for n in range(1, 13)] + [70, 80, 90, 100]
-        s = sigma[si]
-        print 'center: %s, %s, sigma: %s'%(y0, x0, s)
-        kernel = make_2d_gaussian(500, s, center=(x0, y0))
-        #kernel = skimage.measure.block_reduce(kernel, (2, 2), np.mean)
-        kernel = np.expand_dims(kernel, 0)
-        kernel = np.repeat(kernel, 72, 0)
-        coding_wts = sel_paras[sel_vxl_idx[i]]
-        norm_mean = norm_paras['model_mean'][model_idx]
-        norm_std = norm_paras['model_std'][model_idx]
-        for c in range(72):
-            kernel[c, ...] = kernel[c, ...] * coding_wts[c] / norm_std[c]
-        kernel = np.swapaxes(kernel, 0, 1)
-        kernel = np.swapaxes(kernel, 1, 2)
-        wt[..., i] = kernel
-        bias[i] = np.sum(coding_wts * norm_mean / norm_std)
-    outdir = os.path.join(roi_dir, 'tfrecon')
-    if not os.path.exists(outdir):
-        os.makedirs(outdir, 0755)
-    outfile = os.path.join(outdir, 'vxl_coding_wts.npz')
-    np.savez(outfile, wt=wt, bias=bias)
+    #sel_vxl_idx = np.array([4, 6, 40, 160])
+    sel_vxl_idx = np.nonzero(sel_model_corr>thr)[0]
+    print 'Selecte %s voxels'%(sel_vxl_idx.shape[0])
+    parts = np.ceil(sel_vxl_idx.shape[0]*1.0/10)
+    for p in range(int(parts)):
+        if (p+1)*10 > sel_vxl_idx.shape[0]:
+            tmp_idx = sel_vxl_idx[(p*10):]
+        else:
+            tmp_idx = sel_vxl_idx[(p*10):(p*10+10)]
+        wt = np.zeros((500, 500, 72, tmp_idx.shape[0]), dtype=np.float32)
+        bias = np.zeros(tmp_idx.shape[0])
+        for i in range(tmp_idx.shape[0]):
+            print 'Voxel %s'%(tmp_idx[i])
+            model_idx = int(sel_models[tmp_idx[i]])
+            # get gaussian pooling field parameters
+            si = model_idx / 2500
+            xi = (model_idx % 2500) / 50
+            yi = (model_idx % 2500) % 50
+            x0 = np.arange(5, 500, 10)[xi]
+            y0 = np.arange(5, 500, 10)[yi]
+            sigma = [1] + [n*5 for n in range(1, 13)] + [70, 80, 90, 100]
+            s = sigma[si]
+            print 'center: %s, %s, sigma: %s'%(y0, x0, s)
+            kernel = make_2d_gaussian(500, s, center=(x0, y0))
+            kernel = np.expand_dims(kernel, 0)
+            kernel = np.repeat(kernel, 72, 0)
+            coding_wts = sel_paras[tmp_idx[i]]
+            norm_mean = norm_paras['model_mean'][model_idx]
+            norm_std = norm_paras['model_std'][model_idx]
+            for c in range(72):
+                kernel[c, ...] = kernel[c, ...] * coding_wts[c] / norm_std[c]
+            kernel = np.swapaxes(kernel, 0, 1)
+            kernel = np.swapaxes(kernel, 1, 2)
+            wt[..., i] = kernel
+            bias[i] = np.sum(coding_wts * norm_mean / norm_std)
+        outdir = os.path.join(roi_dir, 'tfrecon')
+        if not os.path.exists(outdir):
+            os.makedirs(outdir, 0755)
+        outfile = os.path.join(outdir, 'vxl_coding_wts_%s.npz'%(p+1))
+        np.savez(outfile, vxl_idx=tmp_idx, wt=wt, bias=bias)
 
 def get_vxl_coding_resp(feat_dir, prf_dir, roi):
     """Generate voxel-wise encoding model of specific roi."""
