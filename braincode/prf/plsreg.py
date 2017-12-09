@@ -350,14 +350,21 @@ if __name__ == '__main__':
     #-- load fmri data
     vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_vim2_fmri(db_dir, subj_id)
 
-    #-- load cnn activation data: data.shape = (feature_size, x, y, 7200/540)
-    train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
-    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
-    val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
-    val_feat_ts = np.load(val_feat_file, mmap_mode='r')
+    ##-- load cnn activation data: data.shape = (feature_size, x, y, 7200/540)
+    #train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
+    #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    #val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
+    #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
 
+    #-- load salience maps of stimuli: data.shape = (128, 128, 7200/540)
+    train_sal_file = os.path.join(feat_dir, 'salience_train_trs.npy')
+    train_sal_ts = np.load(train_sal_file, mmap_mode='r')
+    val_sal_file = os.path.join(feat_dir, 'salience_val_trs.npy')
+    val_sal_ts = np.load(val_sal_file, mmap_mode='r')
+    
     # PLS regression
-    train_feat = train_feat_ts.reshape(-1, 7200).T
+    train_feat = train_sal_ts.reshape(-1, 7200).T
+    #train_feat = train_feat_ts.reshape(-1, 7200).T
     train_fmri = train_fmri_ts.T
     print 'PLS model initializing ...'
     comps = 20
@@ -370,104 +377,4 @@ if __name__ == '__main__':
     for i in range(comps):
         print 'Component %s'%(i+1)
         print np.corrcoef(pls2.x_scores_[:, i], pls2.y_scores_[:, i])
-
-    #-- feature temporal z-score
-    #print 'CNN features temporal z-score ...'
-    ## summary features across channels
-    #train_feat_ts = train_feat_ts.mean(axis=0)
-    #train_feat_m = train_feat_ts.mean(axis=2, keepdims=True)
-    #train_feat_s = train_feat_ts.std(axis=2, keepdims=True)
-    #train_feat_ts = (train_feat_ts-train_feat_m)/(1e-10+train_feat_s)
-    #val_feat_ts = val_feat_ts.mean(axis=0)
-    #val_feat_m = val_feat_ts.mean(axis=2, keepdims=True)
-    #val_feat_s = val_feat_ts.std(axis=2, keepdims=True)
-    #val_feat_ts = (val_feat_ts-val_feat_m)/(1e-10+val_feat_s)
-
-    #-- Cross-modality mapping: voxel~CNN feature position correlation
-    #cross_corr_dir = os.path.join(subj_dir, 'spatial_cross_corr')
-    #check_path(cross_corr_dir)
-    #-- features from CNN
-    #corr_file = os.path.join(cross_corr_dir, 'train_conv1_corr.npy')
-    #feat_ts = train_feat_ts.sum(axis=0).reshape(3025, 7200)
-    #parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=55)
-    #-- visual-pRF: select pixels which corr-coef greater than 1/2 maximum
-    #corr_mtx = np.load(corr_file)
-    #prf_dir = os.path.join(cross_corr_dir, 'prf')
-    #visual_prf(corr_mtx, vxl_idx, prf_dir)
-    #-- pRF stats and visualization for each ROI
-    #prf_dir = os.path.join(cross_corr_dir, 'prf_figs')
-    #check_path(prf_dir)
-    #for roi in roi_dict:
-    #    print '------%s------'%(roi)
-    #    roi_idx = roi_dict[roi]
-    #    # pRF type stats in each ROI
-    #    roi_prf_type = prf_type[roi_idx]
-    #    print 'Voxel number: %s'%(roi_prf_type.shape[0])
-    #    for i in range(5):
-    #        vxl_num = np.sum(roi_prf_type==(i+1))
-    #        vxl_ratio = vxl_num * 100.0 / roi_prf_type.shape[0]
-    #        print '%s, %0.2f'%(vxl_num, vxl_ratio)
-    #    # save pRF as figs
-    #    roi_dir = os.path.join(prf_dir, roi)
-    #    check_path(roi_dir)
-    #    roi_corr_mtx = corr_mtx[roi_idx, :]
-    #    roi_min = roi_corr_mtx.min()
-    #    roi_max = roi_corr_mtx.max()
-    #    for i in roi_idx:
-    #        vxl_prf = corr_mtx[i, :].reshape(55, 55)
-    #        filename = 'v'+str(vxl_idx[i])+'_'+str(int(prf_type[i]))+'.png'
-    #        out_file = os.path.join(roi_dir, filename)
-    #        vutil.save_imshow(vxl_prf, out_file, val_range=(roi_min, roi_max))
-    #-- curve-fit pRF visualization for each ROI
-    #prf_dir = os.path.join(cross_corr_dir, 'fit_prf_figs')
-    #check_path(prf_dir)
-    #paras = np.load(os.path.join(cross_corr_dir, 'curve_fit_paras.npy'))
-    #corr_mtx = np.load(os.path.join(cross_corr_dir, 'train_conv1_corr.npy'))
-    #prf_type = np.load(os.path.join(cross_corr_dir, 'prf_type.npy'))
-    #for roi in roi_dict:
-    #    print '------%s------'%(roi)
-    #    roi_idx = roi_dict[roi]
-    #    # save pRF as figs
-    #    roi_dir = os.path.join(prf_dir, roi)
-    #    check_path(roi_dir)
-    #    roi_corr_mtx = corr_mtx[roi_idx, :]
-    #    roi_min = roi_corr_mtx.min()
-    #    roi_max = roi_corr_mtx.max()
-    #    for i in roi_idx:
-    #        if np.isnan(paras[i, 0]):
-    #            continue
-    #        p = paras[i, :]
-    #        vxl_prf = vutil.sugar_gaussian_f(55, *p).reshape(55, 55)
-    #        filename = 'v'+str(vxl_idx[i])+'_'+str(int(prf_type[i]))+'.png'
-    #        out_file = os.path.join(roi_dir, filename)
-    #        vutil.save_imshow(vxl_prf, out_file, val_range=(roi_min, roi_max))
-    #-- show pRF parameters on cortical surface
-    #paras = np.load(os.path.join(cross_corr_dir, 'curve_fit_paras.npy'))
-    #full_prf_mtx = np.zeros((73728, 3))
-    #full_prf_mtx[:] = np.nan
-    #for i in range(len(vxl_idx)):
-    #    full_prf_mtx[vxl_idx[i], :] = paras[i, :3]
-    #prf2visual_angle(full_prf_mtx, 55, cross_corr_dir, 'curve_fit')
-    #err_file = os.path.join(cross_corr_dir, 'curve_fit_err.nii.gz')
-    #vutil.vxl_data2nifti(paras[:, 5], vxl_idx, err_file)
-
-    #-- Cross-modality mapping: voxel~CNN unit correlation
-    #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
-    #check_path(cross_corr_dir)
-    # features from CNN
-    #corr_file = os.path.join(cross_corr_dir, 'train_norm1_corr.npy')
-    #feat_ts = train_feat_ts.reshape(69984, 7200)
-    #parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=96)
-    #-- random cross-modal correlation
-    #rand_corr_file = os.path.join(cross_corr_dir, 'rand_train_conv1_corr.npy')
-    #permutation_stats(np.load(rand_corr_file))
-
-    #-- fmri data z-score
-    #print 'fmri data temporal z-score'
-    #m = np.mean(train_fmri_ts, axis=1, keepdims=True)
-    #s = np.std(train_fmri_ts, axis=1, keepdims=True)
-    #train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
-    #m = np.mean(val_fmri_ts, axis=1, keepdims=True)
-    #s = np.std(val_fmri_ts, axis=1, keepdims=True)
-    #val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
 
