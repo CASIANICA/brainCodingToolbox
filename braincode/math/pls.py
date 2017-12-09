@@ -21,3 +21,16 @@ def get_pls_components(x_scores, x_loadings):
         ccs[..., i] = xk
     return xk
 
+def pls_regression_predict(pls2, X):
+    """Get predictions using a trained PLS regression model."""
+    nX = (X - pls2.x_mean_) / pls2.x_std_
+    Y = np.zeros_like(pls2.predict(X))
+    for i in range(pls2.n_components):
+        x_scores = np.dot(nX, pls2.x_weights_[:, i])
+        nX -= np.dot(np.expand_dims(x_scores, 1),
+                     np.expand_dims(pls2.x_loadings_[:, i], 1).T)
+        Y += np.dot(np.expand_dims(x_scores, 1),
+                    np.expand_dims(pls2.y_loadings_[:, i], 1).T)
+    Y = Y * pls2.y_std_ + pls2.y_mean_
+    return Y
+

@@ -11,7 +11,7 @@ from sklearn.externals import joblib
 
 from braincode.util import configParser
 from braincode.math import parallel_corr2_coef, corr2_coef, ridge
-from braincode.math import get_pls_components
+from braincode.math import get_pls_components, pls_regression_predict
 from braincode.math.norm import zero_one_norm
 from braincode.pipeline import retinotopy
 from braincode.pipeline.base import random_cross_modal_corr
@@ -370,11 +370,14 @@ if __name__ == '__main__':
     comps = 20
     pls2 = PLSRegression(n_components=comps)
     pls2.fit(train_feat, train_fmri)
-    pred_train_fmri = pls2.predict(train_feat)
-    pred_file = os.path.join(pls_dir, 'pls_pred_tfmri_c%s.npy'%(comps))
-    np.save(pred_file, pred_train_fmri)
     joblib.dump(pls2, os.path.join(pls_dir, 'pls_model_c%s.pkl'%(comps)))
     for i in range(comps):
         print 'Component %s'%(i+1)
         print np.corrcoef(pls2.x_scores_[:, i], pls2.y_scores_[:, i])
+    # get fmri residual
+    pred_train_fmri = pls_regression_predict(pls2, train_feat)
+    #pred_train_fmri = pls2.predict(train_feat)
+    pred_file = os.path.join(pls_dir, 'pls_pred_tfmri_c%s.npy'%(comps))
+    np.save(pred_file, pred_train_fmri)
+
 
