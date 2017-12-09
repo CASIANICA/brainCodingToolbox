@@ -7,6 +7,7 @@ import tables
 from scipy import ndimage
 from scipy.misc import imsave
 from sklearn.cross_decomposition import PLSRegression
+from sklearn.externals import joblib
 
 from braincode.util import configParser
 from braincode.math import parallel_corr2_coef, corr2_coef, ridge
@@ -359,11 +360,13 @@ if __name__ == '__main__':
     train_feat = train_feat_ts.reshape(-1, 7200).T
     train_fmri = train_fmri_ts.T
     print 'PLS model initializing ...'
-    comps = 10
+    comps = 20
     pls2 = PLSRegression(n_components=comps)
     pls2.fit(train_feat, train_fmri)
     pred_train_fmri = pls2.predict(train_feat)
-    np.save('pls_pred_tfmri.npy', pred_train_fmri)
+    pred_file = os.path.join(pls_dir, 'pls_pred_tfmri_c%s.npy'%(comps))
+    np.save(pred_file, pred_train_fmri)
+    joblib.dump(pls2, os.path.join(pls_dir, 'pls_model_c%s.pkl'%(comps)))
     for i in range(comps):
         print 'Component %s'%(i+1)
         print np.corrcoef(pls2.x_scores_[:, i], pls2.y_scores_[:, i])
