@@ -350,21 +350,21 @@ if __name__ == '__main__':
     #-- load fmri data
     vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_vim2_fmri(db_dir, subj_id)
 
-    ##-- load cnn activation data: data.shape = (feature_size, x, y, 7200/540)
-    #train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
-    #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
-    #val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
-    #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
+    #-- load cnn activation data: data.shape = (feature_size, x, y, 7200/540)
+    train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
+    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
+    val_feat_ts = np.load(val_feat_file, mmap_mode='r')
 
-    #-- load salience maps of stimuli: data.shape = (128, 128, 7200/540)
-    train_sal_file = os.path.join(feat_dir, 'salience_train_trs.npy')
-    train_sal_ts = np.load(train_sal_file, mmap_mode='r')
-    val_sal_file = os.path.join(feat_dir, 'salience_val_trs.npy')
-    val_sal_ts = np.load(val_sal_file, mmap_mode='r')
+    ##-- load salience maps of stimuli: data.shape = (128, 128, 7200/540)
+    #train_sal_file = os.path.join(feat_dir, 'salience_train_trs.npy')
+    #train_sal_ts = np.load(train_sal_file, mmap_mode='r')
+    #val_sal_file = os.path.join(feat_dir, 'salience_val_trs.npy')
+    #val_sal_ts = np.load(val_sal_file, mmap_mode='r')
     
     # PLS regression
-    train_feat = train_sal_ts.reshape(-1, 7200).T
-    #train_feat = train_feat_ts.reshape(-1, 7200).T
+    #train_feat = train_sal_ts.reshape(-1, 7200).T
+    train_feat = train_feat_ts.reshape(-1, 7200).T
     train_fmri = train_fmri_ts.T
     print 'PLS model initializing ...'
     comps = 20
