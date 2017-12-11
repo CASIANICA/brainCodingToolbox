@@ -3,18 +3,15 @@
 
 import os
 import numpy as np
-import tables
 from scipy import ndimage
 from scipy.misc import imsave
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.externals import joblib
 
 from braincode.util import configParser
-from braincode.math import parallel_corr2_coef, corr2_coef, ridge
+from braincode.math import corr2_coef
 from braincode.math import get_pls_components, pls_regression_predict
-from braincode.math.norm import zero_one_norm
 from braincode.pipeline import retinotopy
-from braincode.pipeline.base import random_cross_modal_corr
 from braincode.prf import util as vutil
 from braincode.prf import dataio
 
@@ -97,36 +94,6 @@ def prf2visual_angle(prf_mtx, img_size, out_dir, base_name):
         vol = size_angle.reshape(18, 64, 64)
         vutil.save2nifti(vol, os.path.join(out_dir, base_name+'_size.nii.gz'))
 
-def visual_prf(corr_mtx, vxl_idx, prf_dir):
-    """pRF visualization."""
-    check_path(prf_dir)
-    prf = np.zeros_like(corr_mtx)
-    for i in range(len(vxl_idx)):
-        orig_mtx = corr_mtx[i, :].reshape(55, 55)
-        orig_file = os.path.join(prf_dir, 'v'+str(vxl_idx[i])+'_orig.png')
-        imsave(orig_file, orig_mtx)
-        prf_mtx = orig_mtx.copy()
-        prf_mtx[prf_mtx<prf_mtx.max()*0.8] = 0
-        prf_file = os.path.join(prf_dir, 'v'+str(vxl_idx[i])+'_prf.png')
-        imsave(prf_file, prf_mtx)
-        prf[i, :] = prf_mtx.flatten()
-    np.save(os.path.join(prf_dir, 'prf.npy'), prf)
-
-def get_roi_idx(fmri_table, vxl_idx):
-    """Get ROI label for each voxel."""
-    rois = ['v1lh', 'v1rh', 'v2lh', 'v2rh', 'v3lh', 'v3rh', 'v3alh', 'v3arh',
-            'v3blh', 'v3brh', 'v4lh', 'v4rh', 'MTlh', 'MTrh']
-    roi_dict = {}
-    for roi in rois:
-        roi_mask = fmri_table.get_node('/roi/%s'%(roi))[:].flatten()
-        roi_idx = np.nonzero(roi_mask==1)[0]
-        roi_idx = np.intersect1d(roi_idx, vxl_idx)
-        if roi_idx.sum():
-            roi_ptr = np.array([np.where(vxl_idx==roi_idx[i])[0][0]
-                                for i in range(len(roi_idx))])
-            roi_dict[roi] = roi_ptr
-    return roi_dict
-
 def pls_y_pred_x(plsca, Y):
     """Predict X based on Y using a trained PLS CCA model `plsca`.
     """
@@ -196,25 +163,6 @@ def plscorr_eval(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
     fmri_orig_ccs = get_pls_components(plsca.y_scores_, plsca.y_loadings_)
     np.save(os.path.join(out_dir, 'fmri_orig_ccs.npy'), fmri_orig_ccs)
 
-def plscorr_viz(cca_dir, mask_file):
-    """CCA weights visualization."""
-    # plot fmri weights (normalized)
-    fmri_weights = np.load(os.path.join(cca_dir, 'fmri_weights.npy'))
-    norm_fmri_weights = zero_one_norm(fmri_weights, two_side=True)
-    vutil.save_cca_volweights(norm_fmri_weights, mask_file, cca_dir,
-                              'norm2_cca_weights', out_png=True, two_side=True)
-
-    # show stimuli images corresponding to the largest fMRI activity
-    fmri_cc = np.load(os.path.join(cca_dir, 'fmri_cc.npy'))
-    for i in range(1, fmri_cc.shape[1]):
-        print '------- CC #%s -------'%(i)
-        tmp = fmri_cc[:, i].copy()
-        print 'Negative side : index of top 10 images'
-        print tmp.argsort()[:10]
-        print 'Positive side : index of top 10 images'
-        print tmp.argsort()[-10:]
-
-
 def inter_subj_cc_sim(subj1_id, subj2_id, subj_dir):
     """Compute inter-subjects CCs similarity."""
     subj1_dir = os.path.join(subj_dir, 'vS%s'%(subj1_id))
@@ -247,63 +195,6 @@ def inter_subj_cc_sim(subj1_id, subj2_id, subj_dir):
     #np.save('feat_cc_sim_subj_%s_%s.npy'%(subj1_id, subj2_id), sim_mtx)
     pass
 
-
-def roi_info(corr_mtx, wt_mtx, fmri_table, mask_idx, out_dir):
-    """Get ROI info."""
-    roi_list = ['v1lh', 'v1rh', 'v2lh', 'v2rh', 'v3lh', 'v3rh',
-                'v3alh', 'v3arh', 'v3blh', 'v3brh', 'v4lh', 'v4rh',
-                'MTlh', 'MTrh', 'MTplh', 'MTprh']
-    fingerprints = np.zeros((wt_mtx.shape[2], len(roi_list)))
-    for ridx in range(len(roi_list)):
-        roi_mask = fmri_table.get_node('/roi/%s'%(roi_list[ridx]))[:].flatten()
-        roi_idx = np.nonzero(roi_mask==1)[0]
-        roi_idx = np.intersect1d(roi_idx, mask_idx)
-        roi_ptr = np.array([np.where(mask_idx==roi_idx[i])[0][0]
-                            for i in range(len(roi_idx))])
-        #-- plot pRF for each voxel
-        roi_dir = os.path.join(out_dir, roi_list[ridx])
-        os.system('mkdir %s'%(roi_dir))
-        for idx in roi_ptr:
-            tmp = corr_mtx[:, idx]
-            if np.sum(tmp):
-                tmp = tmp.reshape(13, 13)
-                vutil.save_imshow(tmp, os.path.join(roi_dir,
-                                                    '%s.png'%(mask_idx[idx])))
-            else:
-                print 'Drop %s'%(idx)
-        #-- get feature response figure print
-        ele_num = 0
-        fp = np.zeros((fingerprints.shape[0]))
-        for idx in roi_ptr:
-            tmp = corr_mtx[:, idx]
-            # conv1+optical : 0.17419
-            # norm1 : 0.15906
-            # norm2 : 0.14636
-            # conv3 : 0.14502
-            f = tmp>=0.14502
-            if f.sum():
-                ele_num += f.sum()
-                fp += np.sum(wt_mtx[f, idx, :], axis=0)
-        fp /= ele_num
-        fingerprints[:, ridx] = fp
-    np.save(os.path.join(out_dir, 'roi_fingerprints.npy'), fingerprints)
-
-def permutation_stats(random_corr_mtx):
-    """Get statistical estimate of `true` correlation coefficient."""
-    #vxl_num = random_corr_mtx.shape[2]
-    #for i in range(vxl_num):
-    #    print maxv[:, i].max()
-    #    print maxv[:, i].min()
-    #    print '----------------'
-    maxv = random_corr_mtx.max(axis=1)
-    # get 95% corr coef across voxels
-    #maxv = maxv.flatten()
-    maxv.sort()
-    quar = maxv.shape[0]*0.95 - 1
-    # 95% - 0.17224
-    # 99% - 0.19019
-    print 'Correlation threshold for permutation test: ',
-    print maxv[int(np.rint(quar))]
 
 if __name__ == '__main__':
     """Main function."""
@@ -361,4 +252,6 @@ if __name__ == '__main__':
         vxl_data = ywts[:, c]
         outfile = os.path.join(pls_dir, 'fmri_weights_C%s.nii.gz'%(c+1))
         vutil.vxl_data2nifti(vxl_data, vxl_idx, outfile)
+
+    # compute corrcoef of local ans global brain activity
 

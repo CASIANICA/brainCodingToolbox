@@ -128,7 +128,7 @@ def channel_sim(feat_file):
 def data_swap(nifti_file):
     """Convert nifti data into original data shape."""
     data = nib.load(nifti_file).get_data()
-    ndata = data[:, ::-1, :]
+    ndata = data.copy()
     ndata = np.rollaxis(ndata, 0, 3)
     ndata = np.rollaxis(ndata, 0, 2)
     return ndata
