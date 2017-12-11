@@ -540,6 +540,50 @@ def stimuli_recon(prf_dir, db_dir, subj_id, roi):
         recon_imgs[i] = tmp
     np.save(os.path.join(roi_dir, 'recon_img.npy'), recon_imgs)
 
+def get_predicted_fmri(feat_dir, prf_dir, roi, data_type):
+    """Get estimated fmri responses based on encoding model."""
+    roi_dir = os.path.join(prf_dir, roi)
+    # load model parameters
+    sel_models = np.load(os.path.join(roi_dir, 'reg_sel_model.npy'))
+    sel_paras = np.load(os.path.join(roi_dir, 'reg_sel_paras.npy'))
+    # load candidate model
+    model_file = os.path.join(feat_dir, '%s_candidate_model.npy'%(data_type))
+    models = np.load(model_file, mmap_mode='r')
+    # output
+    pred_fmri = np.zeros((sel_paras.shape[0], models.shape[2]))
+    for i in range(sel_paras.shape[0]):
+        print 'Voxel %s'%(i)
+        model_idx = int(sel_models[i])
+        x = np.array(models[model_idx, ...]).astype(np.float64)
+        m = np.mean(x, axis=0, keepdims=True)
+        s = np.std(x, axis=0, keepdims=True)
+        x = (x - m) / (s + 1e-5)
+        wts = sel_paras[i].reshape(1, -1)
+        pred_fmri[i] = np.dot(wts, x)
+    outfile = os.path.join(roi_dir, '%s_pred_norm_fmri.npy'%(data_type))
+    np.save(outfile, pred_fmri)
+
+def get_prediction_residual(prf_dir, db_dir, subj_id):
+    roi_list = ['v1rh', 'v1lh', 'v2rh', 'v2lh', 'v3rh', 'v3lh', 'v4rh', 'v4lh']
+    res_fmri = None
+    vxl_idx = None
+    for roi in roi_list:
+        idx, tx, vx = dataio.load_vim2_fmri(db_dir, subj_id, roi)
+        m = tx.mean(axis=1, keepdims=True)
+        s = tx.mean(axis=1, keepdims=True)
+        pred_file = os.path.join(prf_dir, roi, 'train_pred_norm_fmri.npy')
+        pred_fmri = np.load(pred_file)
+        pred_fmri = pred_fmri * s + m
+        res = tx - pred_fmri
+        if not isinstance(res_fmri, np.ndarray):
+            res_fmri = res
+            vxl_idx = idx
+        else:
+            res_fmri = np.vstack((res_fmri, res))
+            vxl_idx = np.concatenate((vxl_idx, idx))
+    outfile = os.path.join(prf_dir, 'residual_fmri')
+    np.savez(outfile, res_fmri=res_fmri, vxl_idx=vxl_idx)
+
 def get_hue_selectivity(prf_dir, db_dir, subj_id, roi):
     """Get hue tunning curve for each voxel and calculate hue selectivity."""
     # load fmri response
@@ -765,12 +809,12 @@ if __name__ == '__main__':
     #-- general config
     subj_id = 1
     kernel = 'gaussian'
-    roi = 'v1rh'
+    roi = 'v1lh'
     # directory config
     if kernel=='round':
         feat_dir = os.path.join(feat_dir, 'round')
     subj_dir = os.path.join(res_dir, 'vim2_S%s'%(subj_id))
-    #prf_dir = os.path.join(subj_dir, 'prf', kernel+'_kernel')
+    prf_dir = os.path.join(subj_dir, 'prf', kernel+'_kernel')
 
     #-- pRF model fitting
     # pRF model tuning
@@ -797,5 +841,11 @@ if __name__ == '__main__':
     #-- show retinotopic mapping
     #show_retinotopy(prf_dir, 'ecc')
 
-    prf_dir = os.path.join(subj_dir, 'pls')
-    pls_ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
+    #prf_dir = os.path.join(subj_dir, 'pls')
+    #pls_ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
+
+    # Get estimated brain activity based on encoding model
+    #get_predicted_fmri(feat_dir, prf_dir, roi, 'train')
+    # Get predicted fmri residual
+    get_prediction_residual(prf_dir, db_dir, subj_id)
+

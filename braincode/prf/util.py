@@ -130,7 +130,7 @@ def data_swap(nifti_file):
     data = nib.load(nifti_file).get_data()
     ndata = data[:, ::-1, :]
     ndata = np.rollaxis(ndata, 0, 3)
-    ndata = np.rollaxis(ndata, 0, 3)
+    ndata = np.rollaxis(ndata, 0, 2)
     return ndata
 
 def nifti4pycortex(nifti_file):
@@ -140,32 +140,29 @@ def nifti4pycortex(nifti_file):
     ndata = np.rollaxis(ndata, 0, 2)
     return ndata
 
-def plot_cca_fweights(data, out_dir, prefix_name, two_side=False):
-    """Plot features weights derived from CCA."""
+def plot_pls_fweights(data, out_dir, prefix_name):
+    """Plot features weights derived from PLS."""
     if len(data.shape)==3:
         data = np.expand_dims(data, axis=3)
     n_components = data.shape[3]
-    n_channels = data.shape[0]
+    n_channels = data.shape[2]
 
     for f in range(n_components):
-        fig, axs = plt.subplots(8, 12)
+        fig, axs = plt.subplots(1, 5)
         cdata = data[..., f]
-        if two_side:
-            maxv = max(cdata.max(), -1*cdata.min())
-            minv = -1 * maxv
-        else:
-            maxv = cdata.max()
-            minv = cdata.min()
+        maxv = cdata.max()
+        minv = cdata.min()
         for c in range(n_channels):
-            tmp = cdata[c, ...]        
-            im = axs[c/12][c%12].imshow(tmp, interpolation='nearest',
-                                        vmin=minv, vmax=maxv)
-            axs[c/12][c%12].get_xaxis().set_visible(False)
-            axs[c/12][c%12].get_yaxis().set_visible(False)
+            tmp = cdata[..., c]        
+            im = axs[c].imshow(tmp, interpolation='nearest',
+                               vmin=minv, vmax=maxv)
+            axs[c].get_xaxis().set_visible(False)
+            axs[c].get_yaxis().set_visible(False)
         fig.subplots_adjust(right=0.85)
-        cbar_ax = fig.add_axes([0.88, 0.2, 0.03, 0.6])
-        fig.colorbar(im, cax=cbar_ax)
-        fig.savefig(os.path.join(out_dir, prefix_name+'_%s.png'%(f+1)))
+        cbar_ax = fig.add_axes([0.15, 0.35, 0.67, 0.03])
+        cbar = fig.colorbar(im, cax=cbar_ax, orientation='horizontal')
+        cbar.ax.tick_params(labelsize=10)
+        fig.savefig(os.path.join(out_dir, prefix_name+'_C%s.png'%(f+1)))
 
 def plot_avg_weights_pattern(feat_weights, top_channels_num=None):
     """Plot average features weights derived from CCA."""

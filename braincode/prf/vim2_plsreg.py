@@ -15,7 +15,7 @@ from braincode.math import get_pls_components, pls_regression_predict
 from braincode.math.norm import zero_one_norm
 from braincode.pipeline import retinotopy
 from braincode.pipeline.base import random_cross_modal_corr
-from braincode.vim2 import util as vutil
+from braincode.prf import util as vutil
 from braincode.prf import dataio
 
 
@@ -198,14 +198,6 @@ def plscorr_eval(train_fmri_ts, train_feat_ts, val_fmri_ts, val_feat_ts,
 
 def plscorr_viz(cca_dir, mask_file):
     """CCA weights visualization."""
-    # plot feature weights (normalized)
-    feat_weights = np.load(os.path.join(cca_dir, 'feat_weights.npy'))
-    feat_weights = feat_weights.reshape(-1, 10)
-    norm_feat_weights = zero_one_norm(feat_weights, two_side=True)
-    norm_feat_weights = norm_feat_weights.reshape(96, 11, 11, 10)
-    np.save(os.path.join(cca_dir, 'norm_feat_weights.npy'), norm_feat_weights)
-    vutil.plot_cca_fweights(norm_feat_weights, cca_dir, 'norm2_feat_weight',
-                            two_side=True)
     # plot fmri weights (normalized)
     fmri_weights = np.load(os.path.join(cca_dir, 'fmri_weights.npy'))
     norm_fmri_weights = zero_one_norm(fmri_weights, two_side=True)
@@ -222,22 +214,6 @@ def plscorr_viz(cca_dir, mask_file):
         print 'Positive side : index of top 10 images'
         print tmp.argsort()[-10:]
 
-    ## calculate corr between original variables and the CCs
-    #feat_cc = np.load(os.path.join(out_dir, 'feat_cc.npy'))
-    #parallel_corr2_coef(train_feat_ts.T, feat_cc.T, 
-    #                    os.path.join(out_dir, 'feat_cc_corr.npy'),
-    #                    block_size=10, n_jobs=1)
-    #feat_cc_corr = np.load(os.path.join(out_dir, 'feat_cc_corr.npy'))
-    #feat_cc_corr = feat_cc_corr.reshape(96, 11, 11, 10)
-    #vutil.plot_cca_fweights(feat_cc_corr, out_dir, 'feat_cc_corr')
-    ##vutil.fweights_bar(feat_cc_corr)
-    #fmri_cc = np.load(os.path.join(out_dir, 'fmri_cc.npy'))
-    #parallel_corr2_coef(train_fmri_ts.T, fmri_cc.T,
-    #                    os.path.join(out_dir, 'fmri_cc_corr.npy'),
-    #                    block_size=10, n_jobs=1)
-    #fmri_cc_corr = np.load(os.path.join(out_dir, 'fmri_cc_corr.npy'))
-    #vutil.save_cca_volweights(fmri_cc_corr, mask_file, out_dir,
-    #                          prefix_name='fmri_cc_corr')
 
 def inter_subj_cc_sim(subj1_id, subj2_id, subj_dir):
     """Compute inter-subjects CCs similarity."""
@@ -345,39 +321,44 @@ if __name__ == '__main__':
     subj_id = 1
     subj_dir = os.path.join(res_dir, 'vim2_S%s'%(subj_id))
     pls_dir = os.path.join(subj_dir, 'pls')
+    prf_dir = os.path.join(subj_dir, 'prf', 'gaussian_kernel')
     check_path(pls_dir)
 
     #-- load fmri data
-    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_vim2_fmri(db_dir, subj_id)
+    fmri_file = os.path.join(prf_dir, 'residual_fmri.npz')
+    train_fmri_data = np.load(fmri_file)
 
-    #-- load cnn activation data: data.shape = (feature_size, x, y, 7200/540)
-    train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
-    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
-    val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
-    val_feat_ts = np.load(val_feat_file, mmap_mode='r')
+    #-- load gabor feats: data.shape = (x, y, feature_size, 7200/540)
+    #train_feat_file = os.path.join(feat_dir, 'train_gabor_trs_scale.npy')
+    #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+ 
+    #-- PLS regression
+    #train_feat = train_feat_ts.reshape(-1, 7200).T
+    #train_fmri = train_fmri_data['res_fmri'].T
+    #print 'PLS model initializing ...'
+    #comps = 20
+    #pls2 = PLSRegression(n_components=comps)
+    #pls2.fit(train_feat, train_fmri)
+    #joblib.dump(pls2, os.path.join(pls_dir, 'pls_model_c%s.pkl'%(comps)))
+    #for i in range(comps):
+    #    print 'Component %s'%(i+1)
+    #    print np.corrcoef(pls2.x_scores_[:, i], pls2.y_scores_[:, i])
+    ## get fmri residual
+    #pred_train_fmri = pls_regression_predict(pls2, train_feat)
+    #pred_file = os.path.join(pls_dir, 'pls_pred_tfmri_c%s.npy'%(comps))
+    #np.save(pred_file, pred_train_fmri)
 
-    ##-- load salience maps of stimuli: data.shape = (128, 128, 7200/540)
-    #train_sal_file = os.path.join(feat_dir, 'salience_train_trs.npy')
-    #train_sal_ts = np.load(train_sal_file, mmap_mode='r')
-    #val_sal_file = os.path.join(feat_dir, 'salience_val_trs.npy')
-    #val_sal_ts = np.load(val_sal_file, mmap_mode='r')
-    
-    # PLS regression
-    #train_feat = train_sal_ts.reshape(-1, 7200).T
-    train_feat = train_feat_ts.reshape(-1, 7200).T
-    train_fmri = train_fmri_ts.T
-    print 'PLS model initializing ...'
-    comps = 20
-    pls2 = PLSRegression(n_components=comps)
-    pls2.fit(train_feat, train_fmri)
-    joblib.dump(pls2, os.path.join(pls_dir, 'pls_model_c%s.pkl'%(comps)))
-    for i in range(comps):
-        print 'Component %s'%(i+1)
-        print np.corrcoef(pls2.x_scores_[:, i], pls2.y_scores_[:, i])
-    # get fmri residual
-    pred_train_fmri = pls_regression_predict(pls2, train_feat)
-    #pred_train_fmri = pls2.predict(train_feat)
-    pred_file = os.path.join(pls_dir, 'pls_pred_tfmri_c%s.npy'%(comps))
-    np.save(pred_file, pred_train_fmri)
-
+    #-- visualize PLS weights
+    pls_model_file = os.path.join(pls_dir, 'pls_model_c20.pkl')
+    pls2 = joblib.load(pls_model_file)
+    # plot feature weights for each component of PLS
+    #xwts = pls2.x_weights_.reshape(128, 128, 5, -1)
+    #vutil.plot_pls_fweights(xwts, pls_dir, 'feat_weights')
+    # save fmri weights for each component of PLS as nifti file
+    vxl_idx = train_fmri_data['vxl_idx']
+    ywts = pls2.y_weights_
+    for c in range(ywts.shape[1]):
+        vxl_data = ywts[:, c]
+        outfile = os.path.join(pls_dir, 'fmri_weights_C%s.nii.gz'%(c+1))
+        vutil.vxl_data2nifti(vxl_data, vxl_idx, outfile)
 
