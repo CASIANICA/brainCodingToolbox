@@ -565,24 +565,31 @@ def get_predicted_fmri(feat_dir, prf_dir, roi, data_type):
 
 def get_prediction_residual(prf_dir, db_dir, subj_id):
     roi_list = ['v1rh', 'v1lh', 'v2rh', 'v2lh', 'v3rh', 'v3lh', 'v4rh', 'v4lh']
+    orig_fmri = None
+    pred_fmri = None
     res_fmri = None
     vxl_idx = None
     for roi in roi_list:
         idx, tx, vx = dataio.load_vim2_fmri(db_dir, subj_id, roi)
         m = tx.mean(axis=1, keepdims=True)
         s = tx.mean(axis=1, keepdims=True)
-        pred_file = os.path.join(prf_dir, roi, 'train_pred_norm_fmri.npy')
-        pred_fmri = np.load(pred_file)
-        pred_fmri = pred_fmri * s + m
-        res = tx - pred_fmri
+        roi_pred_file = os.path.join(prf_dir, roi, 'train_pred_norm_fmri.npy')
+        roi_pred_fmri = np.load(roi_pred_file)
+        roi_pred_fmri = roi_pred_fmri * s + m
+        res = tx - roi_pred_fmri
         if not isinstance(res_fmri, np.ndarray):
+            orig_fmri = tx
+            pred_fmri = roi_pred_fmri
             res_fmri = res
             vxl_idx = idx
         else:
+            orig_fmri = np.vstack((orig_fmri, tx))
+            pred_fmri = np.vstack((pred_fmri, roi_pred_fmri))
             res_fmri = np.vstack((res_fmri, res))
             vxl_idx = np.concatenate((vxl_idx, idx))
-    outfile = os.path.join(prf_dir, 'residual_fmri')
-    np.savez(outfile, res_fmri=res_fmri, vxl_idx=vxl_idx)
+    outfile = os.path.join(prf_dir, 'roi_coding_fmri')
+    np.savez(outfile,orig_fmri=orig_fmri, pred_fmri=pred_fmri,
+             res_fmri=res_fmri, vxl_idx=vxl_idx)
 
 def get_hue_selectivity(prf_dir, db_dir, subj_id, roi):
     """Get hue tunning curve for each voxel and calculate hue selectivity."""
