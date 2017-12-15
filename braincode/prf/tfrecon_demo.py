@@ -27,8 +27,8 @@ def reconstructor(gabor_bank, vxl_coding_paras, y):
     vxl_conv = tf.reshape(vxl_conv, [-1])
     vxl_pred = vxl_conv - vxl_bias
     vxl_real = tf.placeholder(tf.float32,
-                shape=(None, vxl_coding_paras['bias'].shape[0]))
-    error = tf.mean(tf.square(vxl_pred - vxl_real))
+                shape=(vxl_coding_paras['bias'].shape[0],))
+    error = tf.reduce_mean(tf.square(vxl_pred - vxl_real))
     opt = tf.train.AdamOptimizer(1e-3, beta1=0.5)
     solver =  opt.minimize(error, var_list=img)
  
@@ -103,12 +103,12 @@ if __name__ == '__main__':
     resp_mat = tables.open_file(resp_file)
     # create mask
     # train data shape: (1750, ~25000)
-    train_ts = tf.get_node('/dataTrnS%s'%(subj_id))[:]
+    train_ts = resp_mat.get_node('/dataTrnS%s'%(subj_id))[:]
     train_ts = train_ts.T
     # get non-NaN voxel index
     fmri_s = train_ts.sum(axis=1)
     non_nan_idx = np.nonzero(np.logical_not(np.isnan(fmri_s)))[0]
-    rois = tf.get_node('/roiS%s'%(subj_id))[:]
+    rois = resp_mat.get_node('/roiS%s'%(subj_id))[:]
     rois = rois[0]
     roi_idx = {'v1': 1, 'v2': 2, 'v3': 3, 'v3a': 4,
                'v3b': 5, 'v4': 6, 'LO': 7}
@@ -122,12 +122,14 @@ if __name__ == '__main__':
     #val_ts = tf.get_node('/dataValS%s'%(subj_id))[:]
     #val_ts = val_ts.T
     #val_ts = np.nan_to_num(val_ts[vxl_idx])
-    tf.close()
+    resp_mat.close()
     y_ = train_ts[vxl_coding_paras['vxl_idx']]
     # shape: (#voxel, 1750)
     print y_.shape
     recon_img = reconstructor(gabor_bank, vxl_coding_paras, y_)
  
     # show image
+    fig = plt.figure()
     plt.imshow(recon_img.reshape(500, 500))
+    plt.savefig('recon.png')
 
