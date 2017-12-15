@@ -572,7 +572,7 @@ def get_prediction_residual(prf_dir, db_dir, subj_id):
     for roi in roi_list:
         idx, tx, vx = dataio.load_vim2_fmri(db_dir, subj_id, roi)
         m = tx.mean(axis=1, keepdims=True)
-        s = tx.mean(axis=1, keepdims=True)
+        s = tx.std(axis=1, keepdims=True)
         roi_pred_file = os.path.join(prf_dir, roi, 'train_pred_norm_fmri.npy')
         roi_pred_fmri = np.load(roi_pred_file)
         roi_pred_fmri = roi_pred_fmri * s + m
