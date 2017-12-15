@@ -5,6 +5,7 @@ import os
 import numpy as np
 import tables
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
 from braincode.util import configParser
 
@@ -26,21 +27,21 @@ def reconstructor(gabor_bank, vxl_coding_paras, y):
     vxl_conv = tf.nn.conv2d(gabor_energy, vxl_wts, strides=[1, 1, 1, 1],
                             padding='VALID')
     vxl_conv = tf.reshape(vxl_conv, [-1])
-    vxl_out = vxl_conv - vxl_bias
-    return vxl_out
-    
-vxl_real = tf.placeholder(tf.float32, shape=(None, input_dim_voxel)) # input_dim_voxel = ?
+    vxl_pred = vxl_conv - vxl_bias
+    vxl_real = tf.placeholder(tf.float32,
+                shape=(None, vxl_coding_paras['bias'].shape[0]))
     error = tf.mean(tf.square(vxl_pred - vxl_real))
-    
     opt = tf.train.AdamOptimizer(1e-3, beta1=0.5)
-    solver =  opt.minimize(error, var_list = img)
-
-    """ training """
+    solver =  opt.minimize(error, var_list=img)
+ 
+    # training
     config = tf.ConfigProto()
     config.gpu_options.per_process_gpu_memory_fraction = 0.9
     sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())     
-    _, error_curr, reconstructed_img = sess.run([solver, error, img], feed_dict={vxl_real: resp_mat})
+    _, error_curr, reconstructed_img = sess.run([solver, error, img],
+                                                feed_dict={vxl_real: y[:, 2]})
+    return reconstructed_img
 
 def model_test(input_imgs, gabor_bank, vxl_coding_paras):
     """Stimuli reconstructor based on Activation Maximization"""
@@ -130,10 +131,8 @@ if __name__ == '__main__':
     y_ = train_ts[vxl_coding_paras['vxl_idx']]
     # shape: (#voxel, 1750)
     print y_.shape
-    vxl_pred = reconstructor(gabor_bank, vxl_coding_paras, y_)
+    recon_img = reconstructor(gabor_bank, vxl_coding_paras, y_)
  
-    """ show image """
-    import matplotlib.pyplot as plt
-    plt.imshow(reconstructed_img.reshape(500, 500))
-
+    # show image
+    plt.imshow(recon_img.reshape(500, 500))
 
