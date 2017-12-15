@@ -591,6 +591,30 @@ def get_prediction_residual(prf_dir, db_dir, subj_id):
     np.savez(outfile,orig_fmri=orig_fmri, pred_fmri=pred_fmri,
              res_fmri=res_fmri, vxl_idx=vxl_idx)
 
+def get_vxl_idx_in_rect(prf_dir, db_dir, subj_id, rmin, rmax, cmin, cmax):
+    """Get voxel idx whose pRF within the specific rect."""
+    roi_list = ['v1rh', 'v1lh']
+    vxl_idx = []
+    rect = np.zeros((128, 128))
+    rect[rmin:(rmax+1), cmin:(cmax+1)] = 1
+    for roi in roi_list:
+        print roi
+        idx, tx, vx = dataio.load_vim2_fmri(db_dir, subj_id, roi)
+        del tx
+        del vx
+        print 'Number of voxel idx: %s'%(len(idx))
+        roi_dir = os.path.join(prf_dir, roi)
+        corr = np.load(os.path.join(roi_dir, 'reg_sel_model_corr.npy'))
+        prfs = np.load(os.path.join(roi_dir, 'prfs.npy'))
+        prfs = np.abs(prfs)
+        for i in range(len(idx)):
+            if corr[i]>=0.25:
+                x = prfs[i] > 0.00005
+                ratio = np.sum(x*rect) / x.sum()
+                if ratio>0.5:
+                    vxl_idx.append(idx[i])
+    return vxl_idx
+
 def get_hue_selectivity(prf_dir, db_dir, subj_id, roi):
     """Get hue tunning curve for each voxel and calculate hue selectivity."""
     # load fmri response
@@ -854,5 +878,11 @@ if __name__ == '__main__':
     # Get estimated brain activity based on encoding model
     #get_predicted_fmri(feat_dir, prf_dir, roi, 'train')
     # Get predicted fmri residual
-    get_prediction_residual(prf_dir, db_dir, subj_id)
+    #get_prediction_residual(prf_dir, db_dir, subj_id)
+    # get vxl ts
+    vxl_idx = get_vxl_idx_in_rect(prf_dir, db_dir, subj_id, 31, 51, 48, 73)
+    vxl_data = np.load(os.path.join(prf_dir, 'roi_coding_fmri.npz'))
+    sel_idx = [i for i in range(len(roi_data['vxl_idx']))
+                if roi_data['vxl_idx'][i] in vxl_idx]
+
 
