@@ -28,6 +28,19 @@ def reconstructor(gabor_bank, vxl_coding_paras, y):
     vxl_conv = tf.reshape(vxl_conv, [-1])
     vxl_out = vxl_conv - vxl_bias
     return vxl_out
+    
+vxl_real = tf.placeholder(tf.float32, shape=(None, input_dim_voxel)) # input_dim_voxel = ?
+    error = tf.mean(tf.square(vxl_pred - vxl_real))
+    
+    opt = tf.train.AdamOptimizer(1e-3, beta1=0.5)
+    solver =  opt.minimize(error, var_list = img)
+
+    """ training """
+    config = tf.ConfigProto()
+    config.gpu_options.per_process_gpu_memory_fraction = 0.9
+    sess = tf.Session(config=config)
+    sess.run(tf.global_variables_initializer())     
+    _, error_curr, reconstructed_img = sess.run([solver, error, img], feed_dict={vxl_real: resp_mat})
 
 def model_test(input_imgs, gabor_bank, vxl_coding_paras):
     """Stimuli reconstructor based on Activation Maximization"""
@@ -81,7 +94,7 @@ if __name__ == '__main__':
     gabor_bank_file = os.path.join(feat_dir, 'gabor_kernels.npz')
     gabor_bank = np.load(gabor_bank_file)
     vxl_coding_paras_file = os.path.join(prf_dir, roi, 'tfrecon',
-                                         'vxl_coding_wts.npz')
+                                         'vxl_coding_wts_1.npz')
     vxl_coding_paras = np.load(vxl_coding_paras_file)
 
     #-- test encoding model
@@ -118,23 +131,9 @@ if __name__ == '__main__':
     # shape: (#voxel, 1750)
     print y_.shape
     vxl_pred = reconstructor(gabor_bank, vxl_coding_paras, y_)
-    vxl_real = tf.placeholder(tf.float32, shape=(None, input_dim_voxel)) # input_dim_voxel = ?
-    error = tf.mean(tf.square(vxl_pred - vxl_real))
-    
-    opt = tf.train.AdamOptimizer(1e-3, beta1=0.5)
-    solver =  opt.minimize(error, var_list = img)
-
-    """ training """
-    config = tf.ConfigProto()
-    config.gpu_options.per_process_gpu_memory_fraction = 0.9
-    sess = tf.Session(config=config)
-    sess.run(tf.global_variables_initializer())     
-    _, error_curr, reconstructed_img = sess.run([solver, error, img], feed_dict={vxl_real: resp_mat})
-    
+ 
     """ show image """
     import matplotlib.pyplot as plt
     plt.imshow(reconstructed_img.reshape(500, 500))
-
-    
 
 
