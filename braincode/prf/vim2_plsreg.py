@@ -216,42 +216,42 @@ if __name__ == '__main__':
     check_path(pls_dir)
 
     #-- load fmri data
-    fmri_file = os.path.join(prf_dir, 'residual_fmri.npz')
-    train_fmri_data = np.load(fmri_file)
+    fmri_file = os.path.join(prf_dir, 'roi_orig_fmri.npz')
+    fmri_data = np.load(fmri_file)
 
     #-- load gabor feats: data.shape = (x, y, feature_size, 7200/540)
-    #train_feat_file = os.path.join(feat_dir, 'train_gabor_trs_scale.npy')
-    #train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    train_feat_file = os.path.join(feat_dir, 'train_gabor_trs_scale.npy')
+    train_feat_ts = np.load(train_feat_file, mmap_mode='r')
  
     #-- PLS regression
-    #train_feat = train_feat_ts.reshape(-1, 7200).T
-    #train_fmri = train_fmri_data['res_fmri'].T
-    #print 'PLS model initializing ...'
-    #comps = 20
-    #pls2 = PLSRegression(n_components=comps)
-    #pls2.fit(train_feat, train_fmri)
-    #joblib.dump(pls2, os.path.join(pls_dir, 'pls_model_c%s.pkl'%(comps)))
-    #for i in range(comps):
-    #    print 'Component %s'%(i+1)
-    #    print np.corrcoef(pls2.x_scores_[:, i], pls2.y_scores_[:, i])
-    ## get fmri residual
-    #pred_train_fmri = pls_regression_predict(pls2, train_feat)
-    #pred_file = os.path.join(pls_dir, 'pls_pred_tfmri_c%s.npy'%(comps))
-    #np.save(pred_file, pred_train_fmri)
+    train_feat = train_feat_ts.reshape(-1, 7200).T
+    train_fmri = fmri_data['train_ts'].T
+    print 'PLS model initializing ...'
+    comps = 20
+    pls2 = PLSRegression(n_components=comps)
+    pls2.fit(train_feat, train_fmri)
+    joblib.dump(pls2, os.path.join(pls_dir, 'pls_model_c%s.pkl'%(comps)))
+    for i in range(comps):
+        print 'Component %s'%(i+1)
+        print np.corrcoef(pls2.x_scores_[:, i], pls2.y_scores_[:, i])
+    # get predicted fmri response based on PLS model
+    pred_train_fmri = pls_regression_predict(pls2, train_feat)
+    pred_file = os.path.join(pls_dir, 'pls_pred_tfmri_c%s.npy'%(comps))
+    np.save(pred_file, pred_train_fmri)
 
     #-- visualize PLS weights
-    pls_model_file = os.path.join(pls_dir, 'pls_model_c20.pkl')
-    pls2 = joblib.load(pls_model_file)
+    #pls_model_file = os.path.join(pls_dir, 'pls_model_c20.pkl')
+    #pls2 = joblib.load(pls_model_file)
     # plot feature weights for each component of PLS
     #xwts = pls2.x_weights_.reshape(128, 128, 5, -1)
     #vutil.plot_pls_fweights(xwts, pls_dir, 'feat_weights')
     # save fmri weights for each component of PLS as nifti file
-    vxl_idx = train_fmri_data['vxl_idx']
-    ywts = pls2.y_weights_
-    for c in range(ywts.shape[1]):
-        vxl_data = ywts[:, c]
-        outfile = os.path.join(pls_dir, 'fmri_weights_C%s.nii.gz'%(c+1))
-        vutil.vxl_data2nifti(vxl_data, vxl_idx, outfile)
+    #vxl_idx = train_fmri_data['vxl_idx']
+    #ywts = pls2.y_weights_
+    #for c in range(ywts.shape[1]):
+    #    vxl_data = ywts[:, c]
+    #    outfile = os.path.join(pls_dir, 'fmri_weights_C%s.nii.gz'%(c+1))
+    #    vutil.vxl_data2nifti(vxl_data, vxl_idx, outfile)
 
     # compute corrcoef of local ans global brain activity
 

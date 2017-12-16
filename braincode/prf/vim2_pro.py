@@ -739,6 +739,24 @@ def img_offset(orig_img, new_center):
                                                        pixs[1, pix_idx]]
     return new_img
 
+def merge_roi_data(prf_dir, db_dir, subj_id):
+    roi_list = ['v1rh', 'v1lh', 'v2rh', 'v2lh', 'v3rh', 'v3lh', 'v4rh', 'v4lh']
+    train_ts = None
+    val_ts = None
+    vxl_idx = None
+    for roi in roi_list:
+        idx, tx, vx = dataio.load_vim2_fmri(db_dir, subj_id, roi)
+        if not isinstance(vxl_ts, np.ndarray):
+            train_ts = tx
+            val_ts = vx
+            vxl_idx = idx
+        else:
+            train_ts = np.vstack((train_ts, tx))
+            val_ts = np.vstack((val, tx))
+            vxl_idx = np.concatenate((vxl_idx, idx))
+    outfile = os.path.join(prf_dir, 'roi_orig_fmri')
+    np.savez(outfile, train_ts=train_ts, val_ts=val_ts, vxl_idx=vxl_idx)
+
 
 if __name__ == '__main__':
     """Main function."""
@@ -875,14 +893,16 @@ if __name__ == '__main__':
     #prf_dir = os.path.join(subj_dir, 'pls')
     #pls_ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
 
+    # merge original fmri data of all ROIs
+    merge_roi_data(prf_dir, db_dir, subj_id)
     # Get estimated brain activity based on encoding model
     #get_predicted_fmri(feat_dir, prf_dir, roi, 'train')
     # Get predicted fmri residual
     #get_prediction_residual(prf_dir, db_dir, subj_id)
     # get vxl ts
-    vxl_idx = get_vxl_idx_in_rect(prf_dir, db_dir, subj_id, 31, 51, 48, 73)
-    vxl_data = np.load(os.path.join(prf_dir, 'roi_coding_fmri.npz'))
-    sel_idx = [i for i in range(len(roi_data['vxl_idx']))
-                if roi_data['vxl_idx'][i] in vxl_idx]
+    #vxl_idx = get_vxl_idx_in_rect(prf_dir, db_dir, subj_id, 31, 51, 48, 73)
+    #vxl_data = np.load(os.path.join(prf_dir, 'roi_coding_fmri.npz'))
+    #sel_idx = [i for i in range(len(roi_data['vxl_idx']))
+    #            if roi_data['vxl_idx'][i] in vxl_idx]
 
 
