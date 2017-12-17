@@ -751,8 +751,10 @@ def merge_roi_data(prf_dir, db_dir, subj_id):
     np.savez(outfile, train_ts=train_ts, val_ts=val_ts, vxl_idx=vxl_idx)
 
 def get_pls_residual(pls_dir, prf_dir, db_dir, subj_id):
-    pls_pred_fmri = np.load(os.path.join(pls_dir, 'pls_pred_tfmri_c20.npy'))
-    pls_pred_fmri = pls_pred_fmri.T
+    pls_pred_fmri = np.load(os.path.join(pls_dir, 'pls_pred_tfmri_c6.npz'))
+    train_pred_fmri = pls_pred_fmri['pred_train'].T
+    print train_pred_fmri.shape
+    val_pred_fmri = pls_pred_fmri['pred_val'].T
     orig_fmri_data = np.load(os.path.join(prf_dir, 'roi_orig_fmri.npz'))
     vxl_idx = orig_fmri_data['vxl_idx']
     # ROI list
@@ -761,11 +763,14 @@ def get_pls_residual(pls_dir, prf_dir, db_dir, subj_id):
         roi_idx, roi_tx, roi_vx = dataio.load_vim2_fmri(db_dir, subj_id, roi)
         print roi_tx.shape
         sel_idx = [i for i in range(len(vxl_idx)) if vxl_idx[i] in roi_idx]
-        roi_pred = pls_pred_fmri[sel_idx]
-        print roi_pred.shape
-        res_fmri = roi_tx - roi_pred
+        roi_train_pred = train_pred_fmri[sel_idx]
+        roi_val_pred = val_pred_fmri[sel_idx]
+        print roi_train_pred.shape
+        res_train = roi_tx - roi_train_pred
+        res_val = roi_vx - roi_val_pred
         outfile = os.path.join(prf_dir, roi, 'train_pls_residual_fmri')
-        np.savez(outfile, pls_residual=res_fmri, vxl_idx=roi_idx)
+        np.savez(outfile, pls_train_residual=res_train,
+                 pls_val_residual=res_val, vxl_idx=roi_idx)
 
 
 if __name__ == '__main__':
@@ -905,8 +910,8 @@ if __name__ == '__main__':
     # merge original fmri data of all ROIs
     #merge_roi_data(prf_dir, db_dir, subj_id)
     # get PLS residual ts
-    #get_pls_residual(pls_dir, prf_dir, db_dir, subj_id)
-    pls_ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
+    get_pls_residual(pls_dir, prf_dir, db_dir, subj_id)
+    #pls_ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
     # Get estimated brain activity based on encoding model
     #get_predicted_fmri(feat_dir, prf_dir, roi, 'train')
     # Get predicted fmri residual
