@@ -267,10 +267,9 @@ def pls_ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi):
     model seletion.
     """
     # load fmri response
-    train_fmri_data = np.load(os.path.join(prf_dir, roi,
-                                           'train_pls_residual_fmri.npz'))
-    vxl_idx = train_fmri_data['vxl_idx']
-    train_fmri_ts = train_fmri_data['pls_residual']
+    fmri_data = np.load(os.path.join(prf_dir, roi, 'pls_residual_fmri.npz'))
+    vxl_idx = fmri_data['vxl_idx']
+    train_fmri_ts = fmri_data['pls_train_residual']
 
     print 'Voxel number: %s'%(len(vxl_idx))
     # load candidate models
@@ -768,7 +767,7 @@ def get_pls_residual(pls_dir, prf_dir, db_dir, subj_id):
         print roi_train_pred.shape
         res_train = roi_tx - roi_train_pred
         res_val = roi_vx - roi_val_pred
-        outfile = os.path.join(prf_dir, roi, 'train_pls_residual_fmri')
+        outfile = os.path.join(prf_dir, roi, 'pls_residual_fmri')
         np.savez(outfile, pls_train_residual=res_train,
                  pls_val_residual=res_val, vxl_idx=roi_idx)
 
@@ -873,7 +872,7 @@ if __name__ == '__main__':
     #-- general config
     subj_id = 1
     kernel = 'gaussian'
-    roi = 'v1lh'
+    roi = 'v1rh'
     # directory config
     if kernel=='round':
         feat_dir = os.path.join(feat_dir, 'round')
@@ -910,8 +909,8 @@ if __name__ == '__main__':
     # merge original fmri data of all ROIs
     #merge_roi_data(prf_dir, db_dir, subj_id)
     # get PLS residual ts
-    get_pls_residual(pls_dir, prf_dir, db_dir, subj_id)
-    #pls_ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
+    #get_pls_residual(pls_dir, prf_dir, db_dir, subj_id)
+    pls_ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
     # Get estimated brain activity based on encoding model
     #get_predicted_fmri(feat_dir, prf_dir, roi, 'train')
     # Get predicted fmri residual
