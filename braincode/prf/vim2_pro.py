@@ -267,37 +267,30 @@ def pls_ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi):
     model seletion.
     """
     # load fmri response
-    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_vim2_fmri(db_dir, subj_id)
-    del val_fmri_ts
-    roi_vxl_idx, roi_tfmri_ts, roi_vfmri_ts = dataio.load_vim2_fmri(db_dir,
-                                                            subj_id, roi=roi)
-    del roi_tfmri_ts
-    del roi_vfmri_ts
-    sel_idx = [i for i in range(vxl_idx.shape[0]) if vxl_idx[i] in roi_vxl_idx]
-    pls_pred_fmri = np.load(os.path.join(prf_dir, 'pls_pred_tfmri_c20.npy'))
-    d = train_fmri_ts - pls_pred_fmri.T
-    train_fmri_ts = d[sel_idx]
-    print train_fmri_ts.shape
+    train_fmri_data = np.load(os.path.join(prf_dir, roi,
+                                           'train_pls_residual_fmri.npz'))
+    vxl_idx = train_fmri_data['vxl_idx']
+    train_fmri_ts = train_fmri_data['pls_residual']
 
-    print 'Voxel number: %s'%(len(roi_vxl_idx))
+    print 'Voxel number: %s'%(len(vxl_idx))
     # load candidate models
     train_models = np.load(os.path.join(feat_dir, 'train_candidate_model.npy'),
                            mmap_mode='r')
     # output directory config
-    roi_dir = os.path.join(prf_dir,  roi)
+    roi_dir = os.path.join(prf_dir,  roi, 'pls_residual')
     check_path(roi_dir)
     # model seletion and tuning
     ALPHA_NUM = 20
     BOOTS_NUM = 15
     paras_file = os.path.join(roi_dir, 'reg_paras.npy')
     paras = np.memmap(paras_file, dtype='float64', mode='w+',
-                      shape=(15360, len(sel_idx), 46))
+                      shape=(15360, len(vxl_idx), 46))
     mcorr_file= os.path.join(roi_dir, 'reg_model_corr.npy')
     mcorr = np.memmap(mcorr_file, dtype='float64', mode='w+',
-                      shape=(15360, len(sel_idx)))
+                      shape=(15360, len(vxl_idx)))
     alphas_file = os.path.join(roi_dir, 'reg_alphas.npy')
     alphas = np.memmap(alphas_file, dtype='float64', mode='w+',
-                       shape=(15360, len(sel_idx)))
+                       shape=(15360, len(vxl_idx)))
     # fMRI data z-score
     print 'fmri data temporal z-score'
     m = np.mean(train_fmri_ts, axis=1, keepdims=True)
@@ -746,16 +739,33 @@ def merge_roi_data(prf_dir, db_dir, subj_id):
     vxl_idx = None
     for roi in roi_list:
         idx, tx, vx = dataio.load_vim2_fmri(db_dir, subj_id, roi)
-        if not isinstance(vxl_ts, np.ndarray):
+        if not isinstance(train_ts, np.ndarray):
             train_ts = tx
             val_ts = vx
             vxl_idx = idx
         else:
             train_ts = np.vstack((train_ts, tx))
-            val_ts = np.vstack((val, tx))
+            val_ts = np.vstack((val_ts, vx))
             vxl_idx = np.concatenate((vxl_idx, idx))
     outfile = os.path.join(prf_dir, 'roi_orig_fmri')
     np.savez(outfile, train_ts=train_ts, val_ts=val_ts, vxl_idx=vxl_idx)
+
+def get_pls_residual(pls_dir, prf_dir, db_dir, subj_id):
+    pls_pred_fmri = np.load(os.path.join(pls_dir, 'pls_pred_tfmri_c20.npy'))
+    pls_pred_fmri = pls_pred_fmri.T
+    orig_fmri_data = np.load(os.path.join(prf_dir, 'roi_orig_fmri.npz'))
+    vxl_idx = orig_fmri_data['vxl_idx']
+    # ROI list
+    roi_list = ['v1rh', 'v1lh', 'v2rh', 'v2lh', 'v3rh', 'v3lh', 'v4rh', 'v4lh']
+    for roi in roi_list:
+        roi_idx, roi_tx, roi_vx = dataio.load_vim2_fmri(db_dir, subj_id, roi)
+        print roi_tx.shape
+        sel_idx = [i for i in range(len(vxl_idx)) if vxl_idx[i] in roi_idx]
+        roi_pred = pls_pred_fmri[sel_idx]
+        print roi_pred.shape
+        res_fmri = roi_tx - roi_pred
+        outfile = os.path.join(prf_dir, roi, 'train_pls_residual_fmri')
+        np.savez(outfile, pls_residual=res_fmri, vxl_idx=roi_idx)
 
 
 if __name__ == '__main__':
@@ -864,6 +874,7 @@ if __name__ == '__main__':
         feat_dir = os.path.join(feat_dir, 'round')
     subj_dir = os.path.join(res_dir, 'vim2_S%s'%(subj_id))
     prf_dir = os.path.join(subj_dir, 'prf', kernel+'_kernel')
+    pls_dir = os.path.join(subj_dir, 'pls')
 
     #-- pRF model fitting
     # pRF model tuning
@@ -890,11 +901,12 @@ if __name__ == '__main__':
     #-- show retinotopic mapping
     #show_retinotopy(prf_dir, 'ecc')
 
-    #prf_dir = os.path.join(subj_dir, 'pls')
-    #pls_ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
 
     # merge original fmri data of all ROIs
-    merge_roi_data(prf_dir, db_dir, subj_id)
+    #merge_roi_data(prf_dir, db_dir, subj_id)
+    # get PLS residual ts
+    #get_pls_residual(pls_dir, prf_dir, db_dir, subj_id)
+    pls_ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
     # Get estimated brain activity based on encoding model
     #get_predicted_fmri(feat_dir, prf_dir, roi, 'train')
     # Get predicted fmri residual
