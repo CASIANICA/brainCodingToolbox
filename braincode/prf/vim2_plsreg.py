@@ -222,12 +222,14 @@ if __name__ == '__main__':
     #-- load gabor feats: data.shape = (x, y, feature_size, 7200/540)
     train_feat_file = os.path.join(feat_dir, 'train_gabor_trs_scale.npy')
     train_feat_ts = np.load(train_feat_file, mmap_mode='r')
+    val_feat_file = os.path.join(feat_dir, 'val_gabor_trs_scale.npy')
+    val_feat_ts = np.load(val_feat_file, mmap_mode='r')
  
     #-- PLS regression
     train_feat = train_feat_ts.reshape(-1, 7200).T
     train_fmri = fmri_data['train_ts'].T
     print 'PLS model initializing ...'
-    comps = 20
+    comps = 6
     pls2 = PLSRegression(n_components=comps)
     pls2.fit(train_feat, train_fmri)
     joblib.dump(pls2, os.path.join(pls_dir, 'pls_model_c%s.pkl'%(comps)))
@@ -236,8 +238,9 @@ if __name__ == '__main__':
         print np.corrcoef(pls2.x_scores_[:, i], pls2.y_scores_[:, i])
     # get predicted fmri response based on PLS model
     pred_train_fmri = pls_regression_predict(pls2, train_feat)
-    pred_file = os.path.join(pls_dir, 'pls_pred_tfmri_c%s.npy'%(comps))
-    np.save(pred_file, pred_train_fmri)
+    pred_val_fmri = pls_regression_predict(pls2, val_feat_ts.reshape(-1, 540).T)
+    pred_file = os.path.join(pls_dir, 'pls_pred_tfmri_c%s'%(comps))
+    np.savez(pred_file, pred_train=pred_train_fmri, pred_val=pred_val_fmri)
 
     #-- visualize PLS weights
     #pls_model_file = os.path.join(pls_dir, 'pls_model_c20.pkl')
@@ -246,7 +249,7 @@ if __name__ == '__main__':
     #xwts = pls2.x_weights_.reshape(128, 128, 5, -1)
     #vutil.plot_pls_fweights(xwts, pls_dir, 'feat_weights')
     # save fmri weights for each component of PLS as nifti file
-    #vxl_idx = train_fmri_data['vxl_idx']
+    #vxl_idx = fmri_data['vxl_idx']
     #ywts = pls2.y_weights_
     #for c in range(ywts.shape[1]):
     #    vxl_data = ywts[:, c]
