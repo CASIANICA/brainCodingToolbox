@@ -229,18 +229,21 @@ if __name__ == '__main__':
     train_feat = train_feat_ts.reshape(-1, 7200).T
     train_fmri = fmri_data['train_ts'].T
     print 'PLS model initializing ...'
-    comps = 6
+    comps = 20
     pls2 = PLSRegression(n_components=comps)
-    pls2.fit(train_feat, train_fmri)
+    pls2.fit(train_fmri, train_feat)
+    #pls2.fit(train_feat, train_fmri)
     joblib.dump(pls2, os.path.join(pls_dir, 'pls_model_c%s.pkl'%(comps)))
     for i in range(comps):
         print 'Component %s'%(i+1)
         print np.corrcoef(pls2.x_scores_[:, i], pls2.y_scores_[:, i])
     # get predicted fmri response based on PLS model
-    pred_train_fmri = pls_regression_predict(pls2, train_feat)
-    pred_val_fmri = pls_regression_predict(pls2, val_feat_ts.reshape(-1, 540).T)
-    pred_file = os.path.join(pls_dir, 'pls_pred_tfmri_c%s'%(comps))
-    np.savez(pred_file, pred_train=pred_train_fmri, pred_val=pred_val_fmri)
+    #pred_train_fmri = pls_regression_predict(pls2, train_feat)
+    pred_train_feat = pls_regression_predict(pls2, train_fmri)
+    #pred_val_fmri = pls_regression_predict(pls2, val_feat_ts.reshape(-1, 540).T)
+    pred_val_feat = pls_regression_predict(pls2, fmri_data['val_ts'].T)
+    pred_file = os.path.join(pls_dir, 'pls_pred_feat_c%s'%(comps))
+    np.savez(pred_file, pred_train=pred_train_feat, pred_val=pred_val_feat)
 
     #-- visualize PLS weights
     #pls_model_file = os.path.join(pls_dir, 'pls_model_c20.pkl')

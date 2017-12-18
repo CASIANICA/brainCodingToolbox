@@ -750,7 +750,7 @@ def merge_roi_data(prf_dir, db_dir, subj_id):
     np.savez(outfile, train_ts=train_ts, val_ts=val_ts, vxl_idx=vxl_idx)
 
 def get_pls_residual(pls_dir, prf_dir, db_dir, subj_id):
-    pls_pred_fmri = np.load(os.path.join(pls_dir, 'pls_pred_tfmri_c6.npz'))
+    pls_pred_fmri = np.load(os.path.join(pls_dir, 'pls_pred_fmri_c10.npz'))
     train_pred_fmri = pls_pred_fmri['pred_train'].T
     print train_pred_fmri.shape
     val_pred_fmri = pls_pred_fmri['pred_val'].T
@@ -909,8 +909,8 @@ if __name__ == '__main__':
     # merge original fmri data of all ROIs
     #merge_roi_data(prf_dir, db_dir, subj_id)
     # get PLS residual ts
-    #get_pls_residual(pls_dir, prf_dir, db_dir, subj_id)
-    pls_ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
+    get_pls_residual(pls_dir, prf_dir, db_dir, subj_id)
+    #pls_ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
     # Get estimated brain activity based on encoding model
     #get_predicted_fmri(feat_dir, prf_dir, roi, 'train')
     # Get predicted fmri residual
