@@ -7,8 +7,6 @@ import tables
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
-from braincode.util import configParser
-
 
 def reconstructor(gabor_bank, vxl_coding_paras, y):
     """Stimuli reconstructor based on Activation Maximization"""
@@ -29,7 +27,7 @@ def reconstructor(gabor_bank, vxl_coding_paras, y):
     vxl_conv = tf.reshape(vxl_conv, [-1])
     vxl_pred = vxl_conv - vxl_bias
     vxl_real = tf.placeholder(tf.float32,
-                shape=(None, vxl_coding_paras['bias'].shape[0]))
+                shape=(vxl_coding_paras['bias'].shape[0],))
     error = tf.reduce_mean(tf.square(vxl_pred - vxl_real))
     opt = tf.train.AdamOptimizer(1e-3, beta1=0.5)
     solver =  opt.minimize(error, var_list=img)
@@ -75,13 +73,10 @@ def model_test(input_imgs, gabor_bank, vxl_coding_paras):
 
 if __name__ == '__main__':
     """Main function"""
-    # config parser
-    cf = configParser.Config('config')
     # database directory config
-    db_dir = os.path.join(cf.get('database', 'path'), 'vim1')
     # directory config for analysis
-    root_dir = cf.get('base', 'path')
-    feat_dir = os.path.join(root_dir, 'sfeatures', 'vim1')
+    root_dir = r'/nfs/home/cddu/ActMax'
+    db_dir = os.path.join(root_dir, 'db')
     res_dir = os.path.join(root_dir, 'subjects')
 
     #-- general config
@@ -92,7 +87,7 @@ if __name__ == '__main__':
     prf_dir = os.path.join(subj_dir, 'prf')
 
     # parameter preparation
-    gabor_bank_file = os.path.join(feat_dir, 'gabor_kernels.npz')
+    gabor_bank_file = os.path.join(root_dir, 'gabor_kernels.npz')
     gabor_bank = np.load(gabor_bank_file)
     vxl_coding_paras_file = os.path.join(prf_dir, roi, 'tfrecon',
                                          'vxl_coding_wts_1.npz')
@@ -134,5 +129,7 @@ if __name__ == '__main__':
     recon_img = reconstructor(gabor_bank, vxl_coding_paras, y_)
  
     # show image
+    fig = plt.figure()
     plt.imshow(recon_img.reshape(500, 500))
+    plt.savefig('recon.png')
 

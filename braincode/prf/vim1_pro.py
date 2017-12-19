@@ -296,6 +296,20 @@ def gabor_contribution2prf(feat_dir, prf_dir, db_dir, subj_id, roi):
             gabor_corr[i, j] = np.corrcoef(pred, val_fmri_ts[i])[0, 1]
     np.save(os.path.join(roi_dir, 'gabor_contributes.npy'), gabor_corr)
 
+def orient_selectivity(prf_dir, roi):
+    """Calculate orientation selectivity index for each voxel."""
+    # load selected model parameters
+    roi_dir = os.path.join(prf_dir, roi)
+    paras = np.load(os.path.join(roi_dir, 'reg_sel_paras.npy'))
+    osi = np.zeros(paras.shape[0])
+    for i in range(paras.shape[0]):
+        print 'Voxel %s'%(i)
+        # load features
+        sel_paras = paras[i].reshape(9, 8)
+        orient = sel_paras.sum(axis=0)
+        osi[i] = orient.max() - (orient.sum() - orient.max())/7
+    np.save(os.path.join(roi_dir, 'orient_selectivity.npy'), osi)
+
 def prf_recon(prf_dir, db_dir, subj_id, roi):
     """Reconstruct pRF based on selected model."""
     # load fmri response

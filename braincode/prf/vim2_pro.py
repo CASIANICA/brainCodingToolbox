@@ -261,6 +261,67 @@ def ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi):
     alphas = np.array(alphas)
     np.save(alphas_file, alphas)
 
+def pls_ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi):
+    """pRF model fitting using ridge regression.
+    90% trainning data used for model tuning, and another 10% data used for
+    model seletion.
+    """
+    # load fmri response
+    fmri_data = np.load(os.path.join(prf_dir, roi, 'pls_residual_fmri.npz'))
+    vxl_idx = fmri_data['vxl_idx']
+    train_fmri_ts = fmri_data['pls_train_residual']
+
+    print 'Voxel number: %s'%(len(vxl_idx))
+    # load candidate models
+    train_models = np.load(os.path.join(feat_dir, 'train_candidate_model.npy'),
+                           mmap_mode='r')
+    # output directory config
+    roi_dir = os.path.join(prf_dir,  roi, 'pls_residual')
+    check_path(roi_dir)
+    # model seletion and tuning
+    ALPHA_NUM = 20
+    BOOTS_NUM = 15
+    paras_file = os.path.join(roi_dir, 'reg_paras.npy')
+    paras = np.memmap(paras_file, dtype='float64', mode='w+',
+                      shape=(15360, len(vxl_idx), 46))
+    mcorr_file= os.path.join(roi_dir, 'reg_model_corr.npy')
+    mcorr = np.memmap(mcorr_file, dtype='float64', mode='w+',
+                      shape=(15360, len(vxl_idx)))
+    alphas_file = os.path.join(roi_dir, 'reg_alphas.npy')
+    alphas = np.memmap(alphas_file, dtype='float64', mode='w+',
+                       shape=(15360, len(vxl_idx)))
+    # fMRI data z-score
+    print 'fmri data temporal z-score'
+    m = np.mean(train_fmri_ts, axis=1, keepdims=True)
+    s = np.std(train_fmri_ts, axis=1, keepdims=True)
+    train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
+    # split training dataset into model tunning set and model selection set
+    tune_fmri_ts = train_fmri_ts[:, :int(7200*0.9)]
+    sel_fmri_ts = train_fmri_ts[:, int(7200*0.9):]
+    # model testing
+    for i in range(15360):
+        print 'Model %s'%(i)
+        train_x = np.array(train_models[i, ...]).astype(np.float64)
+        train_x = zscore(train_x).T
+        # split training dataset into model tunning and selection sets
+        tune_x = train_x[:int(7200*0.9), :]
+        sel_x = train_x[int(7200*0.9):, :]
+        wt, r, alpha, bscores, valinds = ridge.bootstrap_ridge(
+                tune_x, tune_fmri_ts.T, sel_x, sel_fmri_ts.T,
+                alphas=np.logspace(-2, 3, ALPHA_NUM),
+                nboots=BOOTS_NUM, chunklen=720, nchunks=1,
+                single_alpha=False, use_corr=False)
+        paras[i, ...] = wt.T
+        mcorr[i] = r
+        alphas[i] = alpha
+    # save output
+    paras = np.array(paras)
+    np.save(paras_file, paras)
+    mcorr = np.array(mcorr)
+    np.save(mcorr_file, mcorr)
+    alphas = np.array(alphas)
+    np.save(alphas_file, alphas)
+
 def prf_selection(feat_dir, prf_dir, db_dir, subj_id, roi):
     """Select best model for each voxel and validating."""
     # load fmri response
@@ -400,7 +461,7 @@ def filter_recon(prf_dir, db_dir, subj_id, roi):
     del val_fmri_ts
     print 'Voxel number: %s'%(len(vxl_idx))
     # output config
-    roi_dir os.path.join(prf_dir, roi)
+    roi_dir = os.path.join(prf_dir, roi)
     # pRF estimate
     sel_models = np.load(os.path.join(roi_dir, 'reg_sel_model.npy'))
     sel_paras = np.load(os.path.join(roi_dir, 'reg_sel_paras.npy'))
@@ -471,6 +532,81 @@ def stimuli_recon(prf_dir, db_dir, subj_id, roi):
         recon_imgs[i] = tmp
     np.save(os.path.join(roi_dir, 'recon_img.npy'), recon_imgs)
 
+def get_predicted_fmri(feat_dir, prf_dir, roi, data_type):
+    """Get estimated fmri responses based on encoding model."""
+    roi_dir = os.path.join(prf_dir, roi)
+    # load model parameters
+    sel_models = np.load(os.path.join(roi_dir, 'reg_sel_model.npy'))
+    sel_paras = np.load(os.path.join(roi_dir, 'reg_sel_paras.npy'))
+    # load candidate model
+    model_file = os.path.join(feat_dir, '%s_candidate_model.npy'%(data_type))
+    models = np.load(model_file, mmap_mode='r')
+    # output
+    pred_fmri = np.zeros((sel_paras.shape[0], models.shape[2]))
+    for i in range(sel_paras.shape[0]):
+        print 'Voxel %s'%(i)
+        model_idx = int(sel_models[i])
+        x = np.array(models[model_idx, ...]).astype(np.float64)
+        m = np.mean(x, axis=0, keepdims=True)
+        s = np.std(x, axis=0, keepdims=True)
+        x = (x - m) / (s + 1e-5)
+        wts = sel_paras[i].reshape(1, -1)
+        pred_fmri[i] = np.dot(wts, x)
+    outfile = os.path.join(roi_dir, '%s_pred_norm_fmri.npy'%(data_type))
+    np.save(outfile, pred_fmri)
+
+def get_prediction_residual(prf_dir, db_dir, subj_id):
+    roi_list = ['v1rh', 'v1lh', 'v2rh', 'v2lh', 'v3rh', 'v3lh', 'v4rh', 'v4lh']
+    orig_fmri = None
+    pred_fmri = None
+    res_fmri = None
+    vxl_idx = None
+    for roi in roi_list:
+        idx, tx, vx = dataio.load_vim2_fmri(db_dir, subj_id, roi)
+        m = tx.mean(axis=1, keepdims=True)
+        s = tx.std(axis=1, keepdims=True)
+        roi_pred_file = os.path.join(prf_dir, roi, 'train_pred_norm_fmri.npy')
+        roi_pred_fmri = np.load(roi_pred_file)
+        roi_pred_fmri = roi_pred_fmri * s + m
+        res = tx - roi_pred_fmri
+        if not isinstance(res_fmri, np.ndarray):
+            orig_fmri = tx
+            pred_fmri = roi_pred_fmri
+            res_fmri = res
+            vxl_idx = idx
+        else:
+            orig_fmri = np.vstack((orig_fmri, tx))
+            pred_fmri = np.vstack((pred_fmri, roi_pred_fmri))
+            res_fmri = np.vstack((res_fmri, res))
+            vxl_idx = np.concatenate((vxl_idx, idx))
+    outfile = os.path.join(prf_dir, 'roi_coding_fmri')
+    np.savez(outfile,orig_fmri=orig_fmri, pred_fmri=pred_fmri,
+             res_fmri=res_fmri, vxl_idx=vxl_idx)
+
+def get_vxl_idx_in_rect(prf_dir, db_dir, subj_id, rmin, rmax, cmin, cmax):
+    """Get voxel idx whose pRF within the specific rect."""
+    roi_list = ['v1rh', 'v1lh']
+    vxl_idx = []
+    rect = np.zeros((128, 128))
+    rect[rmin:(rmax+1), cmin:(cmax+1)] = 1
+    for roi in roi_list:
+        print roi
+        idx, tx, vx = dataio.load_vim2_fmri(db_dir, subj_id, roi)
+        del tx
+        del vx
+        print 'Number of voxel idx: %s'%(len(idx))
+        roi_dir = os.path.join(prf_dir, roi)
+        corr = np.load(os.path.join(roi_dir, 'reg_sel_model_corr.npy'))
+        prfs = np.load(os.path.join(roi_dir, 'prfs.npy'))
+        prfs = np.abs(prfs)
+        for i in range(len(idx)):
+            if corr[i]>=0.25:
+                x = prfs[i] > 0.00005
+                ratio = np.sum(x*rect) / x.sum()
+                if ratio>0.5:
+                    vxl_idx.append(idx[i])
+    return vxl_idx
+
 def get_hue_selectivity(prf_dir, db_dir, subj_id, roi):
     """Get hue tunning curve for each voxel and calculate hue selectivity."""
     # load fmri response
@@ -480,7 +616,7 @@ def get_hue_selectivity(prf_dir, db_dir, subj_id, roi):
     del val_fmri_ts
     print 'Voxel number: %s'%(len(vxl_idx))
     # pRF estimate
-    roi_dir os.path.join(prf_dir, roi)
+    roi_dir = os.path.join(prf_dir, roi)
     sel_paras = np.load(os.path.join(roi_dir, 'reg_sel_paras.npy'))
     sel_model_corr = np.load(os.path.join(roi_dir, 'reg_sel_model_corr.npy'))
     hue_tunes = np.zeros((len(vxl_idx), 201))
@@ -595,6 +731,46 @@ def img_offset(orig_img, new_center):
                                                        pixs[1, pix_idx]]
     return new_img
 
+def merge_roi_data(prf_dir, db_dir, subj_id):
+    roi_list = ['v1rh', 'v1lh', 'v2rh', 'v2lh', 'v3rh', 'v3lh', 'v4rh', 'v4lh']
+    train_ts = None
+    val_ts = None
+    vxl_idx = None
+    for roi in roi_list:
+        idx, tx, vx = dataio.load_vim2_fmri(db_dir, subj_id, roi)
+        if not isinstance(train_ts, np.ndarray):
+            train_ts = tx
+            val_ts = vx
+            vxl_idx = idx
+        else:
+            train_ts = np.vstack((train_ts, tx))
+            val_ts = np.vstack((val_ts, vx))
+            vxl_idx = np.concatenate((vxl_idx, idx))
+    outfile = os.path.join(prf_dir, 'roi_orig_fmri')
+    np.savez(outfile, train_ts=train_ts, val_ts=val_ts, vxl_idx=vxl_idx)
+
+def get_pls_residual(pls_dir, prf_dir, db_dir, subj_id):
+    pls_pred_fmri = np.load(os.path.join(pls_dir, 'pls_pred_fmri_c10.npz'))
+    train_pred_fmri = pls_pred_fmri['pred_train'].T
+    print train_pred_fmri.shape
+    val_pred_fmri = pls_pred_fmri['pred_val'].T
+    orig_fmri_data = np.load(os.path.join(prf_dir, 'roi_orig_fmri.npz'))
+    vxl_idx = orig_fmri_data['vxl_idx']
+    # ROI list
+    roi_list = ['v1rh', 'v1lh', 'v2rh', 'v2lh', 'v3rh', 'v3lh', 'v4rh', 'v4lh']
+    for roi in roi_list:
+        roi_idx, roi_tx, roi_vx = dataio.load_vim2_fmri(db_dir, subj_id, roi)
+        print roi_tx.shape
+        sel_idx = [i for i in range(len(vxl_idx)) if vxl_idx[i] in roi_idx]
+        roi_train_pred = train_pred_fmri[sel_idx]
+        roi_val_pred = val_pred_fmri[sel_idx]
+        print roi_train_pred.shape
+        res_train = roi_tx - roi_train_pred
+        res_val = roi_vx - roi_val_pred
+        outfile = os.path.join(prf_dir, roi, 'pls_residual_fmri')
+        np.savez(outfile, pls_train_residual=res_train,
+                 pls_val_residual=res_val, vxl_idx=roi_idx)
+
 
 if __name__ == '__main__':
     """Main function."""
@@ -698,33 +874,51 @@ if __name__ == '__main__':
     kernel = 'gaussian'
     roi = 'v1rh'
     # directory config
-    subj_dir = os.path.join(res_dir, 'vim2_S%s'%(subj_id))
-    prf_dir = os.path.join(subj_dir, 'prf', kernel+'_kernel')
     if kernel=='round':
         feat_dir = os.path.join(feat_dir, 'round')
+    subj_dir = os.path.join(res_dir, 'vim2_S%s'%(subj_id))
+    prf_dir = os.path.join(subj_dir, 'prf', kernel+'_kernel')
+    pls_dir = os.path.join(subj_dir, 'pls')
 
     #-- pRF model fitting
     # pRF model tuning
-    ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
+    #ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
     # pRF model selection and validation
-    prf_selection(feat_dir, prf_dir, db_dir, subj_id, roi)
+    #prf_selection(feat_dir, prf_dir, db_dir, subj_id, roi)
     # get null distribution of pRF tunning
-    null_distribution_prf_tunning(feat_dir, prf_dir, db_dir, subj_id, roi)
+    #null_distribution_prf_tunning(feat_dir, prf_dir, db_dir, subj_id, roi)
     # pRF reconstruction
-    prf_recon(prf_dir, db_dir, subj_id, roi)
+    #prf_recon(prf_dir, db_dir, subj_id, roi)
     # filter reconstruction
-    filter_recon(prf_dir, db_dir, subj_id, roi)
+    #filter_recon(prf_dir, db_dir, subj_id, roi)
     # validation stimuli reconstruction
-    stimuli_recon(prf_dir, db_dir, subj_id, roi)
+    #stimuli_recon(prf_dir, db_dir, subj_id, roi)
     # get hue selectivity for each voxel
-    get_hue_selectivity(prf_dir, db_dir, subj_id, roi)
+    #get_hue_selectivity(prf_dir, db_dir, subj_id, roi)
     # get eccentricity and angle based on pRF center for each voxel
-    retinotopic_mapping(prf_dir, roi)
+    #retinotopic_mapping(prf_dir, roi)
     # get pRF parameters using curve-fitting
-    curve_fit(roi_dir)
+    #curve_fit(roi_dir)
     # calculate tunning contribution of each gabor sub-banks
-    gabor_contribution2prf(feat_dir, prf_dir, db_dir, subj_id, roi)
+    #gabor_contribution2prf(feat_dir, prf_dir, db_dir, subj_id, roi)
 
     #-- show retinotopic mapping
     #show_retinotopy(prf_dir, 'ecc')
+
+
+    # merge original fmri data of all ROIs
+    #merge_roi_data(prf_dir, db_dir, subj_id)
+    # get PLS residual ts
+    get_pls_residual(pls_dir, prf_dir, db_dir, subj_id)
+    #pls_ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
+    # Get estimated brain activity based on encoding model
+    #get_predicted_fmri(feat_dir, prf_dir, roi, 'train')
+    # Get predicted fmri residual
+    #get_prediction_residual(prf_dir, db_dir, subj_id)
+    # get vxl ts
+    #vxl_idx = get_vxl_idx_in_rect(prf_dir, db_dir, subj_id, 31, 51, 48, 73)
+    #vxl_data = np.load(os.path.join(prf_dir, 'roi_coding_fmri.npz'))
+    #sel_idx = [i for i in range(len(roi_data['vxl_idx']))
+    #            if roi_data['vxl_idx'][i] in vxl_idx]
+
 
