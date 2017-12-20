@@ -265,7 +265,7 @@ if __name__ == '__main__':
     for i in range(cnum):
         print 'Component %s'%(i+1)
         print np.corrcoef(pls2.x_scores_[:, i], pls2.y_scores_[:, i])
-    # get voxel index for each roi
+    # select component number
     roi_list = dataio.vim2_roi_info(db_dir, subj_id)
     idx_dict = {}
     for roi in roi_list:
@@ -287,6 +287,11 @@ if __name__ == '__main__':
                 roi_r2[rois.index(roi), n] = 1 - roi_sserr/roi_sstot
                 print 'C%s - %s : %s'%(n+1, roi, roi_r2[rois.index(roi), n])
     np.save(os.path.join(cnn_dir, '%s_pls_cc_r2.npy'%(layer)), roi_r2)
+    label_file = os.path.join(cnn_dir, '%s_pls_cc_r2_label.csv'%(layer))
+    with open(label_file, 'w+') as f:
+        for roi in rois:
+            f.write('%s\n'%(roi))
+    f.close()
 
     #pred_train_fmri = pls_regression_predict(pls2, train_feat)
     #pred_val_fmri = pls_regression_predict(pls2, val_feat_ts.reshape(-1, 540).T)
