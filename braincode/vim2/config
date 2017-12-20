@@ -1,2 +1,4 @@
 [base]
 path=/Users/sealhuang/brainDecoding
+[database]
+path=/nfs/diskstation/public_dataset/crcns
