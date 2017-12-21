@@ -40,6 +40,13 @@ def load_vim2_fmri(db_dir, subj_id, roi=None):
     val_ts = tf.get_node('/rv')[:]
     val_ts = np.nan_to_num(val_ts[vxl_idx])
     tf.close()
+    # data normalization
+    train_m = np.mean(train_ts, axis=1, keepdims=True)
+    train_s = np.std(train_ts, axis=1, keepdims=True)
+    train_ts = (train_ts - train_m) / (train_s + 1e-10)
+    val_m = np.mean(val_ts, axis=1, keepdims=True)
+    val_s = np.std(val_ts, axis=1, keepdims=True)
+    val_ts = (val_ts - val_m) / (val_s + 1e-10)
     return vxl_idx, train_ts, val_ts
 
 def load_vim1_fmri(db_dir, subj_id, roi=None):
