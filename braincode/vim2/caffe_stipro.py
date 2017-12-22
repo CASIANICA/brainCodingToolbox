@@ -4,18 +4,15 @@
 import os
 import numpy as np
 import tables
+import sys
+import caffe
 
 
 def mat2feat(stimulus, layer, phrase):
     """Get features of `layer` derived from CNN."""
-    # import modules
-    import sys
-    # XXX
-    sys.path.insert(0, '/home/huanglijie/repo/caffe/python')
-    import caffe
-    caffe_dir = '/'.join(os.path.dirname(caffe.__file__).split('/')[:-2])
-    caffe.set_mode_gpu()
-    print 'GPU mode'
+    caffe.set_mode_cpu()
+    #caffe.set_mode_gpu()
+    model_dir = r'/nfs/diskstation/workshop/huanglijie/caffe_models'
 
     # reorder the data shape: to NxHxWxC
     stimulus = np.transpose(stimulus, (0, 3, 2, 1))
@@ -39,7 +36,7 @@ def mat2feat(stimulus, layer, phrase):
         # RGB to BGR
         input_ = input_[:, ::-1]
         # substract mean
-        mean_file = os.path.join(caffe_dir, 'python', 'caffe', 'imagenet',
+        mean_file = os.path.join(model_dir, 'python', 'caffe', 'imagenet',
                                  'ilsvrc_2012_mean.npy')
         mean_im = np.load(mean_file)
         # take center crop
@@ -52,14 +49,17 @@ def mat2feat(stimulus, layer, phrase):
         input_ -= mean_im
 
         # feedforward
-        caffenet_dir = os.path.join(caffe_dir, 'models',
-                                    'bvlc_reference_caffenet')
+        caffenet_dir =os.path.join(model_dir,'models','bvlc_reference_caffenet')
         caffenet = caffe.Net(os.path.join(caffenet_dir, 'deploy.prototxt'),
                 os.path.join(caffenet_dir,'bvlc_reference_caffenet.caffemodel'),
                 caffe.TEST)
         feat_s = caffenet.blobs[layer].data.shape
-        feat = np.zeros((input_.shape[0], feat_s[1]*feat_s[2]*feat_s[3]),
-                        dtype=np.float32)
+        if len(feat_s)>2:
+            feat = np.zeros((input_.shape[0], feat_s[1]*feat_s[2]*feat_s[3]),
+                            dtype=np.float32)
+        else:
+            feat = np.zeros((input_.shape[0], feat_s[1]), dtype=np.float32)
+
         batch_unit = input_.shape[0] / 10
         for j in range(batch_unit):
             batch_input = input_[(j*10):(j+1)*10]
@@ -76,13 +76,14 @@ def mat2feat(stimulus, layer, phrase):
 if __name__ == '__main__':
     """Main function."""
     # config parser
-    stim_dir = r''
+    stim_dir = r'/nfs/diskstation/workshop/huanglijie/brainCoding/stimulus/vim2'
 
     #-- convert mat to cnn features
     layers = ['fc6', 'fc7', 'fc8']
     data_type = ['train', 'val']
     for l in layers:
         for dt in data_type:
+            print l, dt
             # load original stimulus data
             data_dic = {'train': '/st', 'val': '/sv'}
             tf = tables.open_file(os.path.join(stim_dir, 'Stimuli.mat'))

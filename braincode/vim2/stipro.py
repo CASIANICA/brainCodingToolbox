@@ -139,7 +139,10 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None,
                   'conv3': [384, 13, 13],
                   'conv4': [384, 13, 13],
                   'conv5': [256, 13, 13],
-                  'pool5': [256, 6, 6]}
+                  'pool5': [256, 6, 6],
+                  'fc6': [4096],
+                  'fc7': [4096],
+                  'fc8': [1000]}
     
     # load stimulus time courses
     prefix_name = '%s_sti_%s' % (layer, dataset)
@@ -390,7 +393,7 @@ if __name__ == '__main__':
     # config parser
     cf = configParser.Config('config')
     data_dir = cf.get('base', 'path')
-    stim_dir = os.path.join(data_dir, 'stimulus')
+    stim_dir = os.path.join(data_dir, 'stimulus', 'vim2')
     feat_dir = os.path.join(data_dir, 'sfeatures')
 
     #-- load original stimulus data
@@ -410,8 +413,8 @@ if __name__ == '__main__':
     #mat2png(stimulus, 'train')
 
     #-- CNN activation pre-processing
-    #cnnfeat_tr_pro(stim_dir, feat_dir, dataset='train', layer='conv1',
-    #               ds_fact=None, salience_modulated=False)
+    cnnfeat_tr_pro(stim_dir, feat_dir, dataset='train', layer='conv1',
+                   ds_fact=None, salience_modulated=False)
     
     #-- calculate dense optical flow
     #get_optical_flow(stimulus, 'train', feat_dir)
@@ -422,5 +425,5 @@ if __name__ == '__main__':
     #sal_file = os.path.join(feat_dir, 'salience_val_55_55.npy')
     #feat_tr_pro(sal_file, feat_dir, out_dim=None, using_hrf=True)
 
-    gaussian_kernel_feats(feat_dir)
+    #gaussian_kernel_feats(feat_dir)
     
