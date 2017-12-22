@@ -140,9 +140,9 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None,
                   'conv4': [384, 13, 13],
                   'conv5': [256, 13, 13],
                   'pool5': [256, 6, 6],
-                  'fc6': [4096],
-                  'fc7': [4096],
-                  'fc8': [1000]}
+                  'fc6': [4096, 1, 1],
+                  'fc7': [4096, 1, 1],
+                  'fc8': [1000, 1, 1]}
     
     # load stimulus time courses
     prefix_name = '%s_sti_%s' % (layer, dataset)
@@ -175,6 +175,7 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None,
     else:
         ds_mark = ''
         out_s = (s[0], s[1], s[2], ts_shape[0]/fps)
+
     print 'Down-sampled data shape : ', out_s
  
     # salience config
@@ -198,8 +199,8 @@ def cnnfeat_tr_pro(feat_dir, out_dir, dataset, layer, ds_fact=None,
     # convolution and down-sampling in a parallel approach
     print ts_shape[1]/(s[1]*s[2])
     Parallel(n_jobs=8)(delayed(stim_pro)(feat_ptr, feat, s, fps, ds_fact,
-                                          sal_ts, i, using_hrf=True)
-                        for i in range(ts_shape[1]/(s[1]*s[2])))
+                                         sal_ts, i, using_hrf=True)
+                          for i in range(ts_shape[1]/(s[1]*s[2])))
 
     # save memmap object as a numpy.array
     narray = np.array(feat)
@@ -394,7 +395,7 @@ if __name__ == '__main__':
     cf = configParser.Config('config')
     data_dir = cf.get('base', 'path')
     stim_dir = os.path.join(data_dir, 'stimulus', 'vim2')
-    feat_dir = os.path.join(data_dir, 'sfeatures')
+    feat_dir = os.path.join(data_dir, 'sfeatures', 'vim2')
 
     #-- load original stimulus data
     #tf = tables.open_file(os.path.join(stim_dir, 'Stimuli.mat'))
@@ -413,7 +414,7 @@ if __name__ == '__main__':
     #mat2png(stimulus, 'train')
 
     #-- CNN activation pre-processing
-    cnnfeat_tr_pro(stim_dir, feat_dir, dataset='train', layer='conv1',
+    cnnfeat_tr_pro(stim_dir, feat_dir, dataset='train', layer='fc6',
                    ds_fact=None, salience_modulated=False)
     
     #-- calculate dense optical flow
