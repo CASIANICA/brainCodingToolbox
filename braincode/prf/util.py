@@ -76,17 +76,18 @@ def mask2nifti(data, filename):
     (64, 64, 18) which orientation is SRP."""
     # roll axis
     data = data.astype('<f8')
-    ndata = np.rollaxis(data, 0, 3)
-    ndata = np.rollaxis(ndata, 0, 2)
-    ndata = ndata[:, ::-1, :]
-    # generate affine matrix
-    aff = np.zeros((4, 4))
-    aff[0, 1] = 2
-    aff[1, 2] = -2.5
-    aff[2, 0] = 2
-    aff[3, 3] = 1
-    img = nib.Nifti1Image(ndata, aff)
-    nib.save(img, filename)
+    #ndata = np.rollaxis(data, 0, 3)
+    ##ndata = np.rollaxis(ndata, 0, 2)
+    #ndata = ndata[:, ::-1, :]
+    ## generate affine matrix
+    #aff = np.zeros((4, 4))
+    #aff[0, 1] = 2
+    #aff[1, 2] = -2.5
+    #aff[2, 0] = 2
+    #aff[3, 3] = 1
+    #img = nib.Nifti1Image(ndata, aff)
+    #nib.save(img, filename)
+    save2nifti(data, out_file)
 
 def plot_prf(prf_file):
     """Plot pRF."""
