@@ -237,7 +237,7 @@ if __name__ == '__main__':
     #merge_roi_data(cnn_dir, db_dir, subj_id)
     
     #-- PLS settings
-    layer = 'norm2'
+    layer = 'norm1'
     cnum = 20
    
     #-- load cnn feats: data.shape = (channel, x, y, 7200/540)
@@ -273,6 +273,7 @@ if __name__ == '__main__':
     #-- PLS model training
     print 'PLS model initializing ...'
     pls2 = PLSRegression(n_components=cnum)
+    print 'PLS model training ...'
     pls2.fit(train_feat_1, train_fmri_1)
     joblib.dump(pls2,os.path.join(cnn_dir,'%s_pls_model_c%s.pkl'%(layer,cnum)))
     for i in range(cnum):
@@ -299,13 +300,11 @@ if __name__ == '__main__':
         err = train_fmri_2 - pred_train_fmri_2
         ss_err = np.var(err, axis=0)
         ss_tot = np.var(train_fmri_2, axis=0)
+        pred_r2 = 1 - ss_err/ss_tot
         for roi in rois:
-            roi_sserr = np.sum(ss_err[idx_dict[roi]])
-            roi_sstot = np.sum(ss_tot[idx_dict[roi]])
-            if roi_sstot:
-                roi_r2[rois.index(roi), n] = 1 - roi_sserr/roi_sstot
-                print 'C%s - %s : %s'%(n+1, roi, roi_r2[rois.index(roi), n])
-    np.save(os.path.join(cnn_dir, '%s_pls_cc_r2.npy'%(layer)), roi_r2)
+            roi_r2[rois.index(roi), n] = np.mean(pred_r2[idx_dict[roi]])
+            print 'C%s - %s : %s'%(n+1, roi, roi_r2[rois.index(roi), n])
+    np.save(os.path.join(cnn_dir, '%s_pls_roi_r2.npy'%(layer)), roi_r2)
     # eval on validation data
     roi_r2 = np.zeros((len(rois), cnum))
     for n in range(cnum):
@@ -314,16 +313,14 @@ if __name__ == '__main__':
         err = val_fmri - pred_val_fmri
         ss_err = np.var(err, axis=0)
         ss_tot = np.var(val_fmri, axis=0)
+        pred_r2 = 1 - ss_err/ss_tot
         for roi in rois:
-            roi_sserr = np.sum(ss_err[idx_dict[roi]])
-            roi_sstot = np.sum(ss_tot[idx_dict[roi]])
-            if roi_sstot:
-                roi_r2[rois.index(roi), n] = 1 - roi_sserr/roi_sstot
-                print 'C%s - %s : %s'%(n+1, roi, roi_r2[rois.index(roi), n])
-    np.save(os.path.join(cnn_dir, '%s_pls_cc_r2_val.npy'%(layer)), roi_r2)
+            roi_r2[rois.index(roi), n] = np.mean(pred_r2[idx_dict[roi]])
+            print 'C%s - %s : %s'%(n+1, roi, roi_r2[rois.index(roi), n])
+    np.save(os.path.join(cnn_dir, '%s_pls_roi_r2_val.npy'%(layer)), roi_r2)
 
     #-- get the optimal prediction R^2 on validation data
-    #optimal_cnum = {'norm1': 11, 'norm2': 4, 'conv3': 5, 'conv4': 5,
+    #optimal_cnum = {'norm1': 12, 'norm2': 3, 'conv3': 5, 'conv4': 5,
     #                'pool5': 3, 'fc6': 3, 'fc7': 3, 'fc8': 3}
     #pls2=joblib.load(os.path.join(cnn_dir,'%s_pls_model_c%s.pkl'%(layer,cnum)))
     #pred_val_fmri = pls_regression_predict(pls2, val_feat_ts.reshape(-1, 540).T,
