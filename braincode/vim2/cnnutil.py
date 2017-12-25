@@ -4,6 +4,7 @@
 import os
 import numpy as np
 import matplotlib.pylab as plt
+import nibabel as nib
 
 
 def plot_pred_var(pls_dir, layer):
@@ -21,4 +22,12 @@ def plot_pred_var(pls_dir, layer):
     #fig.savefig(os.path.join(pls_dir, '%s_pred_r2.png'%(layer)))
     #plt.close()
     plt.show()
+
+def assign_layer_index(pls_dir):
+    layers = ['norm1', 'norm2', 'conv3', 'conv4',
+              'pool5', 'fc6', 'fc7', 'fc8']
+    merged_data = np.zeros((64, 18, 18, 8))
+    for l in layers:
+        nfile = os.path.join(pls_dir, '%s_optimal_pls_val_pred.nii.gz'%(layer))
+
 

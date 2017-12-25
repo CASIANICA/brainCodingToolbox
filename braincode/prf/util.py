@@ -122,13 +122,6 @@ def data_swap(nifti_file):
     ndata = np.rollaxis(ndata, 0, 2)
     return ndata
 
-def nifti4pycortex(nifti_file):
-    """Load nifti file for pycortex visualization."""
-    data = nib.load(nifti_file).get_data()
-    ndata = np.rollaxis(data, 0, 3)
-    ndata = np.rollaxis(ndata, 0, 2)
-    return ndata
-
 def plot_pls_fweights(data, out_dir, prefix_name):
     """Plot features weights derived from PLS."""
     if len(data.shape)==3:
