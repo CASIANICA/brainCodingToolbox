@@ -74,19 +74,7 @@ def mask2nifti(data, filename):
     """Save 3D mask derived from pycortex as nifti file.
     Original data shape is (18, 64, 64), and the resulting data shape is
     (64, 64, 18) which orientation is SRP."""
-    # roll axis
     data = data.astype('<f8')
-    #ndata = np.rollaxis(data, 0, 3)
-    ##ndata = np.rollaxis(ndata, 0, 2)
-    #ndata = ndata[:, ::-1, :]
-    ## generate affine matrix
-    #aff = np.zeros((4, 4))
-    #aff[0, 1] = 2
-    #aff[1, 2] = -2.5
-    #aff[2, 0] = 2
-    #aff[3, 3] = 1
-    #img = nib.Nifti1Image(ndata, aff)
-    #nib.save(img, filename)
     save2nifti(data, out_file)
 
 def plot_prf(prf_file):
@@ -164,6 +152,32 @@ def plot_pls_fweights(data, out_dir, prefix_name):
         cbar = fig.colorbar(im, cax=cbar_ax, orientation='horizontal')
         cbar.ax.tick_params(labelsize=10)
         fig.savefig(os.path.join(out_dir, prefix_name+'_C%s.png'%(f+1)))
+
+def plot_pls_xweights(data, out_dir, prefix):
+    """Plot features weights derived from PLS."""
+    if len(data.shape)==3:
+        data = np.expand_dims(data, axis=3)
+    n_components = data.shape[3]
+    n_channels = data.shape[0]
+
+    for f in range(n_components):
+        maxv = np.max(data[..., f])
+        minv = np.min(data[..., f])
+        for p in range(n_channels/32):
+            pdata = data[(p*32):(p*32+32), ..., f]
+            fig, axs = plt.subplots(4, 8)
+            for c in range(32):
+                tmp = pdata[c, ...]
+                im = axs[c/8][c%8].imshow(tmp, interpolation='nearest',
+                                          vmin=minv, vmax=maxv)
+                axs[c/8][c%8].get_xaxis().set_visible(False)
+                axs[c/8][c%8].get_yaxis().set_visible(False)
+            fig.subplots_adjust(right=0.85)
+            cbar_ax = fig.add_axes([0.88, 0.2, 0.03, 0.6])
+            cbar = fig.colorbar(im, cax=cbar_ax)
+            cbar.ax.tick_params(labelsize=10)
+            fig.savefig(os.path.join(out_dir, prefix+'_c%s_p%s.png'%(f+1, p+1)))
+            plt.close()
 
 def plot_avg_weights_pattern(feat_weights, top_channels_num=None):
     """Plot average features weights derived from CCA."""

@@ -319,40 +319,40 @@ if __name__ == '__main__':
     #        print 'C%s - %s : %s'%(n+1, roi, roi_r2[rois.index(roi), n])
     #np.save(os.path.join(cnn_dir, '%s_pls_roi_r2_val.npy'%(layer)), roi_r2)
 
-    #-- get the optimal prediction R^2 on validation data
-    #optimal_cnum = {'norm1': 12, 'norm2': 3, 'conv3': 3, 'conv4': 5,
-    #                'pool5': 3, 'fc6': 3, 'fc7': 3, 'fc8': 3}
-    #pls2=joblib.load(os.path.join(cnn_dir,'%s_pls_model_c%s.pkl'%(layer,cnum)))
-    #pred_val_fmri = pls_regression_predict(pls2, val_feat_ts.reshape(-1,540).T,
-    #                                       optimal_cnum[layer])
-    #err = fmri_data['val_ts'].T - pred_val_fmri
-    #ss_err = np.var(err, axis=0)
-    #ss_tot = np.var(fmri_data['val_ts'].T, axis=0)
-    #pred_r2 = 1 - ss_err/ss_tot
-    #outfile = os.path.join(cnn_dir, '%s_optimal_pls_val_pred.nii.gz'%(layer))
-    #vutil.vxl_data2nifti(pred_r2, vxl_idx, outfile)
-
     #-- visualize PLS weights
-    pls_model_file = os.path.join(cnn_dir, '%s_pls_model_c%s.pkl'%(layer, cnum))
-    pls2 = joblib.load(pls_model_file)
-    # plot feature weights for each component of PLS
-    layer_size = {'norm1': [96, 27, 27],
-                  'norm2': [256, 13, 13],
-                  'conv3': [384, 13, 13],
-                  'conv4': [384, 13, 13],
-                  'pool5': [256, 6, 6],
-                  'fc6': [4096, 1, 1],
-                  'fc7': [4096, 1, 1],
-                  'fc8': [1000, 1, 1]}
-    s = layer_size[layer]
-    xwts = pls2.x_weights_.reshape(s[0], s[1], s[2], -1)
-    #vutil.plot_pls_fweights(xwts, pls_dir, 'feat_weights')
-    vutil.plot_pls_xweights(xwts, cnn_dir, 'feat_weights')
-    # save fmri weights for each component of PLS as nifti file
-    vxl_idx = fmri_data['vxl_idx']
-    ywts = pls2.y_weights_
-    for c in range(ywts.shape[1]):
-        vxl_data = ywts[:, c]
-        outfile = os.path.join(pls_dir, 'fmri_weights_C%s.nii.gz'%(c+1))
-        vutil.vxl_data2nifti(vxl_data, vxl_idx, outfile)
+    #fig_dir = os.path.join(cnn_dir, 'figs')
+    #check_path(fig_dir)
+    #pls_model_file = os.path.join(cnn_dir,'%s_pls_model_c%s.pkl'%(layer, cnum))
+    #pls2 = joblib.load(pls_model_file)
+    ## plot feature weights for each component of PLS
+    #layer_size = {'norm1': [96, 27, 27],
+    #              'norm2': [256, 13, 13],
+    #              'conv3': [384, 13, 13],
+    #              'conv4': [384, 13, 13],
+    #              'pool5': [256, 6, 6],
+    #              'fc6': [4096, 1, 1],
+    #              'fc7': [4096, 1, 1],
+    #              'fc8': [1000, 1, 1]}
+    #s = layer_size[layer]
+    #xwts = pls2.x_weights_.reshape(s[0], s[1], s[2], -1)
+    #vutil.plot_pls_xweights(xwts, fig_dir, '%s_feat_weights'%(layer))
+    ## save fmri weights for each component of PLS as nifti file
+    #ywts = pls2.y_weights_
+    #for c in range(ywts.shape[1]):
+    #    vxl_data = ywts[:, c]
+    #    outfile =os.path.join(fig_dir,'%s_fmri_weights_c%s.nii.gz'%(layer,c+1))
+    #    vutil.vxl_data2nifti(vxl_data, vxl_idx, outfile)
+
+    #-- get the optimal prediction R^2 on validation data
+    optimal_cnum = {'norm1': 17, 'norm2': 3, 'conv3': 3, 'conv4': 3,
+                    'pool5': 3, 'fc6': 3, 'fc7': 3, 'fc8': 3}
+    pls2=joblib.load(os.path.join(cnn_dir,'%s_pls_model_c%s.pkl'%(layer,cnum)))
+    pred_val_fmri = pls_regression_predict(pls2, val_feat_ts.reshape(-1,540).T,
+                                           optimal_cnum[layer])
+    err = val_fmri - pred_val_fmri
+    ss_err = np.var(err, axis=0)
+    ss_tot = np.var(val_fmri, axis=0)
+    pred_r2 = 1 - ss_err/ss_tot
+    outfile = os.path.join(cnn_dir, '%s_optimal_pls_val_pred.nii.gz'%(layer))
+    vutil.vxl_data2nifti(pred_r2, vxl_idx, outfile)
 
