@@ -320,7 +320,7 @@ if __name__ == '__main__':
     np.save(os.path.join(cnn_dir, '%s_pls_roi_r2_val.npy'%(layer)), roi_r2)
 
     #-- get the optimal prediction R^2 on validation data
-    #optimal_cnum = {'norm1': 12, 'norm2': 3, 'conv3': 5, 'conv4': 5,
+    #optimal_cnum = {'norm1': 12, 'norm2': 3, 'conv3': 3, 'conv4': 5,
     #                'pool5': 3, 'fc6': 3, 'fc7': 3, 'fc8': 3}
     #pls2=joblib.load(os.path.join(cnn_dir,'%s_pls_model_c%s.pkl'%(layer,cnum)))
     #pred_val_fmri = pls_regression_predict(pls2, val_feat_ts.reshape(-1, 540).T,
