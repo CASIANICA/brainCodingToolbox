@@ -26,8 +26,15 @@ def plot_pred_var(pls_dir, layer):
 def assign_layer_index(pls_dir):
     layers = ['norm1', 'norm2', 'conv3', 'conv4',
               'pool5', 'fc6', 'fc7', 'fc8']
-    merged_data = np.zeros((64, 18, 18, 8))
+    merged_data = np.zeros((64, 64, 18, 8))
     for l in layers:
-        nfile = os.path.join(pls_dir, '%s_optimal_pls_val_pred.nii.gz'%(layer))
-
+        nfile = os.path.join(pls_dir, '%s_optimal_pls_val_pred.nii.gz'%(l))
+        data = nib.load(nfile).get_data()
+        merged_data[..., layers.index(l)] = np.nan_to_num(data)
+    mask = np.max(merged_data, axis=3)>0.005
+    lindex = (np.argmax(merged_data, axis=3) + 1) * mask
+    affine = nib.load(nfile).affine
+    img = nib.Nifti1Image(lindex, affine)
+    outfile = os.path.join(pls_dir, 'layer_index.nii.gz')
+    nib.save(img, outfile)
 
