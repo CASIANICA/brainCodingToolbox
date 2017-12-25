@@ -271,59 +271,59 @@ if __name__ == '__main__':
     #train_feat_2 = train_feat_2.reshape(-1, int(7200*0.1)).T
     
     #-- PLS model training
-    print 'PLS model initializing ...'
-    pls2 = PLSRegression(n_components=cnum)
-    print 'PLS model training ...'
-    pls2.fit(train_feat_1, train_fmri_1)
-    joblib.dump(pls2,os.path.join(cnn_dir,'%s_pls_model_c%s.pkl'%(layer,cnum)))
-    for i in range(cnum):
-        print 'Component %s'%(i+1)
-        print np.corrcoef(pls2.x_scores_[:, i], pls2.y_scores_[:, i])
-    # select component number
-    roi_list = dataio.vim2_roi_info(db_dir, subj_id)
-    idx_dict = {}
-    for roi in roi_list:
-        roi_idx, tx, vx = dataio.load_vim2_fmri(db_dir, subj_id, roi)
-        sel_idx = [i for i in range(len(vxl_idx)) if vxl_idx[i] in roi_idx]
-        if len(sel_idx):
-            idx_dict[roi] = sel_idx
-    rois = idx_dict.keys()
-    label_file = os.path.join(cnn_dir, '%s_pls_cc_r2_label.csv'%(layer))
-    with open(label_file, 'w+') as f:
-        for roi in rois:
-            f.write('%s\n'%(roi))
-    f.close()
-    # eval on testing data
-    roi_r2 = np.zeros((len(rois), cnum))
-    for n in range(cnum):
-        pred_train_fmri_2 = pls_regression_predict(pls2, train_feat_2, n+1)
-        err = train_fmri_2 - pred_train_fmri_2
-        ss_err = np.var(err, axis=0)
-        ss_tot = np.var(train_fmri_2, axis=0)
-        pred_r2 = 1 - ss_err/ss_tot
-        for roi in rois:
-            roi_r2[rois.index(roi), n] = np.mean(pred_r2[idx_dict[roi]])
-            print 'C%s - %s : %s'%(n+1, roi, roi_r2[rois.index(roi), n])
-    np.save(os.path.join(cnn_dir, '%s_pls_roi_r2.npy'%(layer)), roi_r2)
-    # eval on validation data
-    roi_r2 = np.zeros((len(rois), cnum))
-    for n in range(cnum):
-        pred_val_fmri = pls_regression_predict(pls2,
-                        val_feat_ts.reshape(-1, 540).T, n+1)
-        err = val_fmri - pred_val_fmri
-        ss_err = np.var(err, axis=0)
-        ss_tot = np.var(val_fmri, axis=0)
-        pred_r2 = 1 - ss_err/ss_tot
-        for roi in rois:
-            roi_r2[rois.index(roi), n] = np.mean(pred_r2[idx_dict[roi]])
-            print 'C%s - %s : %s'%(n+1, roi, roi_r2[rois.index(roi), n])
-    np.save(os.path.join(cnn_dir, '%s_pls_roi_r2_val.npy'%(layer)), roi_r2)
+    #print 'PLS model initializing ...'
+    #pls2 = PLSRegression(n_components=cnum)
+    #print 'PLS model training ...'
+    #pls2.fit(train_feat_1, train_fmri_1)
+    #joblib.dump(pls2,os.path.join(cnn_dir,'%s_pls_model_c%s.pkl'%(layer,cnum)))
+    #for i in range(cnum):
+    #    print 'Component %s'%(i+1)
+    #    print np.corrcoef(pls2.x_scores_[:, i], pls2.y_scores_[:, i])
+    ## select component number
+    #roi_list = dataio.vim2_roi_info(db_dir, subj_id)
+    #idx_dict = {}
+    #for roi in roi_list:
+    #    roi_idx, tx, vx = dataio.load_vim2_fmri(db_dir, subj_id, roi)
+    #    sel_idx = [i for i in range(len(vxl_idx)) if vxl_idx[i] in roi_idx]
+    #    if len(sel_idx):
+    #        idx_dict[roi] = sel_idx
+    #rois = idx_dict.keys()
+    #label_file = os.path.join(cnn_dir, '%s_pls_cc_r2_label.csv'%(layer))
+    #with open(label_file, 'w+') as f:
+    #    for roi in rois:
+    #        f.write('%s\n'%(roi))
+    #f.close()
+    ## eval on testing data
+    #roi_r2 = np.zeros((len(rois), cnum))
+    #for n in range(cnum):
+    #    pred_train_fmri_2 = pls_regression_predict(pls2, train_feat_2, n+1)
+    #    err = train_fmri_2 - pred_train_fmri_2
+    #    ss_err = np.var(err, axis=0)
+    #    ss_tot = np.var(train_fmri_2, axis=0)
+    #    pred_r2 = 1 - ss_err/ss_tot
+    #    for roi in rois:
+    #        roi_r2[rois.index(roi), n] = np.mean(pred_r2[idx_dict[roi]])
+    #        print 'C%s - %s : %s'%(n+1, roi, roi_r2[rois.index(roi), n])
+    #np.save(os.path.join(cnn_dir, '%s_pls_roi_r2.npy'%(layer)), roi_r2)
+    ## eval on validation data
+    #roi_r2 = np.zeros((len(rois), cnum))
+    #for n in range(cnum):
+    #    pred_val_fmri = pls_regression_predict(pls2,
+    #                    val_feat_ts.reshape(-1, 540).T, n+1)
+    #    err = val_fmri - pred_val_fmri
+    #    ss_err = np.var(err, axis=0)
+    #    ss_tot = np.var(val_fmri, axis=0)
+    #    pred_r2 = 1 - ss_err/ss_tot
+    #    for roi in rois:
+    #        roi_r2[rois.index(roi), n] = np.mean(pred_r2[idx_dict[roi]])
+    #        print 'C%s - %s : %s'%(n+1, roi, roi_r2[rois.index(roi), n])
+    #np.save(os.path.join(cnn_dir, '%s_pls_roi_r2_val.npy'%(layer)), roi_r2)
 
     #-- get the optimal prediction R^2 on validation data
     #optimal_cnum = {'norm1': 12, 'norm2': 3, 'conv3': 3, 'conv4': 5,
     #                'pool5': 3, 'fc6': 3, 'fc7': 3, 'fc8': 3}
     #pls2=joblib.load(os.path.join(cnn_dir,'%s_pls_model_c%s.pkl'%(layer,cnum)))
-    #pred_val_fmri = pls_regression_predict(pls2, val_feat_ts.reshape(-1, 540).T,
+    #pred_val_fmri = pls_regression_predict(pls2, val_feat_ts.reshape(-1,540).T,
     #                                       optimal_cnum[layer])
     #err = fmri_data['val_ts'].T - pred_val_fmri
     #ss_err = np.var(err, axis=0)
@@ -333,16 +333,26 @@ if __name__ == '__main__':
     #vutil.vxl_data2nifti(pred_r2, vxl_idx, outfile)
 
     #-- visualize PLS weights
-    #pls_model_file = os.path.join(pls_dir, 'pls_model_c20.pkl')
-    #pls2 = joblib.load(pls_model_file)
+    pls_model_file = os.path.join(cnn_dir, '%s_pls_model_c%s.pkl'%(layer, cnum))
+    pls2 = joblib.load(pls_model_file)
     # plot feature weights for each component of PLS
-    #xwts = pls2.x_weights_.reshape(128, 128, 5, -1)
+    layer_size = {'norm1': [96, 27, 27],
+                  'norm2': [256, 13, 13],
+                  'conv3': [384, 13, 13],
+                  'conv4': [384, 13, 13],
+                  'pool5': [256, 6, 6],
+                  'fc6': [4096, 1, 1],
+                  'fc7': [4096, 1, 1],
+                  'fc8': [1000, 1, 1]}
+    s = layer_size[layer]
+    xwts = pls2.x_weights_.reshape(s[0], s[1], s[2], -1)
     #vutil.plot_pls_fweights(xwts, pls_dir, 'feat_weights')
+    vutil.plot_pls_xweights(xwts, cnn_dir, 'feat_weights')
     # save fmri weights for each component of PLS as nifti file
-    #vxl_idx = fmri_data['vxl_idx']
-    #ywts = pls2.y_weights_
-    #for c in range(ywts.shape[1]):
-    #    vxl_data = ywts[:, c]
-    #    outfile = os.path.join(pls_dir, 'fmri_weights_C%s.nii.gz'%(c+1))
-    #    vutil.vxl_data2nifti(vxl_data, vxl_idx, outfile)
+    vxl_idx = fmri_data['vxl_idx']
+    ywts = pls2.y_weights_
+    for c in range(ywts.shape[1]):
+        vxl_data = ywts[:, c]
+        outfile = os.path.join(pls_dir, 'fmri_weights_C%s.nii.gz'%(c+1))
+        vutil.vxl_data2nifti(vxl_data, vxl_idx, outfile)
 

@@ -32,71 +32,6 @@ def mat2png(stimulus, prefix_name):
         file_name = prefix_name + '_' + str(i+1) + '.png'
         imsave(file_name, x)
 
-def mat2feat(stimulus, layer, phrase):
-    """Get features of `layer` derived from CNN."""
-    # import modules
-    import sys
-    sys.path.insert(0, '/home/huanglijie/repo/caffe/python')
-    import caffe
-    caffe_dir = '/'.join(os.path.dirname(caffe.__file__).split('/')[:-2])
-    caffe.set_mode_gpu()
-    print 'GPU mode'
-
-    # reorder the data shape: to NxHxWxC
-    stimulus = np.transpose(stimulus, (0, 3, 2, 1))
-    print 'stimulus size :', stimulus.shape
-
-    stim_len = stimulus.shape[0]
-    if phrase=='train':
-        part = 10
-    else:
-        part = 1
-    unit = stim_len / part
-    for i in range(part):
-        # resize to 227 x 227
-        input_ = np.zeros((unit, 227, 227, 3), dtype=np.float32)
-        print 'input size :', input_.shape
-        print 'Resize input image ...'
-        for ix, im in enumerate(stimulus[(i*unit):(i+1)*unit]):
-            input_[ix] = caffe.io.resize_image(im.astype(np.float32),(227, 227))
-        # reorder the data shape: to NxCxHxW
-        input_ = np.transpose(input_, (0, 3, 1, 2))
-        # RGB to BGR
-        input_ = input_[:, ::-1]
-        # substract mean
-        mean_file = os.path.join(caffe_dir, 'python', 'caffe', 'imagenet',
-                                 'ilsvrc_2012_mean.npy')
-        mean_im = np.load(mean_file)
-        # take center crop
-        center = np.array((256, 256)) / 2.0
-        crop = np.tile(center, (1, 2))[0] + np.concatenate(
-                [-np.array([227, 227]) / 2.0, np.array([227, 227]) / 2.0])
-        crop = crop.astype(int)
-        mean_im = mean_im[:, crop[0]:crop[2], crop[1]:crop[3]]
-        mean_im = np.expand_dims(mean_im, 0)
-        input_ -= mean_im
-
-        # feedforward
-        caffenet_dir = os.path.join(caffe_dir, 'models',
-                                    'bvlc_reference_caffenet')
-        caffenet = caffe.Net(os.path.join(caffenet_dir, 'deploy.prototxt'),
-                os.path.join(caffenet_dir,'bvlc_reference_caffenet.caffemodel'),
-                caffe.TEST)
-        feat_s = caffenet.blobs[layer].data.shape
-        feat = np.zeros((input_.shape[0], feat_s[1]*feat_s[2]*feat_s[3]),
-                        dtype=np.float32)
-        batch_unit = input_.shape[0] / 10
-        for j in range(batch_unit):
-            batch_input = input_[(j*10):(j+1)*10]
-            caffenet.forward(data=batch_input)
-            tmp = np.copy(caffenet.blobs[layer].data)
-            feat[(j*10):(j+1)*10] = tmp.reshape(10, -1)
-        del caffenet
-        if phrase=='val':
-            np.save('%s_sti_%s.npy'%(layer, phrase), feat)
-        else:
-            np.save('%s_sti_%s_%s.npy'%(layer, phrase, i), feat)
-
 def get_optical_flow(stimulus, prefix_name, out_dir):
     """Calculate dense optical flow from stimuli sequence."""
     img_w, img_h = stimulus.shape[2], stimulus.shape[3]
@@ -403,9 +338,6 @@ if __name__ == '__main__':
     #data_dic = {'train': '/st', 'val': '/sv'}
     #stimulus = tf.get_node(data_dic[data_type])[:]
     #tf.close()
-
-    #-- convert mat to cnn features
-    #mat2feat(stimulus, 'norm1', data_type)
 
     #-- get stimulus sequence
     #get_stim_seq(stimulus, 'conv_gray_stim_train_design.npy')
