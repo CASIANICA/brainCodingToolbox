@@ -106,7 +106,6 @@ def get_vxl_coding_resp(feat_dir, prf_dir, roi):
     # select voxels
     thr = 0.3
     sel_vxl_idx = np.array([4, 5, 6])
-    #sel_vxl_idx = np.nonzero(sel_model_corr>thr)[0]
     for i in range(sel_vxl_idx.shape[0]):
         print 'Voxel %s'%(sel_vxl_idx[i])
         model_idx = int(sel_models[sel_vxl_idx[i]])
@@ -117,6 +116,68 @@ def get_vxl_coding_resp(feat_dir, prf_dir, roi):
         wts = sel_paras[sel_vxl_idx[i]]
         pred = np.dot(tx, wts)
         print pred[:10]
+
+def get_center_vxl_coding_wts(feat_dir, prf_dir, roi):
+    """Generate voxel-wise encoding model of specific roi."""
+    roi_dir = os.path.join(prf_dir, roi)
+    # load model parameters
+    sel_models = np.load(os.path.join(roi_dir, 'reg_sel_model.npy'))
+    sel_paras = np.load(os.path.join(roi_dir, 'reg_sel_paras.npy'))
+    sel_model_corr = np.load(os.path.join(roi_dir, 'reg_sel_model_corr.npy'))
+    # load model norm paras
+    norm_paras = np.load(os.path.join(feat_dir, 'model_norm_paras.npz'))
+    # select voxels
+    thr = 0.45
+    rad = 100
+    sel_vxl_idx = []
+    for i in range(sel_model_corr.shape[0]):
+        if sel_model_corr[i] > thr:
+            model_idx = int(sel_models[i])
+            # get gaussian pooling field parameters
+            si = model_idx / 2500
+            sigma = [1] + [n*5 for n in range(1, 13)] + [70, 80, 90, 100]
+            s = sigma[si]
+            xi = (model_idx % 2500) / 50
+            yi = (model_idx % 2500) % 50
+            x0 = np.arange(5, 500, 10)[xi]
+            y0 = np.arange(5, 500, 10)[yi]
+            if (np.sqrt(np.square(x0-250)+np.square(y0-250))<rad) and (s < 30):
+                sel_vxl_idx.append(i)
+    print 'Selecte %s voxels'%(len(sel_vxl_idx))
+    wt = np.zeros((500, 500, 72, len(sel_vxl_idx)), dtype=np.float32)
+    bias = np.zeros(len(sel_vxl_idx))
+    prf_center = np.zeros((500, 500))
+    for i in range(len(sel_vxl_idx)):
+        print 'Voxel %s'%(sel_vxl_idx[i])
+        model_idx = int(sel_models[sel_vxl_idx[i]])
+        # get gaussian pooling field parameters
+        si = model_idx / 2500
+        xi = (model_idx % 2500) / 50
+        yi = (model_idx % 2500) % 50
+        x0 = np.arange(5, 500, 10)[xi]
+        y0 = np.arange(5, 500, 10)[yi]
+        sigma = [1] + [n*5 for n in range(1, 13)] + [70, 80, 90, 100]
+        s = sigma[si]
+        print 'center: %s, %s, sigma: %s'%(y0, x0, s)
+        prf_center[x0, y0] = prf_center[y0, x0] + 1
+        kernel = make_2d_gaussian(500, s, center=(x0, y0))
+        kernel = np.expand_dims(kernel, 0)
+        kernel = np.repeat(kernel, 72, 0)
+        coding_wts = sel_paras[sel_vxl_idx[i]]
+        norm_mean = norm_paras['model_mean'][model_idx]
+        norm_std = norm_paras['model_std'][model_idx]
+        for c in range(72):
+            kernel[c, ...] = kernel[c, ...] * coding_wts[c] / norm_std[c]
+        kernel = np.swapaxes(kernel, 0, 1)
+        kernel = np.swapaxes(kernel, 1, 2)
+        wt[..., i] = kernel
+        bias[i] = np.sum(coding_wts * norm_mean / norm_std)
+    outdir = os.path.join(roi_dir, 'tfrecon')
+    if not os.path.exists(outdir):
+        os.makedirs(outdir, 0755)
+    #np.save('prf_center.npy', prf_center)
+    outfile = os.path.join(outdir, 'center_vxl_coding_wts.npz')
+    np.savez(outfile, vxl_idx=sel_vxl_idx, wt=wt, bias=bias)
 
 
 if __name__ == '__main__':
@@ -139,5 +200,6 @@ if __name__ == '__main__':
     
     #get_gabor_kernels(feat_dir)
     #get_model_zparas(feat_dir)
-    get_vxl_coding_wts(feat_dir, prf_dir, roi)
+    #get_vxl_coding_wts(feat_dir, prf_dir, roi)
     #get_vxl_coding_resp(feat_dir, prf_dir, roi)
+    get_center_vxl_coding_wts(feat_dir, prf_dir, roi)
