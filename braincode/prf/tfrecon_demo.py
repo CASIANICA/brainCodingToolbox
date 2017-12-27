@@ -1,17 +1,17 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
-
-import os
+import os    
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ['CUDA_VISIBLE_DEVICES']='0'
 import numpy as np
 import tables
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
-
 def reconstructor(gabor_bank, vxl_coding_paras, y):
     """Stimuli reconstructor based on Activation Maximization"""
     # var for input stimuli
-    img = tf.Variable(tf.zeros([1, 500, 500, 1]))
+    img = tf.Variable(tf.random_normal([1, 500, 500, 1], stddev=0.001), name="image")
     # config for the gabor filters
     gabor_real = np.expand_dims(gabor_bank['gabor_real'], 2)
     gabor_imag = np.expand_dims(gabor_bank['gabor_imag'], 2)
@@ -29,16 +29,26 @@ def reconstructor(gabor_bank, vxl_coding_paras, y):
     vxl_real = tf.placeholder(tf.float32,
                 shape=(vxl_coding_paras['bias'].shape[0],))
     error = tf.reduce_mean(tf.square(vxl_pred - vxl_real))
-    opt = tf.train.AdamOptimizer(1e-3, beta1=0.5)
-    solver =  opt.minimize(error, var_list=img)
+    opt = tf.train.GradientDescentOptimizer(0.5)
+    vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "image")
+    solver =  opt.minimize(error, var_list = vars_x)
  
     # training
     config = tf.ConfigProto()
-    config.gpu_options.per_process_gpu_memory_fraction = 0.9
+    config.gpu_options.per_process_gpu_memory_fraction = 0.95
     sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())     
-    _, error_curr, reconstructed_img = sess.run([solver, error, img],
-                                                feed_dict={vxl_real: y[:, 2]})
+    print y[:,2].shape
+    
+    for step in range(500):  
+        _, error_curr, reconstructed_img = sess.run([solver, error, img], feed_dict={vxl_real: y[:, 2]}) 
+
+        if step % 100 == 0:
+            print('Iter: {}; loss: {:.4}'.format(step, error_curr))    
+            fig=plt.figure()
+            plt.imshow(reconstructed_img.reshape(500, 500))
+            plt.savefig('recons'+str(step)+'.png')
+            plt.close(fig)             
     return reconstructed_img
 
 def model_test(input_imgs, gabor_bank, vxl_coding_paras):
@@ -128,8 +138,9 @@ if __name__ == '__main__':
     print y_.shape
     recon_img = reconstructor(gabor_bank, vxl_coding_paras, y_)
  
-    # show image
-    fig = plt.figure()
+    # show image    
+    fig=plt.figure()
     plt.imshow(recon_img.reshape(500, 500))
-    plt.savefig('recon.png')
+    plt.savefig('recons.png')
+    recon_img = recon_img.reshape(500, 500)
 
