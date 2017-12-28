@@ -8,7 +8,6 @@ import skimage.measure
 
 from braincode.util import configParser
 from braincode.math import make_2d_gaussian
-#from braincode.math import img_resize
 
 
 def get_gabor_kernels(feat_dir):
