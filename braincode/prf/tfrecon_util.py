@@ -128,7 +128,7 @@ def get_center_vxl_coding_wts(feat_dir, prf_dir, roi):
     norm_paras = np.load(os.path.join(feat_dir, 'model_norm_paras.npz'))
     # select voxels
     thr = 0.45
-    rad = 100
+    rad = 200
     sel_vxl_idx = []
     for i in range(sel_model_corr.shape[0]):
         if sel_model_corr[i] > thr:
@@ -171,7 +171,7 @@ def get_center_vxl_coding_wts(feat_dir, prf_dir, roi):
     if not os.path.exists(outdir):
         os.makedirs(outdir, 0755)
     #np.save('prf_center.npy', prf_center)
-    outfile = os.path.join(outdir, 'new_center_vxl_coding_wts.npz')
+    outfile = os.path.join(outdir, 'center_vxl_coding_wts.npz')
     np.savez(outfile, vxl_idx=sel_vxl_idx, masks=masks, wts=wts, bias=bias)
 
 
