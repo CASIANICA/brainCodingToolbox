@@ -144,9 +144,10 @@ def get_center_vxl_coding_wts(feat_dir, prf_dir, roi):
             if (np.sqrt(np.square(x0-250)+np.square(y0-250))<rad) and (s < 30):
                 sel_vxl_idx.append(i)
     print 'Selecte %s voxels'%(len(sel_vxl_idx))
-    wt = np.zeros((500, 500, 72, len(sel_vxl_idx)), dtype=np.float32)
-    bias = np.zeros(len(sel_vxl_idx))
     prf_center = np.zeros((500, 500))
+    masks = np.zeros((len(sel_vxl_idx), 500, 500), dtype=np.float32)
+    wts = np.zeros((len(sel_vxl_idx), 72), dtype=np.float32)
+    bias = np.zeros(len(sel_vxl_idx))
     for i in range(len(sel_vxl_idx)):
         print 'Voxel %s'%(sel_vxl_idx[i])
         model_idx = int(sel_models[sel_vxl_idx[i]])
@@ -160,24 +161,18 @@ def get_center_vxl_coding_wts(feat_dir, prf_dir, roi):
         s = sigma[si]
         print 'center: %s, %s, sigma: %s'%(y0, x0, s)
         prf_center[x0, y0] = prf_center[y0, x0] + 1
-        kernel = make_2d_gaussian(500, s, center=(x0, y0))
-        kernel = np.expand_dims(kernel, 0)
-        kernel = np.repeat(kernel, 72, 0)
-        coding_wts = sel_paras[sel_vxl_idx[i]]
+        masks[i] = make_2d_gaussian(500, s, center=(x0, y0))
+        vxl_wts = sel_paras[sel_vxl_idx[i]]
         norm_mean = norm_paras['model_mean'][model_idx]
         norm_std = norm_paras['model_std'][model_idx]
-        for c in range(72):
-            kernel[c, ...] = kernel[c, ...] * coding_wts[c] / norm_std[c]
-        kernel = np.swapaxes(kernel, 0, 1)
-        kernel = np.swapaxes(kernel, 1, 2)
-        wt[..., i] = kernel
-        bias[i] = np.sum(coding_wts * norm_mean / norm_std)
+        wts[i] = vxl_wts / norm_std 
+        bias[i] = np.sum(vxl_wts * norm_mean / norm_std)
     outdir = os.path.join(roi_dir, 'tfrecon')
     if not os.path.exists(outdir):
         os.makedirs(outdir, 0755)
     #np.save('prf_center.npy', prf_center)
-    outfile = os.path.join(outdir, 'center_vxl_coding_wts.npz')
-    np.savez(outfile, vxl_idx=sel_vxl_idx, wt=wt, bias=bias)
+    outfile = os.path.join(outdir, 'new_center_vxl_coding_wts.npz')
+    np.savez(outfile, vxl_idx=sel_vxl_idx, masks=masks, wts=wts, bias=bias)
 
 
 if __name__ == '__main__':

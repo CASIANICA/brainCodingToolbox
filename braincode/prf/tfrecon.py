@@ -73,6 +73,40 @@ def model_test(input_imgs, gabor_bank, vxl_coding_paras):
             resp = sess.run(vxl_out, feed_dict={img: x})
             print resp
 
+def new_model_test(input_imgs, gabor_bank, vxl_coding_paras):
+    """pRF encoding model tests."""
+    # var for input stimuli
+    img = tf.placeholder("float", shape=[None, 500, 500, 1])
+    # config for the gabor filters
+    gabor_real = np.expand_dims(gabor_bank['gabor_real'], 2)
+    gabor_imag = np.expand_dims(gabor_bank['gabor_imag'], 2)
+    real_conv = tf.nn.conv2d(img, gabor_real, strides=[1, 1, 1, 1],
+                             padding='SAME')
+    imag_conv = tf.nn.conv2d(img, gabor_imag, strides=[1, 1, 1, 1],
+                             padding='SAME')
+    gabor_energy = tf.sqrt(tf.square(real_conv) + tf.square(imag_conv))
+    # reshape gabor energy for pRF masking
+    gabor_vtr = tf.reshape(gabor_energy, [250000, 72])
+    # weighted by voxel encoding models
+    vxl_masks = vxl_coding_paras['masks']
+    vxl_wts = vxl_coding_paras['wts']
+    vxl_bias = vxl_coding_paras['bias']
+    # masked by pooling fields
+    vxl_masks = vxl_masks.reshape(-1, 250000)
+    vxl_feats = tf.matmul(vxl_masks, gabor_vtr)
+    vxl_wt_feats = tf.multiply(vxl_feats, vxl_wts)
+    vxl_rsp = tf.reduce_sum(vxl_wt_feats, axis=1)
+    vxl_out = vxl_rsp - vxl_bias
+    with tf.Session() as sess:
+        sess.run(tf.initialize_all_variables())
+        for i in range(input_imgs.shape[2]):
+            x = input_imgs[..., i].T
+            x = np.expand_dims(x, 0)
+            x = np.expand_dims(x, 3)
+            resp = sess.run(vxl_out, feed_dict={img: x})
+            print resp
+
+
 if __name__ == '__main__':
     """Main function"""
     # config parser
@@ -99,40 +133,42 @@ if __name__ == '__main__':
     vxl_coding_paras = np.load(vxl_coding_paras_file)
 
     #-- test encoding model
-    #img_file = os.path.join(root_dir, 'example_imgs.npy')
-    #imgs = np.load(img_file)
-    #model_test(imgs, gabor_bank, vxl_coding_paras)
+    img_file = os.path.join(root_dir, 'example_imgs.npy')
+    imgs = np.load(img_file)
+    new_model_test(imgs, gabor_bank, vxl_coding_paras)
 
     #-- stimuli reconstruction
-    resp_file = os.path.join(db_dir, 'EstimatedResponses.mat')
-    resp_mat = tables.open_file(resp_file)
-    # create mask
-    # train data shape: (1750, ~25000)
-    train_ts = resp_mat.get_node('/dataTrnS%s'%(subj_id))[:]
-    train_ts = train_ts.T
-    # get non-NaN voxel index
-    fmri_s = train_ts.sum(axis=1)
-    non_nan_idx = np.nonzero(np.logical_not(np.isnan(fmri_s)))[0]
-    rois = resp_mat.get_node('/roiS%s'%(subj_id))[:]
-    rois = rois[0]
-    roi_idx = {'v1': 1, 'v2': 2, 'v3': 3, 'v3a': 4,
-               'v3b': 5, 'v4': 6, 'LO': 7}
-    vxl_idx = np.nonzero(rois==roi_idx[roi])[0]
-    vxl_idx = np.intersect1d(vxl_idx, non_nan_idx)
-    # load fmri response: data shape (#voxel, 1750/120)
-    train_ts = np.nan_to_num(train_ts[vxl_idx])
-    m = np.mean(train_ts, axis=1, keepdims=True)
-    s = np.std(train_ts, axis=1, keepdims=True)
-    train_ts = (train_ts - m) / (s + 1e-5)
-    #val_ts = tf.get_node('/dataValS%s'%(subj_id))[:]
-    #val_ts = val_ts.T
-    #val_ts = np.nan_to_num(val_ts[vxl_idx])
-    resp_mat.close()
-    y_ = train_ts[vxl_coding_paras['vxl_idx']]
-    # shape: (#voxel, 1750)
-    print y_.shape
-    recon_img = reconstructor(gabor_bank, vxl_coding_paras, y_)
+    #resp_file = os.path.join(db_dir, 'EstimatedResponses.mat')
+    #resp_mat = tables.open_file(resp_file)
+    ## create mask
+    ## train data shape: (1750, ~25000)
+    #train_ts = resp_mat.get_node('/dataTrnS%s'%(subj_id))[:]
+    #train_ts = train_ts.T
+    ## get non-NaN voxel index
+    #fmri_s = train_ts.sum(axis=1)
+    #non_nan_idx = np.nonzero(np.logical_not(np.isnan(fmri_s)))[0]
+    #rois = resp_mat.get_node('/roiS%s'%(subj_id))[:]
+    #rois = rois[0]
+    #roi_idx = {'v1': 1, 'v2': 2, 'v3': 3, 'v3a': 4,
+    #           'v3b': 5, 'v4': 6, 'LO': 7}
+    #vxl_idx = np.nonzero(rois==roi_idx[roi])[0]
+    #vxl_idx = np.intersect1d(vxl_idx, non_nan_idx)
+    ## load fmri response: data shape (#voxel, 1750/120)
+    #train_ts = np.nan_to_num(train_ts[vxl_idx])
+    #m = np.mean(train_ts, axis=1, keepdims=True)
+    #s = np.std(train_ts, axis=1, keepdims=True)
+    #train_ts = (train_ts - m) / (s + 1e-5)
+    ##val_ts = tf.get_node('/dataValS%s'%(subj_id))[:]
+    ##val_ts = val_ts.T
+    ##val_ts = np.nan_to_num(val_ts[vxl_idx])
+    #resp_mat.close()
+    #y_ = train_ts[vxl_coding_paras['vxl_idx']]
+    ## shape: (#voxel, 1750)
+    #print y_.shape
+    #recon_img = reconstructor(gabor_bank, vxl_coding_paras, y_)
  
-    # show image
-    plt.imshow(recon_img.reshape(500, 500))
+    ## show image
+    #fig = plt.figure()
+    #plt.imshow(recon_img.reshape(500, 500))
+    #plt.savefig('recons.png')
 
