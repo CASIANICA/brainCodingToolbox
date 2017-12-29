@@ -40,29 +40,32 @@ def get_model_zparas(feat_dir):
     outfile = os.path.join(feat_dir, 'model_norm_paras.npz')
     np.savez(outfile, model_mean=model_mean, model_std=model_std)
 
-def get_vxl_coding_resp(feat_dir, prf_dir, roi):
+def get_vxl_coding_resp(feat_dir, prf_dir, rois):
     """Generate voxel-wise encoding model of specific roi."""
-    roi_dir = os.path.join(prf_dir, roi)
-    # load model parameters
-    sel_models = np.load(os.path.join(roi_dir, 'reg_sel_model.npy'))
-    sel_paras = np.load(os.path.join(roi_dir, 'reg_sel_paras.npy'))
-    sel_model_corr = np.load(os.path.join(roi_dir, 'reg_sel_model_corr.npy'))
-    # load candidate model
-    tmodels = np.load(os.path.join(feat_dir, 'train_candidate_model.npy'),
-                      mmap_mode='r')
-    # select voxels
-    thr = 0.3
-    sel_vxl_idx = np.array([4, 5, 6])
-    for i in range(sel_vxl_idx.shape[0]):
-        print 'Voxel %s'%(sel_vxl_idx[i])
-        model_idx = int(sel_models[sel_vxl_idx[i]])
-        tx = np.array(tmodels[model_idx, ...]).astype(np.float64)
-        m = np.mean(tx, axis=0, keepdims=True)
-        s = np.std(tx, axis=0, keepdims=True)
-        tx = (tx - m) / (s + 1e-5)
-        wts = sel_paras[sel_vxl_idx[i]]
-        pred = np.dot(tx, wts)
-        print pred[:10]
+    if not isinstance(rois, list):
+        rois = [rois]
+    sel_vxl_idx = [6345,  6391,  6436,  4258,  4307,  6253]
+    for roi in rois:
+        roi_dir = os.path.join(prf_dir, roi)
+        # load model parameters
+        sel_models = np.load(os.path.join(roi_dir, 'reg_sel_model.npy'))
+        sel_paras = np.load(os.path.join(roi_dir, 'reg_sel_paras.npy'))
+        vxl_idx = np.load(os.path.join(roi_dir, 'vxl_idx.npy'))
+        # load candidate model
+        tmodels = np.load(os.path.join(feat_dir, 'train_candidate_model.npy'),
+                          mmap_mode='r')
+        # get voxel index in roi
+        idxs = [i for i in range(vxl_idx.shape[0]) if vxl_idx[i] in sel_vxl_idx]
+        for idx in idxs:
+            print 'Voxel %s'%(vxl_idx[idx])
+            model_idx = int(sel_models[idx])
+            tx = np.array(tmodels[model_idx, ...]).astype(np.float64)
+            m = np.mean(tx, axis=0, keepdims=True)
+            s = np.std(tx, axis=0, keepdims=True)
+            tx = (tx - m) / (s + 1e-5)
+            wts = sel_paras[idx]
+            pred = np.dot(tx, wts)
+            print pred[:10]
 
 def get_vxl_coding_wts(feat_dir, prf_dir, rois):
     """Generate voxel-wise encoding model of specific roi."""
@@ -99,9 +102,9 @@ def get_vxl_coding_wts(feat_dir, prf_dir, rois):
     if not os.path.exists(outdir):
         os.makedirs(outdir, 0755)
     np.save(os.path.join(outdir, 'prf_center.npy'), prf_center)
-    # model test
-    for roi in rois:
-        roi_vxl_idx[roi] = roi_vxl_idx[roi][:3]
+    ## model test
+    #for roi in rois:
+    #    roi_vxl_idx[roi] = roi_vxl_idx[roi][:3]
     vxl_num = [len(roi_vxl_idx[roi]) for roi in roi_vxl_idx]
     print 'Selecte %s voxels'%(sum(vxl_num))
 
@@ -115,6 +118,7 @@ def get_vxl_coding_wts(feat_dir, prf_dir, rois):
     c = 0
     for roi in rois:
         # load model paras
+        roi_dir = os.path.join(prf_dir, roi)
         sel_models = np.load(os.path.join(roi_dir, 'reg_sel_model.npy'))
         sel_paras = np.load(os.path.join(roi_dir, 'reg_sel_paras.npy'))
         vxl_idx = np.load(os.path.join(roi_dir, 'vxl_idx.npy'))
@@ -162,5 +166,5 @@ if __name__ == '__main__':
     
     #get_gabor_kernels(feat_dir)
     #get_model_zparas(feat_dir)
-    #get_vxl_coding_resp(feat_dir, prf_dir, roi)
+    #get_vxl_coding_resp(feat_dir, prf_dir, ['v1', 'v2'])
     get_vxl_coding_wts(feat_dir, prf_dir, ['v1', 'v2'])
