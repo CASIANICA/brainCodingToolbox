@@ -94,6 +94,46 @@ def model_test(input_imgs, gabor_bank, vxl_coding_paras):
             resp = sess.run(vxl_out, feed_dict={img: x})
             print resp
 
+def tfprf(input_imgs, vxl_rsp):
+    """pRF model based on regularized pseudinversion."""
+    # var for input data
+    img = tf.placeholder("float", [None, 500, 500, 1])
+    rsp_ = tf.placeholder("float", [None,])
+    # var for pRF
+    prf = tf.Variable(tf.random_normal([500, 500, 1, 1], stddev=0.001),
+                      name="prf")
+    rsp = tf.nn.conv2d(img, prf, strides=[1, 1, 1, 1], padding='VALID')
+    # Laplacian regularization
+    laplacian_kernel = np.array([[0, -1, 0], [-1, 4, -1], [0, -1, 0]])
+    laplacian_kernel = np.expand_dims(laplacian_kernel, 2)
+    laplacian_kernel = np.expand_dims(laplacian_kernel, 3)
+    prf_shadow = tf.transpose(prf, [3, 0, 1, 2])
+    laplacian_reg = tf.nn.conv2d(prf_shadow, laplacian_kernel,
+                                 strides=[1, 1, 1, 1], padding='VALID')
+    # Optimal
+    rsp_err = tf.reduce_mean(tf.square(rsp - rsp_))
+    reg_err = tf.reduce_sum(tf.abs(rsp_err))
+    error = rsp_err + 100*reg_err
+    opt = tf.train.GradientDescentOptimizer(0.5).minimize(error)
+    
+    # XXX
+    # training
+    config = tf.ConfigProto()
+    config.gpu_options.per_process_gpu_memory_fraction = 0.95
+    sess = tf.Session(config=config)
+    sess.run(tf.global_variables_initializer())     
+    
+    for step in range(500):  
+        _, error_curr, reconstructed_img = sess.run([solver, error, img], feed_dict={vxl_real: y[:, 2]}) 
+
+        if step % 100 == 0:
+            print('Iter: {}; loss: {:.4}'.format(step, error_curr))    
+            fig=plt.figure()
+            plt.imshow(reconstructed_img.reshape(500, 500))
+            plt.savefig('recons'+str(step)+'.png')
+            plt.close(fig)             
+    return reconstructed_img
+
 
 if __name__ == '__main__':
     """Main function"""
