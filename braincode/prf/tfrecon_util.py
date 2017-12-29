@@ -169,8 +169,8 @@ def get_center_vxl_coding_wts(feat_dir, prf_dir, roi):
     outdir = os.path.join(roi_dir, 'tfrecon')
     if not os.path.exists(outdir):
         os.makedirs(outdir, 0755)
-    np.save('prf_center.npy', prf_center)
-    outfile = os.path.join(outdir, 'center_vxl_coding_wts.npz')
+    np.save(os.path.join(outdir, 'prf_center.npy'), prf_center)
+    outfile = os.path.join(outdir, 'vxl_coding_wts.npz')
     np.savez(outfile, vxl_idx=sel_vxl_idx, masks=masks, wts=wts, bias=bias)
 
 
