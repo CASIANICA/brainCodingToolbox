@@ -147,7 +147,7 @@ if __name__ == '__main__':
     #val_ts = val_ts.T
     #val_ts = np.nan_to_num(val_ts[vxl_idx])
     resp_mat.close()
-    y_ = train_ts[vxl_coding_paras['vxl_idx']]
+    y_ = train_ts[vxl_coding_paras['vxl_idx'].astype(np.int)]
     # shape: (#voxel, 1750)
     print y_.shape
     recon_img = reconstructor(gabor_bank, vxl_coding_paras, y_)
