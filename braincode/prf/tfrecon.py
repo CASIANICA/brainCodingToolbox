@@ -122,9 +122,10 @@ if __name__ == '__main__':
     # parameter preparation
     gabor_bank_file = os.path.join(feat_dir, 'gabor_kernels.npz')
     gabor_bank = np.load(gabor_bank_file)
-    vxl_coding_paras_file = os.path.join(prf_dir, roi, 'tfrecon',
-                                         'center_vxl_coding_wts.npz')
+    vxl_coding_paras_file = os.path.join(prf_dir,'tfrecon','vxl_coding_wts.npz')
     vxl_coding_paras = np.load(vxl_coding_paras_file)
+    print 'Select voxel index',
+    print vxl_coding_paras['vxl_idx']
 
     #-- test encoding model
     img_file = os.path.join(root_dir, 'example_imgs.npy')
