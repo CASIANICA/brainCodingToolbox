@@ -109,22 +109,69 @@ def tfprf(input_imgs, vxl_rsp):
     laplacian_kernel = np.expand_dims(laplacian_kernel, 3)
     prf_shadow = tf.transpose(prf, [3, 0, 1, 2])
     laplacian_reg = tf.nn.conv2d(prf_shadow, laplacian_kernel,
-                                 strides=[1, 1, 1, 1], padding='SAME')
-    # Optimal
-    rsp_err = tf.reduce_mean(tf.square(rsp - rsp_))
+                                 strides=[1, 1, 1, 1], padding='VALID')
+    # calculate fitting error
+    rsp_err = tf.reduce_mean(tf.square(tf.reshape(rsp, [-1]) - rsp_))
     reg_err = tf.reduce_sum(tf.square(laplacian_reg))
     error = rsp_err + 100*reg_err
     opt = tf.train.GradientDescentOptimizer(0.5)
     
-    # training
+    # graph config
     config = tf.ConfigProto()
     config.gpu_options.per_process_gpu_memory_fraction = 0.95
     sess = tf.Session(config=config)
-    sess.run(tf.global_variables_initializer())     
+    sess.run(tf.global_variables_initializer())
     vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "prf")
     solver =  opt.minimize(error, var_list = vars_x)
 
-    for step in range(500):
+    # model training
+    batch_size = 30
+    index_in_epoch = 0
+    epochs_completed = 0
+    for i in range(5000):
+        start = index_in_epoch
+        if epochs_completed==0 and start==0:
+            perm0 = np.arange(input_imgs.shape[2])
+            np.random.shuffle(perm0)
+            shuffle_imgs = input_imgs[..., perm0]
+            shuffle_rsp = vxl_rsp[perm0]
+        # go to next epoch
+        if start + batch_size > input_imgs.shape[2]:
+            # finish epoch
+            epochs_completed += 1
+            # get the rest examples in this epoch
+            rest_num_examples = int(input_imgs.shape[2]) - start
+            img_rest_part = shuffle_imgs[start:input_imgs.shape[2]]
+            rsp_rest_part = shuffle_rsp[start:input_imgs.shape[2]]
+            # shuffle the data
+            perm = np.arange(input_imgs.shape[2])
+            np.random.shuffle(perm)
+            shuffle_imgs = input_imgs[..., perm]
+            shuffle_rsp = vxl_rsp[perm]
+            # start next epoch
+            start = 0
+            index_in_epoch = batch_size - rest_num_examples
+            end = index_in_epoch
+            img_new_part = shuffle_imgs[..., start:end]
+            rsp_new_part = shuffle_rsp[start:end]
+            img_batch = np.concatenate((img_rest_part, img_new_part), axis=2)
+            img_batch = np.transpose(img_batch, (2, 0, 1))
+            img_batch = np.expand_dims(img_batch, 3)
+            bctch = [img_batch,
+                     np.concatenate((rsp_rest_part, rsp_new_part), axis=0)]
+        else:
+            index_in_epoch += batch_size
+            end = index_in_epoch
+            img_batch = shuffle_imgs[..., start:end]
+            img_batch = np.transpose(img_batch, (2, 0, 1))
+            img_batch = np.expand_dims(img_batch, 3)
+            batch = [img_batch, shuffle_rsp[start:end]]
+        # print fitting error
+        if i%10:
+            ferr = error.eval(feed_dict={img: batch[0], rsp_: batch[1]})
+            print "Setp %s, Error %s"%(i, ferr)
+        slover.run(feed_dict={img: batch[0], rsp_: batch[1]})
+    return prf
 
 
 if __name__ == '__main__':
@@ -186,7 +233,19 @@ if __name__ == '__main__':
  
     # show image    
     fig=plt.figure()
-    plt.imshow(recon_img.reshape(500, 500))
+    plt.imshow(recon_img. cmap='gray')
     plt.savefig('recons.png')
-    recon_img = recon_img.reshape(500, 500)
+
+    # regularized pRF
+    stimuli_file = os.path.join(root_dir, 'train_stimuli.npy')
+    input_imgs = np.load(stimuli_file)
+    resp_file = os.path.join(db_dir, 'EstimatedResponses.mat')
+    resp_mat = tables.open_file(resp_file)
+    train_ts = resp_mat.get_node('/dataTrnS%s'%(subj_id))[:]
+    train_ts = np.nan_to_num(train_ts.T)
+    resp_mat.close()
+    # select voxel 19165 as an example
+    vxl_rsp = train_ts[19165]
+    prf = tfprf(input_imgs, vxl_rsp)
+    np.save('prf_example.npy', prf)
 

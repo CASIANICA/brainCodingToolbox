@@ -5,6 +5,7 @@ import os
 import numpy as np
 import bob.ip.gabor
 import skimage.measure
+import tables
 
 from braincode.util import configParser
 from braincode.math import make_2d_gaussian
@@ -145,6 +146,21 @@ def get_vxl_coding_wts(feat_dir, prf_dir, rois):
     outfile = os.path.join(outdir, 'vxl_coding_wts.npz')
     np.savez(outfile, vxl_idx=sel_vxl_idx, masks=masks, wts=wts, bias=bias)
 
+def merge_stimuli(stim_dir):
+    """Merge stimuli of training data from mat to numpy array."""
+    stim = None
+    for i in range(15):
+        mat_file = os.path.join(stim_dir, 'Stimuli_Trn_FullRes_%02d.mat'%(i+1))
+        mat = tables.open_file(mat_file)
+        x = mat.get_node('/stimTrn')[:]
+        mat.close()
+        x = np.transpose(x, (1, 0, 2))
+        if isinstance(stim, np.ndarray):
+            stim = np.concatenate((stim, x), axis=2)
+        else:
+            stim = x
+    np.save(os.path.join(stim_dir, 'train_stimuli.npy'), stim)
+
 
 if __name__ == '__main__':
     """Main function."""
@@ -152,6 +168,7 @@ if __name__ == '__main__':
     cf = configParser.Config('config')
     # database directory config
     db_dir = os.path.join(cf.get('database', 'path'), 'vim1')
+    stim_dir = os.path.join(db_dir, 'stimuli')
     # directory config for analysis
     root_dir = cf.get('base', 'path')
     feat_dir = os.path.join(root_dir, 'sfeatures', 'vim1')
@@ -167,4 +184,6 @@ if __name__ == '__main__':
     #get_gabor_kernels(feat_dir)
     #get_model_zparas(feat_dir)
     #get_vxl_coding_resp(feat_dir, prf_dir, ['v1', 'v2'])
-    get_vxl_coding_wts(feat_dir, prf_dir, ['v1', 'v2'])
+    #get_vxl_coding_wts(feat_dir, prf_dir, ['v1', 'v2'])
+    
+    merge_stimuli(stim_dir)
