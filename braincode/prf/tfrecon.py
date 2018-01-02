@@ -109,30 +109,22 @@ def tfprf(input_imgs, vxl_rsp):
     laplacian_kernel = np.expand_dims(laplacian_kernel, 3)
     prf_shadow = tf.transpose(prf, [3, 0, 1, 2])
     laplacian_reg = tf.nn.conv2d(prf_shadow, laplacian_kernel,
-                                 strides=[1, 1, 1, 1], padding='VALID')
+                                 strides=[1, 1, 1, 1], padding='SAME')
     # Optimal
     rsp_err = tf.reduce_mean(tf.square(rsp - rsp_))
-    reg_err = tf.reduce_sum(tf.abs(rsp_err))
+    reg_err = tf.reduce_sum(tf.square(laplacian_reg))
     error = rsp_err + 100*reg_err
-    opt = tf.train.GradientDescentOptimizer(0.5).minimize(error)
+    opt = tf.train.GradientDescentOptimizer(0.5)
     
-    # XXX
     # training
     config = tf.ConfigProto()
     config.gpu_options.per_process_gpu_memory_fraction = 0.95
     sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())     
-    
-    for step in range(500):  
-        _, error_curr, reconstructed_img = sess.run([solver, error, img], feed_dict={vxl_real: y[:, 2]}) 
+    vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "prf")
+    solver =  opt.minimize(error, var_list = vars_x)
 
-        if step % 100 == 0:
-            print('Iter: {}; loss: {:.4}'.format(step, error_curr))    
-            fig=plt.figure()
-            plt.imshow(reconstructed_img.reshape(500, 500))
-            plt.savefig('recons'+str(step)+'.png')
-            plt.close(fig)             
-    return reconstructed_img
+    for step in range(500):
 
 
 if __name__ == '__main__':
