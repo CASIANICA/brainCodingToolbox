@@ -157,7 +157,7 @@ def tfprf(input_imgs, vxl_rsp):
             img_batch = np.concatenate((img_rest_part, img_new_part), axis=2)
             img_batch = np.transpose(img_batch, (2, 0, 1))
             img_batch = np.expand_dims(img_batch, 3)
-            bctch = [img_batch,
+            batch = [img_batch,
                      np.concatenate((rsp_rest_part, rsp_new_part), axis=0)]
         else:
             index_in_epoch += batch_size
@@ -170,8 +170,11 @@ def tfprf(input_imgs, vxl_rsp):
         if i%10:
             ferr = error.eval(feed_dict={img: batch[0], rsp_: batch[1]})
             print "Setp %s, Error %s"%(i, ferr)
-        slover.run(feed_dict={img: batch[0], rsp_: batch[1]})
-    return prf
+        _, step_error, step_prf = sess.run([solver, error, prf],
+                                feed_dict={img: batch[0], rsp_: batch[1]})
+        #solver.run(feed_dict={img: batch[0], rsp_: batch[1]})
+        print step_error
+    return step_prf
 
 
 if __name__ == '__main__':
