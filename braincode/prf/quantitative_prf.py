@@ -108,6 +108,7 @@ def vim1_load_gabor_contrib(roi_dir):
     # select significantly predicted voxels
     thr = 0.28
     sel_vxl = val_corr>=thr
+    print 'Selected %s voxels'%(sel_vxl.shape[0])
     hemi_dict = {'corr': gabor_corr[sel_vxl, :].flatten(),
                  'frequency': [1, 2, 3, 4, 5, 6, 7, 8, 9] * sel_vxl.sum(),
                  'ecc': np.repeat(ecc[sel_vxl], 9)}
