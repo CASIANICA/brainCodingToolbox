@@ -97,6 +97,7 @@ def vim1_plot_gabor_contrib(prf_dir, roi):
                    data=df, order=2, x_bins=np.arange(1, 11, 1))
     axes = g.axes
     axes[0, 0].set_xlim(0,)
+    axes[0, 0].set_ylim(-0.4, 1.0)
     g.savefig('%s_gabor_contrib.png'%(roi))
 
 def vim1_load_gabor_contrib(roi_dir):
