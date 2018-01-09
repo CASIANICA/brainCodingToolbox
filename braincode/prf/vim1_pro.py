@@ -138,6 +138,16 @@ def model_pro(feat, cand_model, xi, yi, si):
         cand_model[mi, idx_head:(idx_head+10), ...] = res.reshape(10, 72)
         idx_head += 10
 
+def get_vxl_idx(prf_dir, db_dir, subj_id, roi):
+    """Get voxel index in specific ROI"""
+    # load fmri response
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_vim1_fmri(db_dir, subj_id,
+                                                                roi=roi)
+    print 'Voxel number: %s'%(len(vxl_idx))
+    roi_dir = os.path.join(prf_dir, roi)
+    check_path(roi_dir)
+    np.save(os.path.join(roi_dir, 'vxl_idx.npy'), vxl_idx)
+
 def ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi):
     """pRF model fitting using ridge regression.
     90% trainning data used for model tuning, and another 10% data used for
@@ -511,23 +521,24 @@ if __name__ == '__main__':
 
     #-- general config
     subj_id = 1
-    roi = 'v1'
+    roi = 'v3'
     # directory config
     subj_dir = os.path.join(res_dir, 'vim1_S%s'%(subj_id))
     prf_dir = os.path.join(subj_dir, 'prf')
 
     #-- pRF model fitting
     # pRF model tunning
+    get_vxl_idx(prf_dir, db_dir, subj_id, roi)
     #ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
     #prf_selection(feat_dir, prf_dir, db_dir, subj_id, roi)
     # get null distribution of tunning performance
-    #null_distribution_prf_tunning(feat_dir, prf_dir, db_dir, subj_id, roi)
+    null_distribution_prf_tunning(feat_dir, prf_dir, db_dir, subj_id, roi)
     # calculate tunning contribution of each gabor sub-banks
     #gabor_contribution2prf(feat_dir, prf_dir, db_dir, subj_id, roi)
     # pRF reconstruction
     #prf_recon(prf_dir, db_dir, subj_id, roi)
     # filter reconstruction
-    filter_recon(prf_dir, db_dir, subj_id, roi)
+    #filter_recon(prf_dir, db_dir, subj_id, roi)
     # validation stimuli reconstruction
     #stimuli_recon(prf_dir, db_dir, subj_id, roi)
     # retinotopic mapping
