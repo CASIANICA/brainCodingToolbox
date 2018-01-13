@@ -6,6 +6,7 @@ import os
 import numpy as np
 import tables
 import tensorflow as tf
+import tensorflow.contrib.distributions as ds
 #import matplotlib.pyplot as plt
 
 from braincode.util import configParser
@@ -94,25 +95,43 @@ def model_test(input_imgs, gabor_bank, vxl_coding_paras):
             resp = sess.run(vxl_out, feed_dict={img: x})
             print resp
 
-def tfprf(input_imgs, vxl_rsp):
-    """pRF model based on regularized pseudinversion."""
+def tfprf(input_imgs, vxl_rsp, gabor_bank):
+    """multivariate-normal based pRF model."""
     # var for input data
     img = tf.placeholder("float", [None, 500, 500, 1])
     rsp_ = tf.placeholder("float", [None,])
-    # var for pRF
-    prf = tf.Variable(tf.zeros([500, 500, 1, 1]), name="prf")
-    rsp = tf.nn.conv2d(img, prf, strides=[1, 1, 1, 1], padding='VALID')
-    # Laplacian regularization
-    laplacian_kernel = np.array([[0, -1, 0], [-1, 4, -1], [0, -1, 0]])
-    laplacian_kernel = np.expand_dims(laplacian_kernel, 2)
-    laplacian_kernel = np.expand_dims(laplacian_kernel, 3)
-    prf_shadow = tf.transpose(prf, [3, 0, 1, 2])
-    laplacian_reg = tf.nn.conv2d(prf_shadow, laplacian_kernel,
-                                 strides=[1, 1, 1, 1], padding='VALID')
+    # config for the gabor filters
+    gabor_real = np.expand_dims(gabor_bank['gabor_real'], 2)
+    gabor_imag = np.expand_dims(gabor_bank['gabor_imag'], 2)
+    real_conv = tf.nn.conv2d(img, gabor_real, strides=[1, 1, 1, 1],
+                             padding='SAME')
+    imag_conv = tf.nn.conv2d(img, gabor_imag, strides=[1, 1, 1, 1],
+                             padding='SAME')
+    gabor_energy = tf.sqrt(tf.square(real_conv) + tf.square(imag_conv))
+    # reshape gabor energy for pRF masking
+    gabor_energy = tf.transpose(gabor_energy, perm=[1, 2, 3, 0])
+    gabor_vtr = tf.reshape(gabor_energy, [250000, 72, -1])
+    # var for feature pooling field
+    center_loc = tf.Variable(tf.ones(2), name='center_loc')
+    sigma = tf.Variable(tf.ones(2), name='sigma')
+    xinds, yinds = np.unravel_index(range(500*500), (500, 500))
+    inds = (np.column_stack((xinds, yinds))).astype(np.float32)
+    inds = tf.constant(inds)
+    mvn = ds.MultivariateNormalDiag(loc=center_loc, scale_diag=sigma,
+                                validate_args=True, allow_nan_stats=False)
+    kernel = mvn.prob(inds)
+    kernel = tf.reshape(kernel, (1, 250000))
+    # get features from pooling field
+    vxl_feats = tf.matmul(kernel, gabor_vtr)
+    vxl_feats = tf.reshape(vxl_feats, (72, -1))
+    # vars for feature weights
+    b = tf.Variable(np.ones(1), dtype=np.float32, name='b')
+    w = tf.Variable(np.ones((1, 72)), dtype=np.float32, name='W')
+    vxl_wt_feats = tf.matmul(w, vxl_feats)
+    rsp = vxl_wt_feats + b 
+
     # calculate fitting error
-    rsp_err = tf.reduce_mean(tf.square(tf.reshape(rsp, [-1]) - rsp_))
-    reg_err = tf.reduce_sum(tf.square(laplacian_reg))
-    error = rsp_err + reg_err
+    error = tf.reduce_mean(tf.square(tf.reshape(rsp, [-1]) - rsp_))
     opt = tf.train.GradientDescentOptimizer(0.00005)
     
     # graph config
@@ -120,7 +139,8 @@ def tfprf(input_imgs, vxl_rsp):
     #config.gpu_options.per_process_gpu_memory_fraction = 0.95
     sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())
-    vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "prf")
+    vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
+                'center_loc', 'sigma', 'b', 'w')
     solver =  opt.minimize(error, var_list = vars_x)
 
     # model training
@@ -165,11 +185,12 @@ def tfprf(input_imgs, vxl_rsp):
             img_batch = np.transpose(img_batch, (2, 0, 1))
             img_batch = np.expand_dims(img_batch, 3)
             batch = [img_batch, shuffle_rsp[start:end]]
-        _, step_error, step_prf = sess.run([solver, error, prf],
+        _, step_error, step_center, step_sigma, step_b, step_w = sess.run(
+                [solver, error, center_loc, sigma, b, w],
                                 feed_dict={img: batch[0], rsp_: batch[1]})
         print step_error
-        np.save('prf_step%s.npy'%(i), step_prf)
-    return step_prf
+        #np.save('prf_step%s.npy'%(i), step_prf)
+    return step_center, step_sigma, step_b, step_w
 
 
 if __name__ == '__main__':
