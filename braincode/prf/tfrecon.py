@@ -110,7 +110,8 @@ def tfprf(input_imgs, vxl_rsp, gabor_bank):
     gabor_energy = tf.sqrt(tf.square(real_conv) + tf.square(imag_conv))
     # reshape gabor energy for pRF masking
     gabor_energy = tf.transpose(gabor_energy, perm=[1, 2, 3, 0])
-    gabor_vtr = tf.reshape(gabor_energy, [250000, 72, -1])
+    gabor_vtr = tf.reshape(gabor_energy, [250000, -1])
+    #gabor_vtr = tf.reshape(gabor_energy, [250000, 72, -1])
     # var for feature pooling field
     center_loc = tf.Variable(tf.ones(2), name='center_loc')
     sigma = tf.Variable(tf.ones(2), name='sigma')
@@ -139,15 +140,17 @@ def tfprf(input_imgs, vxl_rsp, gabor_bank):
     #config.gpu_options.per_process_gpu_memory_fraction = 0.95
     sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())
-    vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
-                'center_loc', 'sigma', 'b', 'w')
+    vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+    #vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
+    #            ['center_loc', 'sigma', 'b', 'W'])
     solver =  opt.minimize(error, var_list = vars_x)
 
     # model training
-    batch_size = 100
+    batch_size = 20
     index_in_epoch = 0
     epochs_completed = 0
     for i in range(10):
+        print 'Step %s'%(i)
         start = index_in_epoch
         if epochs_completed==0 and start==0:
             perm0 = np.arange(input_imgs.shape[2])
@@ -185,6 +188,10 @@ def tfprf(input_imgs, vxl_rsp, gabor_bank):
             img_batch = np.transpose(img_batch, (2, 0, 1))
             img_batch = np.expand_dims(img_batch, 3)
             batch = [img_batch, shuffle_rsp[start:end]]
+        print 'image batch size',
+        print batch[0].shape
+        print 'fMRI data batch size',
+        print batch[1].shape
         _, step_error, step_center, step_sigma, step_b, step_w = sess.run(
                 [solver, error, center_loc, sigma, b, w],
                                 feed_dict={img: batch[0], rsp_: batch[1]})
@@ -218,8 +225,8 @@ if __name__ == '__main__':
     prf_dir = os.path.join(subj_dir, 'prf')
 
     #-- parameter preparation
-    #gabor_bank_file = os.path.join(feat_dir, 'gabor_kernels.npz')
-    #gabor_bank = np.load(gabor_bank_file)
+    gabor_bank_file = os.path.join(feat_dir, 'gabor_kernels.npz')
+    gabor_bank = np.load(gabor_bank_file)
     #vxl_coding_paras_file =os.path.join(prf_dir,'tfrecon','vxl_coding_wts.npz')
     #vxl_coding_paras = np.load(vxl_coding_paras_file)
 
@@ -254,7 +261,7 @@ if __name__ == '__main__':
     #plt.imshow(recon_img. cmap='gray')
     #plt.savefig('recons.png')
 
-    # regularized pRF
+    # multivariate normal based pRF
     stimuli_file = os.path.join(db_dir, 'stimuli', 'train_stimuli.npy')
     input_imgs = np.load(stimuli_file)
     resp_file = os.path.join(db_dir, 'EstimatedResponses.mat')
@@ -262,12 +269,15 @@ if __name__ == '__main__':
     train_ts = resp_mat.get_node('/dataTrnS%s'%(subj_id))[:]
     train_ts = np.nan_to_num(train_ts.T)
     resp_mat.close()
+    ts_m = np.mean(train_ts, axis=1, keepdims=True)
+    ts_s = np.std(train_ts, axis=1, keepdims=True)
+    train_ts = (train_ts - ts_m) / (ts_s + 1e-5)
     # select voxel 19165 as an example
     vxl_rsp = train_ts[19165]
     print 'Image data shape ',
     print input_imgs.shape
     print 'Voxel time point number',
     print vxl_rsp.shape
-    prf = tfprf(input_imgs, vxl_rsp)
+    tfprf(input_imgs, vxl_rsp, gabor_bank)
     #np.save('prf_example.npy', prf)
 
