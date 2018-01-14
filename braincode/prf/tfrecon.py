@@ -149,7 +149,7 @@ def tfprf(input_imgs, vxl_rsp, gabor_bank):
     batch_size = 20
     index_in_epoch = 0
     epochs_completed = 0
-    for i in range(10):
+    for i in range(100):
         print 'Step %s'%(i)
         start = index_in_epoch
         if epochs_completed==0 and start==0:
@@ -195,7 +195,11 @@ def tfprf(input_imgs, vxl_rsp, gabor_bank):
         _, step_error, step_center, step_sigma, step_b, step_w = sess.run(
                 [solver, error, center_loc, sigma, b, w],
                                 feed_dict={img: batch[0], rsp_: batch[1]})
-        print step_error
+        print 'Error: %s'%(step_error)
+        print 'Center:',
+        print step_center
+        print 'Sigma:',
+        print step_sigma
         #np.save('prf_step%s.npy'%(i), step_prf)
     return step_center, step_sigma, step_b, step_w
 
