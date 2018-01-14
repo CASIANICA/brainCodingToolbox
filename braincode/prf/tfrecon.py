@@ -113,7 +113,7 @@ def tfprf(input_imgs, vxl_rsp, gabor_bank):
     gabor_vtr = tf.reshape(gabor_energy, [250000, -1])
     #gabor_vtr = tf.reshape(gabor_energy, [250000, 72, -1])
     # var for feature pooling field
-    center_loc = tf.Variable(tf.ones(2), name='center_loc')
+    center_loc = tf.Variable(tf.multiply(tf.ones(2), 250), name='center_loc')
     sigma = tf.Variable(tf.ones(2), name='sigma')
     xinds, yinds = np.unravel_index(range(500*500), (500, 500))
     inds = (np.column_stack((xinds, yinds))).astype(np.float32)
@@ -133,7 +133,7 @@ def tfprf(input_imgs, vxl_rsp, gabor_bank):
 
     # calculate fitting error
     error = tf.reduce_mean(tf.square(tf.reshape(rsp, [-1]) - rsp_))
-    opt = tf.train.GradientDescentOptimizer(0.00005)
+    opt = tf.train.GradientDescentOptimizer(0.1)
     
     # graph config
     config = tf.ConfigProto()
@@ -188,10 +188,10 @@ def tfprf(input_imgs, vxl_rsp, gabor_bank):
             img_batch = np.transpose(img_batch, (2, 0, 1))
             img_batch = np.expand_dims(img_batch, 3)
             batch = [img_batch, shuffle_rsp[start:end]]
-        print 'image batch size',
-        print batch[0].shape
-        print 'fMRI data batch size',
-        print batch[1].shape
+        #print 'image batch size',
+        #print batch[0].shape
+        #print 'fMRI data batch size',
+        #print batch[1].shape
         _, step_error, step_center, step_sigma, step_b, step_w = sess.run(
                 [solver, error, center_loc, sigma, b, w],
                                 feed_dict={img: batch[0], rsp_: batch[1]})
