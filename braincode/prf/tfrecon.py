@@ -108,20 +108,23 @@ def tfprf(input_imgs, vxl_rsp, gabor_bank):
     imag_conv = tf.nn.conv2d(img, gabor_imag, strides=[1, 1, 1, 1],
                              padding='SAME')
     gabor_energy = tf.sqrt(tf.square(real_conv) + tf.square(imag_conv))
+    # resize features
+    gabor_energy = tf.image.resize_images(gabor_energy, [250, 250])
     # reshape gabor energy for pRF masking
     gabor_energy = tf.transpose(gabor_energy, perm=[1, 2, 3, 0])
-    gabor_vtr = tf.reshape(gabor_energy, [250000, -1])
-    #gabor_vtr = tf.reshape(gabor_energy, [250000, 72, -1])
+    gabor_vtr = tf.reshape(gabor_energy, [62500, -1])
+    #gabor_vtr = tf.reshape(gabor_energy, [250000, -1])
     # var for feature pooling field
-    center_loc = tf.Variable(tf.multiply(tf.ones(2), 250), name='center_loc')
+    center_loc = tf.Variable(tf.multiply(tf.ones(2), 125), name='center_loc')
     sigma = tf.Variable(tf.ones(2), name='sigma')
-    xinds, yinds = np.unravel_index(range(500*500), (500, 500))
+    xinds, yinds = np.unravel_index(range(250*250), (250, 250))
     inds = (np.column_stack((xinds, yinds))).astype(np.float32)
     inds = tf.constant(inds)
     mvn = ds.MultivariateNormalDiag(loc=center_loc, scale_diag=sigma,
                                 validate_args=True, allow_nan_stats=False)
     kernel = mvn.prob(inds)
-    kernel = tf.reshape(kernel, (1, 250000))
+    kernel = tf.reshape(kernel, (1, 62500))
+    #kernel = tf.reshape(kernel, (1, 250000))
     # get features from pooling field
     vxl_feats = tf.matmul(kernel, gabor_vtr)
     vxl_feats = tf.reshape(vxl_feats, (72, -1))
@@ -133,7 +136,7 @@ def tfprf(input_imgs, vxl_rsp, gabor_bank):
 
     # calculate fitting error
     error = tf.reduce_mean(tf.square(tf.reshape(rsp, [-1]) - rsp_))
-    opt = tf.train.GradientDescentOptimizer(0.1)
+    opt = tf.train.GradientDescentOptimizer(0.9)
     
     # graph config
     config = tf.ConfigProto()
