@@ -221,6 +221,7 @@ if __name__ == '__main__':
     
     ## directory config for analysis
     #root_dir = r'/nfs/home/cddu/ActMax'
+    #feat_dir = root_dir
     #db_dir = os.path.join(root_dir, 'db')
     #res_dir = os.path.join(root_dir, 'subjects')
 
