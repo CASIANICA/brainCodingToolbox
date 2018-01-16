@@ -114,7 +114,6 @@ def tfprf(input_imgs, vxl_rsp, gabor_bank):
     gabor_energy = tf.transpose(gabor_energy, perm=[1, 2, 3, 0])
     gabor_vtr = tf.reshape(gabor_energy, [62500, -1])
     #gabor_vtr = tf.reshape(gabor_energy, [250000, -1])
-    # var for feature pooling field
     center_loc = tf.Variable(tf.multiply(tf.ones(2), 125), name='center_loc')
     sigma = tf.Variable(tf.ones(2), name='sigma')
     xinds, yinds = np.unravel_index(range(250*250), (250, 250))
@@ -139,7 +138,6 @@ def tfprf(input_imgs, vxl_rsp, gabor_bank):
     l2_error = 100*(tf.nn.l2_loss(w) + tf.nn.l2_loss(b))
     total_error = error + l2_error
     opt = tf.train.GradientDescentOptimizer(0.001)
-    #opt = tf.train.AdamOptimizer(learning_rate=0.001)
     
     # graph config
     config = tf.ConfigProto()
@@ -192,10 +190,6 @@ def tfprf(input_imgs, vxl_rsp, gabor_bank):
             img_batch = np.transpose(img_batch, (2, 0, 1))
             img_batch = np.expand_dims(img_batch, 3)
             batch = [img_batch, shuffle_rsp[start:end]]
-        #print 'image batch size',
-        #print batch[0].shape
-        #print 'fMRI data batch size',
-        #print batch[1].shape
         _, step_error, step_center, step_sigma, step_b, step_w = sess.run(
                 [solver, total_error, center_loc, sigma, b, w],
                                 feed_dict={img: batch[0], rsp_: batch[1]})
@@ -208,8 +202,118 @@ def tfprf(input_imgs, vxl_rsp, gabor_bank):
         print step_w
         print 'bias:',
         print step_b
-        #np.save('prf_step%s.npy'%(i), step_prf)
+        np.save('prf_step%s.npy'%(i), step_prf)
     return step_center, step_sigma, step_b, step_w
+
+def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
+    """multivariate-normal based pRF model."""
+    # var for input data
+    img = tf.placeholder("float", [None, 500, 500, 1])
+    rsp_ = tf.placeholder("float", [None,])
+    # config for the gabor filters
+    gabor_real = np.expand_dims(gabor_bank['gabor_real'], 2)
+    gabor_imag = np.expand_dims(gabor_bank['gabor_imag'], 2)
+    real_conv = tf.nn.conv2d(img, gabor_real, strides=[1, 1, 1, 1],
+                             padding='SAME')
+    imag_conv = tf.nn.conv2d(img, gabor_imag, strides=[1, 1, 1, 1],
+                             padding='SAME')
+    gabor_energy = tf.sqrt(tf.square(real_conv) + tf.square(imag_conv))
+    # resize features
+    gabor_energy = tf.image.resize_images(gabor_energy, [250, 250])
+    # reshape gabor energy for pRF masking
+    gabor_energy = tf.transpose(gabor_energy, perm=[1, 2, 3, 0])
+    gabor_vtr = tf.reshape(gabor_energy, [62500, -1])
+    #gabor_vtr = tf.reshape(gabor_energy, [250000, -1])
+    # var for feature pooling field
+    fpf = tf.Variable(tf.random_normal([250, 250], stddev=0.001), name='fpf')
+    flat_fpf = tf.reshape(fpf, (1, 62500))
+    # get features from pooling field
+    vxl_feats = tf.matmul(flat_fpf, gabor_vtr)
+    vxl_feats = tf.reshape(vxl_feats, (72, -1))
+    # vars for feature weights
+    b = tf.Variable(tf.random_normal([1], stddev=0.001), name='b')
+    w = tf.Variable(tf.random_normal([1, 72], stddev=0.001), name='W')
+    vxl_wt_feats = tf.matmul(w, vxl_feats)
+    rsp = vxl_wt_feats + b 
+
+    # calculate fitting error
+    error = tf.reduce_mean(tf.square(tf.reshape(rsp, [-1]) - rsp_))
+    # parameter regularization
+    l2_error = 100*(tf.nn.l2_loss(w) + tf.nn.l2_loss(b))
+    # laplacian regularization
+    laplacian_kernel = np.array([[0, -1, 0], [-1, 4, -1], [0, -1, 0]])
+    laplacian_kernel = np.expand_dims(laplacian_kernel, 2)
+    laplacian_kernel = np.expand_dims(laplacian_kernel, 3)
+    fpf_shadow = tf.expand_dims(tf.expand_dims(fpf, 0), 3)
+    laplacian_reg = tf.nn.conv2d(fpf_shadow, laplacian_kernel,
+                                 strides=[1, 1, 1, 1], padding='VALID')
+    reg_error = tf.reduce_sum(tf.square(laplacian_reg))
+    # get total error
+    total_error = error + l2_error + reg_error
+    opt = tf.train.GradientDescentOptimizer(0.001)
+    
+    # graph config
+    config = tf.ConfigProto()
+    #config.gpu_options.per_process_gpu_memory_fraction = 0.95
+    sess = tf.Session(config=config)
+    sess.run(tf.global_variables_initializer())
+    vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+    solver =  opt.minimize(total_error, var_list = vars_x)
+
+    # model training
+    batch_size = 20
+    index_in_epoch = 0
+    epochs_completed = 0
+    for i in range(40):
+        print 'Step %s'%(i)
+        start = index_in_epoch
+        if epochs_completed==0 and start==0:
+            perm0 = np.arange(input_imgs.shape[2])
+            np.random.shuffle(perm0)
+            shuffle_imgs = input_imgs[..., perm0]
+            shuffle_rsp = vxl_rsp[perm0]
+        # go to next epoch
+        if start + batch_size > input_imgs.shape[2]:
+            # finish epoch
+            epochs_completed += 1
+            # get the rest examples in this epoch
+            rest_num_examples = int(input_imgs.shape[2]) - start
+            img_rest_part = shuffle_imgs[..., start:input_imgs.shape[2]]
+            rsp_rest_part = shuffle_rsp[start:input_imgs.shape[2]]
+            # shuffle the data
+            perm = np.arange(input_imgs.shape[2])
+            np.random.shuffle(perm)
+            shuffle_imgs = input_imgs[..., perm]
+            shuffle_rsp = vxl_rsp[perm]
+            # start next epoch
+            start = 0
+            index_in_epoch = batch_size - rest_num_examples
+            end = index_in_epoch
+            img_new_part = shuffle_imgs[..., start:end]
+            rsp_new_part = shuffle_rsp[start:end]
+            img_batch = np.concatenate((img_rest_part, img_new_part), axis=2)
+            img_batch = np.transpose(img_batch, (2, 0, 1))
+            img_batch = np.expand_dims(img_batch, 3)
+            batch = [img_batch,
+                     np.concatenate((rsp_rest_part, rsp_new_part), axis=0)]
+        else:
+            index_in_epoch += batch_size
+            end = index_in_epoch
+            img_batch = shuffle_imgs[..., start:end]
+            img_batch = np.transpose(img_batch, (2, 0, 1))
+            img_batch = np.expand_dims(img_batch, 3)
+            batch = [img_batch, shuffle_rsp[start:end]]
+        _, step_error, step_fpf, step_b, step_w = sess.run(
+                [solver, total_error, fpf, b, w],
+                                feed_dict={img: batch[0], rsp_: batch[1]})
+        print 'Error: %s'%(step_error)
+        print 'weights:',
+        print step_w
+        print 'bias:',
+        print step_b
+        np.save('fpf_step%s.npy'%(i), step_fpf)
+    return step_b, step_w
+    #return step_center, step_sigma, step_b, step_w
 
 
 if __name__ == '__main__':
@@ -293,6 +397,7 @@ if __name__ == '__main__':
     print input_imgs.shape
     print 'Voxel time point number',
     print vxl_rsp.shape
-    tfprf(input_imgs, vxl_rsp, gabor_bank)
+    tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank)
+    #tfprf(input_imgs, vxl_rsp, gabor_bank)
     #np.save('prf_example.npy', prf)
 
