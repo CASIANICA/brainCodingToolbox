@@ -129,14 +129,17 @@ def tfprf(input_imgs, vxl_rsp, gabor_bank):
     vxl_feats = tf.matmul(kernel, gabor_vtr)
     vxl_feats = tf.reshape(vxl_feats, (72, -1))
     # vars for feature weights
-    b = tf.Variable(np.ones(1), dtype=np.float32, name='b')
-    w = tf.Variable(np.ones((1, 72)), dtype=np.float32, name='W')
+    b = tf.Variable(tf.random_normal([1], stddev=0.001), name='b')
+    w = tf.Variable(tf.random_normal([1, 72], stddev=0.001), name='W')
     vxl_wt_feats = tf.matmul(w, vxl_feats)
     rsp = vxl_wt_feats + b 
 
     # calculate fitting error
     error = tf.reduce_mean(tf.square(tf.reshape(rsp, [-1]) - rsp_))
-    opt = tf.train.GradientDescentOptimizer(0.9)
+    l2_error = 100*(tf.nn.l2_loss(w) + tf.nn.l2_loss(b))
+    total_error = error + l2_error
+    opt = tf.train.GradientDescentOptimizer(0.001)
+    #opt = tf.train.AdamOptimizer(learning_rate=0.001)
     
     # graph config
     config = tf.ConfigProto()
@@ -144,15 +147,13 @@ def tfprf(input_imgs, vxl_rsp, gabor_bank):
     sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())
     vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
-    #vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
-    #            ['center_loc', 'sigma', 'b', 'W'])
-    solver =  opt.minimize(error, var_list = vars_x)
+    solver =  opt.minimize(total_error, var_list = vars_x)
 
     # model training
     batch_size = 20
     index_in_epoch = 0
     epochs_completed = 0
-    for i in range(100):
+    for i in range(40):
         print 'Step %s'%(i)
         start = index_in_epoch
         if epochs_completed==0 and start==0:
@@ -196,13 +197,17 @@ def tfprf(input_imgs, vxl_rsp, gabor_bank):
         #print 'fMRI data batch size',
         #print batch[1].shape
         _, step_error, step_center, step_sigma, step_b, step_w = sess.run(
-                [solver, error, center_loc, sigma, b, w],
+                [solver, total_error, center_loc, sigma, b, w],
                                 feed_dict={img: batch[0], rsp_: batch[1]})
         print 'Error: %s'%(step_error)
         print 'Center:',
         print step_center
         print 'Sigma:',
         print step_sigma
+        print 'weights:',
+        print step_w
+        print 'bias:',
+        print step_b
         #np.save('prf_step%s.npy'%(i), step_prf)
     return step_center, step_sigma, step_b, step_w
 
@@ -272,6 +277,8 @@ if __name__ == '__main__':
     # multivariate normal based pRF
     stimuli_file = os.path.join(db_dir, 'stimuli', 'train_stimuli.npy')
     input_imgs = np.load(stimuli_file)
+    img_m = np.mean(input_imgs, axis=2, keepdims=True)
+    input_imgs = input_imgs - img_m
     resp_file = os.path.join(db_dir, 'EstimatedResponses.mat')
     resp_mat = tables.open_file(resp_file)
     train_ts = resp_mat.get_node('/dataTrnS%s'%(subj_id))[:]
