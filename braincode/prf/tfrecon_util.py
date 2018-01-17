@@ -161,6 +161,36 @@ def merge_stimuli(stim_dir):
             stim = x
     np.save(os.path.join(stim_dir, 'train_stimuli.npy'), stim)
 
+def merge_gabor_features(feat_dir):
+    """Merge Gabor features of all images."""
+    # get mean features from all images
+    global_mean = np.zeros((1, 500, 500, 72))
+    for i in range(14):
+        tmp_file = os.path.join(feat_dir,
+                        'Stimuli_Trn_FullRes_%02d_gabor_features.npy'%(i+1))
+        tmp_data = np.load(tmp_file, mmap_mode='r')
+        tmp_data = np.transpose(tmp_data, (0, 2, 3, 1))
+        tmp_mean = np.mean(tmp_data, axis=0, keepdims=True)
+        global_mean = global_mean + tmp_mean
+    global_mean = global_mean / 14
+    np.save(os.path.join(feat_dir, 'gabor_mean.npy'), global_mean)
+    # merge gabor features
+    outfile = os.path.join(feat_dir, 'train_stimuli_gabor_feat.memdat')
+    fp = np.memmap(outfile, dtype='float32', mode='w+',
+                   shape=(1750, 500, 500, 72))
+    head_idx = 0
+    for i in range(15):
+        print 'Part %s'%(i+1)
+        tmp_file = os.path.join(feat_dir,
+                        'Stimuli_Trn_FullRes_%02d_gabor_features.npy'%(i+1))
+        tmp_data = np.load(tmp_file)
+        tmp_data = np.transpose(tmp_data, (0, 2, 3, 1))
+        tmp_data = 10 * (tmp_data - global_mean)
+        print tmp_data.max()
+        print tmp_data.min()
+        fp[head_idx:(head_idx+tmp_data.shape[0])] = tmp_data
+        head_idx = head_idx + tmp_data.shape[0]
+
 
 if __name__ == '__main__':
     """Main function."""
@@ -186,4 +216,6 @@ if __name__ == '__main__':
     #get_vxl_coding_resp(feat_dir, prf_dir, ['v1', 'v2'])
     #get_vxl_coding_wts(feat_dir, prf_dir, ['v1', 'v2'])
     
-    merge_stimuli(stim_dir)
+    #merge_stimuli(stim_dir)
+    merge_gabor_features(feat_dir)
+    """Merge Gabor features of all images."""
