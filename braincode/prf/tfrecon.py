@@ -320,15 +320,12 @@ def tfprf_laplacian_tmp(input_imgs, vxl_rsp):
     # var for input data
     img = tf.placeholder("float", [None, 500, 500, 72])
     rsp_ = tf.placeholder("float", [None,])
-    # resize features
-    gabor_energy = tf.image.resize_images(img, [250, 250])
-    # reshape gabor energy for pRF masking
-    gabor_energy = tf.transpose(gabor_energy, perm=[1, 2, 3, 0])
-    gabor_vtr = tf.reshape(gabor_energy, [62500, -1])
-    #gabor_vtr = tf.reshape(gabor_energy, [250000, -1])
+    # reshape gabor energy for fpf masking
+    gabor_energy = tf.transpose(img, perm=[1, 2, 3, 0])
+    gabor_vtr = tf.reshape(gabor_energy, [250000, -1])
     # var for feature pooling field
-    fpf = tf.Variable(tf.random_normal([250, 250], stddev=0.001), name='fpf')
-    flat_fpf = tf.reshape(fpf, (1, 62500))
+    fpf = tf.Variable(tf.random_normal([500, 500], stddev=0.001), name='fpf')
+    flat_fpf = tf.reshape(fpf, (1, 250000))
     # get features from pooling field
     vxl_feats = tf.matmul(flat_fpf, gabor_vtr)
     vxl_feats = tf.reshape(vxl_feats, (72, -1))
