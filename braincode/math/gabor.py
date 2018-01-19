@@ -128,7 +128,8 @@ def make_gabor_table(orientations, deg_per_stimulus, cycles_per_deg,
     number of pixels per cycle, the smaller this range will be.
 
     """
-    oris = np.linspace(0, np.pi, num=orientations, endpoint=False).reshape(orientations)
+    oris = np.linspace(0, np.pi, num=orientations,
+                       endpoint=False).reshape(orientations)
  
     if freq_spacing == 'log':
         cycles_per_deg = np.logspace(np.log10(cycles_per_deg[0]),
@@ -138,6 +139,10 @@ def make_gabor_table(orientations, deg_per_stimulus, cycles_per_deg,
         cycles_per_deg = np.linspace(cycles_per_deg[0],
                                      cycles_per_deg[1],
                                      num=cycles_per_deg[2])
+    elif freq_spacing == 'log2':
+        # f_n = f_0 * 2**(-(n-1)/2)
+        cycles_per_deg = np.array([cycles_per_deg[1]/(2.0**(i/2.0))
+                                   for i in range(cycles_per_deg[2])])
     
     # Inferred from your choices
     # radius of gaussian envelope of gabor filters in deg.
