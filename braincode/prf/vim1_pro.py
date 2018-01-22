@@ -57,9 +57,9 @@ def get_gabor_banks():
     print 'Gabor filters shape:', gabor_filters.filter_stack.shape
     gabor_real = np.real(gabor_filters.filter_stack).astype('float32')
     gabor_imag = np.imag(gabor_filters.filter_stack).astype('float32')
-    gabor_real = np.squeeze(np.transpose(gabor_real, [1,2,3,0]))
-    gabor_imag = np.squeeze(np.transpose(gabor_imag, [1,2,3,0]))
-    gabor_bank = {'gabor_real': gabor_real, 'gabor_imag': gabor_imag}
+    gabor_real = np.squeeze(np.transpose(gabor_real, [1, 2, 3, 0]))
+    gabor_imag = np.squeeze(np.transpose(gabor_imag, [1, 2, 3, 0]))
+    gabor_bank = {'real': gabor_real, 'imag': gabor_imag}
     return gabor_bank
 
 def get_stim_features(db_dir, feat_dir, data_type):
@@ -550,6 +550,10 @@ if __name__ == '__main__':
     # get candidate models
     #get_candidate_model(feat_dir, 'val')
 
+    # get gabor bank
+    gabor_bank = get_gabor_banks()
+    np.savez('gabor_bank.npz', **gabor_bank)
+
     #-- general config
     subj_id = 1
     roi = 'v3'
@@ -559,11 +563,11 @@ if __name__ == '__main__':
 
     #-- pRF model fitting
     # pRF model tunning
-    get_vxl_idx(prf_dir, db_dir, subj_id, roi)
+    #get_vxl_idx(prf_dir, db_dir, subj_id, roi)
     #ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
     #prf_selection(feat_dir, prf_dir, db_dir, subj_id, roi)
     # get null distribution of tunning performance
-    null_distribution_prf_tunning(feat_dir, prf_dir, db_dir, subj_id, roi)
+    #null_distribution_prf_tunning(feat_dir, prf_dir, db_dir, subj_id, roi)
     # calculate tunning contribution of each gabor sub-banks
     #gabor_contribution2prf(feat_dir, prf_dir, db_dir, subj_id, roi)
     # pRF reconstruction
