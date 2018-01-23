@@ -26,6 +26,28 @@ def get_gabor_kernels(feat_dir):
     outfile = os.path.join(feat_dir, 'gabor_kernels.npz')
     np.savez(outfile, gabor_real=gabor_real, gabor_imag = gabor_imag)
 
+def get_gabor_kernels_small(feat_dir):
+    """gabor bank generation"""
+    n_scale = 9
+    gwt = bob.ip.gabor.Transform(number_of_scales=n_scale)
+    gwt.generate_wavelets(500, 500)
+    wavelets = {}
+    for i in range(n_scale):
+        s = int(2*4*np.sqrt(2)**i)
+        smin = 250 - s/2
+        wavelets['f%s_real'%(i+1)] = np.zeros((s, s, 8))
+        wavelets['f%s_imag'%(i+1)] = np.zeros((s, s, 8))
+        for j in range(8):
+            w = bob.ip.gabor.Wavelet(resolution=(500, 500),
+                            frequency=gwt.wavelet_frequencies[i*8+j])
+            sw = bob.sp.ifft(w.wavelet.astype(np.complex128))
+            preal = np.roll(np.roll(np.real(sw), 250, 0), 250, 1)
+            pimag = np.roll(np.roll(np.imag(sw), 250, 0), 250, 1)
+            wavelets['f%s_real'%(i+1)][...,j]=preal[smin:(smin+s),smin:(smin+s)]
+            wavelets['f%s_imag'%(i+1)][...,j]=pimag[smin:(smin+s),smin:(smin+s)]
+    outfile = os.path.join(feat_dir, 'gabor_kernels_small.npz')
+    np.savez(outfile, **wavelets)
+
 def get_model_zparas(feat_dir):
     """Get mean and std of time courses for each model."""
     # load candidate models
@@ -212,10 +234,11 @@ if __name__ == '__main__':
     prf_dir = os.path.join(subj_dir, 'prf')
     
     #get_gabor_kernels(feat_dir)
+    get_gabor_kernels_small(feat_dir)
     #get_model_zparas(feat_dir)
     #get_vxl_coding_resp(feat_dir, prf_dir, ['v1', 'v2'])
     #get_vxl_coding_wts(feat_dir, prf_dir, ['v1', 'v2'])
     
     #merge_stimuli(stim_dir)
-    merge_gabor_features(feat_dir)
-    """Merge Gabor features of all images."""
+    #merge_gabor_features(feat_dir)
+

@@ -10,7 +10,6 @@ from joblib import Parallel, delayed
 from braincode.util import configParser
 from braincode.math import make_2d_gaussian, ridge
 from braincode.math.norm import zscore
-from braincode.math.gabor import gabor_filters_creating
 from braincode.prf import dataio
 from braincode.prf import util as vutil
 from braincode.pipeline import retinotopy
@@ -31,36 +30,6 @@ def get_gabor_features(img):
         imag_p = np.imag(trafo_img[i, ...])
         out_feat[i, ...] = np.sqrt(np.square(real_p)+np.square(imag_p))
     return out_feat
-
-def get_gabor_banks():
-    """Get Gbaor filter bank."""
-    gabor_params = {'n_orientations': 8,
-                    'deg_per_stimulus': 20.,
-                    'lowest_sp_freq': 0.390625, # cyc/deg
-                    'highest_sp_freq': 6.25, # cyc/deg
-                    'num_sp_freq': 9,
-                    'freq_spacing': 'log2',
-                    'pix_per_cycle': 2,
-                    'cycles_per_radius': 1.,
-                    'diams_per_filter': 2.,
-                    'complex_cell': True,
-                    'n_colors': 1}
-    print 'Total number of Gabor filters:',
-    print gabor_params['n_orientations'] * gabor_params['num_sp_freq']
-
-    gabor_filters = gabor_filters_creating(gabor_params['n_orientations'],
-                                           gabor_params['deg_per_stimulus'],
-                                           (gabor_params['lowest_sp_freq'],
-                                            gabor_params['highest_sp_freq'],
-                                            gabor_params['num_sp_freq']),
-                                           gabor_params['freq_spacing'])
-    print 'Gabor filters shape:', gabor_filters.filter_stack.shape
-    gabor_real = np.real(gabor_filters.filter_stack).astype('float32')
-    gabor_imag = np.imag(gabor_filters.filter_stack).astype('float32')
-    gabor_real = np.squeeze(np.transpose(gabor_real, [1, 2, 3, 0]))
-    gabor_imag = np.squeeze(np.transpose(gabor_imag, [1, 2, 3, 0]))
-    gabor_bank = {'real': gabor_real, 'imag': gabor_imag}
-    return gabor_bank
 
 def get_stim_features(db_dir, feat_dir, data_type):
     """Stimuli processing."""
@@ -549,10 +518,6 @@ if __name__ == '__main__':
     #get_stim_features(db_dir, feat_dir, 'train')
     # get candidate models
     #get_candidate_model(feat_dir, 'val')
-
-    # get gabor bank
-    gabor_bank = get_gabor_banks()
-    np.savez('gabor_bank.npz', **gabor_bank)
 
     #-- general config
     subj_id = 1
