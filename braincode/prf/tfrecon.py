@@ -375,7 +375,19 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     f9_energy = tf.transpose(f9_energy, perm=[1, 2, 3, 0])
     f9_energy = tf.reshape(f9_energy, [62500, -1])
     # var for feature pooling field
-    fpf = tf.Variable(tf.random_normal([250, 250], stddev=0.001), name='fpf')
+    fpf_kernel = tf.random_normal([1, 250, 250, 1], stddev=0.001)
+    blur_kernel = np.array([[1.0/256,  4.0/256,  6.0/256,  4.0/256, 1.0/256],
+                            [4.0/256, 16.0/256, 24.0/256, 16.0/256, 4.0/256],
+                            [6.0/256, 24.0/256, 36.0/256, 24.0/256, 6.0/256],
+                            [4.0/256, 16.0/256, 24.0/256, 16.0/256, 4.0/256],
+                            [1.0/256,  4.0/256,  6.0/256,  4.0/256, 1.0/256]])
+    blur_kernel = np.expand_dims(blur_kernel, 2)
+    blur_kernel = np.expand_dims(blur_kernel, 3)
+    fpf_kernel = tf.nn.conv2d(fpf_kernel, blur_kernel, strides=[1, 1, 1, 1],
+                              padding='SAME')
+    fpf_kernel = tf.nn.conv2d(fpf_kernel, blur_kernel, strides=[1, 1, 1, 1],
+                              padding='SAME')
+    fpf = tf.Variable(tf.reshape(fpf_kernel, [250, 250]), name='fpf')
     flat_fpf = tf.reshape(fpf, (1, 62500))
     # get features from pooling field
     f1_feats = tf.matmul(flat_fpf, f1_energy)
@@ -419,8 +431,8 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
                                  strides=[1, 1, 1, 1], padding='VALID')
     reg_error = tf.reduce_sum(tf.square(laplacian_reg))
     # get total error
-    total_error = 10*error + 10*l2_error + reg_error
-    opt = tf.train.GradientDescentOptimizer(0.01)
+    total_error = 10*error + l2_error + reg_error
+    opt = tf.train.GradientDescentOptimizer(0.005)
     
     # graph config
     config = tf.ConfigProto()
@@ -668,7 +680,7 @@ if __name__ == '__main__':
     ts_s = np.std(train_ts, axis=1, keepdims=True)
     train_ts = (train_ts - ts_m) / (ts_s + 1e-5)
     # select voxel 19165 as an example
-    vxl_rsp = train_ts[6346]
+    vxl_rsp = train_ts[24031]
     print 'Image data shape ',
     print input_imgs.shape
     print 'Voxel time point number',
