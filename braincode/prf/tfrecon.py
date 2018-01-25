@@ -414,7 +414,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
                            f7_feats, f8_feats, f9_feats], 0)
     # vars for feature weights
     b = tf.Variable(tf.random_normal([1], stddev=0.001), name='b')
-    w = tf.Variable(tf.random_normal([1, 72], stddev=0.001), name='W')
+    w = tf.Variable(tf.constant(0.001, shape=[1, 72]), name='W')
     vxl_wt_feats = tf.matmul(w, vxl_feats)
     rsp = vxl_wt_feats + b 
 
