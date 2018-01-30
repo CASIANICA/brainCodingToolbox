@@ -344,7 +344,6 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     print val_imgs.shape
     print train_rsp.shape
     print val_rsp.shape
-    val_batch = [val_imgs, val_rsp]
 
     # model training
     batch_size = 10
@@ -404,8 +403,14 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
             plt.savefig('fpf_step%s.png'%(i))
             plt.close(fig)
             # model validation
-            val_err = sess.run(error,
-                            feed_dict={img: val_batch[0], rsp_: val_batch[1]})
+            pred_val_rsp = np.zeros(350)
+            for j in range(35):
+                print 'Validation part %s'%(j+1)
+                part_rsp = sess.run(rsp,
+                                feed_dict={img: val_imgs[(j*10):(j*10+10)],
+                                           rsp_: val_rsp[(j*10):(j*10+10)]})
+                pred_val_rsp[(j*10):(j*10+10)] = part_rsp.reshape(-1)
+            val_err = np.mean(np.square(pred_val_rsp - val_rsp))
             print 'Validation Error: %s'%(val_err)
 
     return step_b, step_w
