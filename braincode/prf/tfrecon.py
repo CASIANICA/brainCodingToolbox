@@ -307,6 +307,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     w = tf.Variable(tf.constant(0.001, shape=[1, 72]), name='W')
     vxl_wt_feats = tf.matmul(w, vxl_feats)
     rsp = vxl_wt_feats + b 
+    # TODO: reshape rsp as vector
 
     # calculate fitting error
     error = tf.reduce_mean(tf.square(tf.reshape(rsp, [-1]) - rsp_))
@@ -408,6 +409,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
                 part_rsp = sess.run(rsp,
                                 feed_dict={img: val_imgs[(j*10):(j*10+10)],
                                            rsp_: val_rsp[(j*10):(j*10+10)]})
+                print part_rsp.shape
                 pred_val_rsp[(j*10):(j*10+10)] = part_rsp.reshape(-1)
             val_err = np.mean(np.square(pred_val_rsp - val_rsp))
             print 'Validation Error: %s'%(val_err)
