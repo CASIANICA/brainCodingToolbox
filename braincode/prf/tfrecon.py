@@ -405,7 +405,6 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
             # model validation
             pred_val_rsp = np.zeros(350)
             for j in range(35):
-                print 'Validation part %s'%(j+1)
                 part_rsp = sess.run(rsp,
                                 feed_dict={img: val_imgs[(j*10):(j*10+10)],
                                            rsp_: val_rsp[(j*10):(j*10+10)]})
