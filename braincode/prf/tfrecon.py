@@ -1,8 +1,8 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 import os    
-#os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-#os.environ['CUDA_VISIBLE_DEVICES']='0'
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ['CUDA_VISIBLE_DEVICES']='0'
 import numpy as np
 import tables
 import tensorflow as tf
@@ -306,11 +306,10 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     b = tf.Variable(tf.random_normal([1], stddev=0.001), name='b')
     w = tf.Variable(tf.constant(0.001, shape=[1, 72]), name='W')
     vxl_wt_feats = tf.matmul(w, vxl_feats)
-    rsp = vxl_wt_feats + b 
-    # TODO: reshape rsp as vector
+    rsp = tf.reshape(vxl_wt_feats + b, [-1])
 
     # calculate fitting error
-    error = tf.reduce_mean(tf.square(tf.reshape(rsp, [-1]) - rsp_))
+    error = tf.reduce_mean(tf.square(rsp - rsp_))
     # parameter regularization
     l2_error = tf.nn.l2_loss(w) + tf.nn.l2_loss(b)
     # laplacian regularization
@@ -409,8 +408,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
                 part_rsp = sess.run(rsp,
                                 feed_dict={img: val_imgs[(j*10):(j*10+10)],
                                            rsp_: val_rsp[(j*10):(j*10+10)]})
-                print part_rsp.shape
-                pred_val_rsp[(j*10):(j*10+10)] = part_rsp.reshape(-1)
+                pred_val_rsp[(j*10):(j*10+10)] = part_rsp
             val_err = np.mean(np.square(pred_val_rsp - val_rsp))
             print 'Validation Error: %s'%(val_err)
 
@@ -428,12 +426,6 @@ if __name__ == '__main__':
     root_dir = cf.get('base', 'path')
     feat_dir = os.path.join(root_dir, 'sfeatures', 'vim1')
     res_dir = os.path.join(root_dir, 'subjects')
-    
-    ## directory config for analysis
-    #root_dir = r'/nfs/home/cddu/ActMax'
-    #feat_dir = root_dir
-    #db_dir = os.path.join(root_dir, 'db')
-    #res_dir = os.path.join(root_dir, 'subjects')
 
     #-- general config
     subj_id = 1
@@ -444,7 +436,7 @@ if __name__ == '__main__':
 
     #-- parameter preparation
     #gabor_bank_file = os.path.join(feat_dir, 'gabor_kernels.npz')
-    gabor_bank_file = os.path.join(feat_dir, 'gabor_kernels_small.npz')
+    gabor_bank_file = os.path.join(db_dir, 'gabor_kernels_small.npz')
     gabor_bank = np.load(gabor_bank_file)
     #vxl_coding_paras_file =os.path.join(prf_dir,'tfrecon','vxl_coding_wts.npz')
     #vxl_coding_paras = np.load(vxl_coding_paras_file)
@@ -484,7 +476,7 @@ if __name__ == '__main__':
     #plt.savefig('recons.png')
 
     # laplacian regularized pRF
-    stimuli_file = os.path.join(db_dir, 'stimuli', 'train_stimuli.npy')
+    stimuli_file = os.path.join(db_dir, 'train_stimuli.npy')
     input_imgs = np.load(stimuli_file)
     img_m = np.mean(input_imgs, axis=2, keepdims=True)
     input_imgs = input_imgs - img_m
