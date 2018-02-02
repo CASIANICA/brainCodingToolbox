@@ -353,7 +353,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     batch_size = 10
     index_in_epoch = 0
     epochs_completed = 0
-    for i in range(1001):
+    for i in range(14001):
         print 'Step %s'%(i)
         start = index_in_epoch
         if epochs_completed==0 and start==0:
@@ -400,21 +400,22 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
         #print step_w
         #print 'bias:',
         #print step_b
-        if i%10==0:
+        if i%70==0:
             fig, ax = plt.subplots()
             cax = ax.imshow(step_fpf, cmap='gray')
             fig.colorbar(cax)
             plt.savefig('fpf_step%s.png'%(i))
             plt.close(fig)
-            # model validation
-            pred_val_rsp = np.zeros(350)
-            for j in range(35):
-                part_rsp = sess.run(rsp,
+            if i%140==0:
+                # model validation
+                pred_val_rsp = np.zeros(350)
+                for j in range(35):
+                    part_rsp = sess.run(rsp,
                                 feed_dict={img: val_imgs[(j*10):(j*10+10)],
                                            rsp_: val_rsp[(j*10):(j*10+10)]})
-                pred_val_rsp[(j*10):(j*10+10)] = part_rsp
-            val_err = np.mean(np.square(pred_val_rsp - val_rsp))
-            print 'Validation Error: %s'%(val_err)
+                    pred_val_rsp[(j*10):(j*10+10)] = part_rsp
+                val_err = np.mean(np.square(pred_val_rsp - val_rsp))
+                print 'Validation Error: %s'%(val_err)
 
     return step_b, step_w
 
