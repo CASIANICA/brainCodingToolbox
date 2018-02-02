@@ -324,14 +324,14 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     reg_error = tf.reduce_sum(tf.square(laplacian_reg))
     # get total error
     total_error = 10*error + l2_error + reg_error
-    #opt = tf.train.GradientDescentOptimizer(0.005)
     
     # graph config
     config = tf.ConfigProto()
     config.gpu_options.per_process_gpu_memory_fraction = 0.95
     sess = tf.Session(config=config)
     vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
-    #solver =  opt.minimize(total_error, var_list = vars_x)
+    #solver =  tf.train.GradientDescentOptimizer(0.005).minimize(total_error,
+    #                                                var_list = vars_x)
     solver =  tf.train.AdamOptimizer(1e-4).minimize(total_error,
                                                     var_list = vars_x)
     sess.run(tf.global_variables_initializer())
