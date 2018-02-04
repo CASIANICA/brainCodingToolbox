@@ -305,8 +305,8 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
                            f4_feats, f5_feats, f6_feats,
                            f7_feats, f8_feats, f9_feats], 0)
     # vars for feature weights
-    b = tf.Variable(tf.random_normal([1], stddev=0.001), name='b')
-    w = tf.Variable(tf.constant(0.001, shape=[1, 72]), name='W')
+    b = tf.Variable(tf.constant(0.1, shape=[1]), name='b')
+    w = tf.Variable(tf.constant(0.01, shape=[1, 72]), name='W')
     vxl_wt_feats = tf.matmul(w, vxl_feats)
     rsp = tf.reshape(vxl_wt_feats + b, [-1])
 
@@ -324,6 +324,13 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     reg_error = tf.reduce_sum(tf.square(laplacian_reg)) + 0.001*tf.reduce_sum(tf.abs(fpf))
     # get total error
     total_error = 10*error + 0.1*l2_error + reg_error
+    
+    ## tensorboard info
+    #tf.summary.scalar('step_error', total_error)
+    #tf.summary.scalar('step_vxl_error', error)
+    #tf.summary.scalar('step_l2_error', l2_error)
+    #tf.summary.scalar('step_laplacian_error', reg_error)
+    #merged_summary = tf.summary.merge.all()
     
     # graph config
     config = tf.ConfigProto()
@@ -403,9 +410,9 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
         if i%100==0:
             print 'Ep %s'%(i*1.0/200)
             print 'Training Error: %s'%(step_error)
-            rsp_err = sess.run(error, feed_dict={img: batch[0], rsp_: batch[1]})
-            l2_err = sess.run(l2_error, feed_dict={img:batch[0],rsp_: batch[1]})
-            reg_err =sess.run(reg_error,feed_dict={img:batch[0],rsp_: batch[1]})
+            rsp_err = sess.run(error,feed_dict={img: batch[0], rsp_: batch[1]})
+            l2_err = sess.run(l2_error,feed_dict={img:batch[0],rsp_: batch[1]})
+            reg_err=sess.run(reg_error,feed_dict={img:batch[0],rsp_: batch[1]})
             print 'Rsp error: %s'%(rsp_err)
             print 'L2 error: %s'%(l2_err)
             print 'Laplacian error: %s'%(reg_err)
