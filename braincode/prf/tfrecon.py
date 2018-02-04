@@ -319,19 +319,14 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     laplacian_kernel = np.expand_dims(laplacian_kernel, 2)
     laplacian_kernel = np.expand_dims(laplacian_kernel, 3)
     fpf_shadow = tf.expand_dims(tf.expand_dims(fpf, 0), 3)
-    laplacian_reg = tf.nn.conv2d(fpf_shadow, laplacian_kernel,
-                                 strides=[1, 1, 1, 1], padding='VALID')
-    reg_error = tf.reduce_sum(tf.square(laplacian_reg)) + 0.001*tf.reduce_sum(tf.abs(fpf))
+    laplacian_error = tf.reduce_sum(tf.square(tf.nn.conv2d(fpf_shadow,
+                                                         laplacian_kernel,
+                                                         strides=[1, 1, 1, 1],
+                                                         padding='VALID')))
+    l1_error = tf.reduce_sum(tf.abs(fpf))
     # get total error
-    total_error = 10*error + 0.1*l2_error + reg_error
-    
-    ## tensorboard info
-    #tf.summary.scalar('step_error', total_error)
-    #tf.summary.scalar('step_vxl_error', error)
-    #tf.summary.scalar('step_l2_error', l2_error)
-    #tf.summary.scalar('step_laplacian_error', reg_error)
-    #merged_summary = tf.summary.merge.all()
-    
+    total_error = 10*error + 0.1*l2_error + laplacian_error + 0.01*l1_error
+ 
     # graph config
     config = tf.ConfigProto()
     config.gpu_options.per_process_gpu_memory_fraction = 0.95
@@ -410,12 +405,18 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
         if i%100==0:
             print 'Ep %s'%(i*1.0/200)
             print 'Training Error: %s'%(step_error)
-            rsp_err = sess.run(error,feed_dict={img: batch[0], rsp_: batch[1]})
-            l2_err = sess.run(l2_error,feed_dict={img:batch[0],rsp_: batch[1]})
-            reg_err=sess.run(reg_error,feed_dict={img:batch[0],rsp_: batch[1]})
+            rsp_err = sess.run(error, feed_dict={img: batch[0],
+                                                 rsp_: batch[1]})
+            l2_err = sess.run(l2_error, feed_dict={img:batch[0],
+                                                   rsp_: batch[1]})
+            lap_err = sess.run(laplacian_error, feed_dict={img:batch[0],
+                                                           rsp_: batch[1]})
+            l1_err = sess.run(l1_error, feed_dict={img:batch[0],
+                                                   rsp_: batch[1]})
             print 'Rsp error: %s'%(rsp_err)
             print 'L2 error: %s'%(l2_err)
-            print 'Laplacian error: %s'%(reg_err)
+            print 'Laplacian error: %s'%(lap_err)
+            print 'L1 error: %s'%(l1_err)
             fig, ax = plt.subplots()
             cax = ax.imshow(step_fpf, cmap='gray')
             fig.colorbar(cax)
