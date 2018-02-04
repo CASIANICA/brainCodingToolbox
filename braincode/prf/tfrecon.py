@@ -2,7 +2,7 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 import os    
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ['CUDA_VISIBLE_DEVICES']='0'
+os.environ['CUDA_VISIBLE_DEVICES']='1'
 import numpy as np
 import tables
 import tensorflow as tf
@@ -267,7 +267,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     f9_energy = tf.transpose(f9_energy, perm=[1, 2, 3, 0])
     f9_energy = tf.reshape(f9_energy, [62500, -1])
     # var for feature pooling field
-    fpf_kernel = tf.random_normal([1, 250, 250, 1], stddev=0.001)
+    fpf_kernel = tf.random_normal([1, 250, 250, 1], stddev=0.1)
     blur_kernel = np.array([[1.0/256,  4.0/256,  6.0/256,  4.0/256, 1.0/256],
                             [4.0/256, 16.0/256, 24.0/256, 16.0/256, 4.0/256],
                             [6.0/256, 24.0/256, 36.0/256, 24.0/256, 6.0/256],
@@ -321,9 +321,9 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     fpf_shadow = tf.expand_dims(tf.expand_dims(fpf, 0), 3)
     laplacian_reg = tf.nn.conv2d(fpf_shadow, laplacian_kernel,
                                  strides=[1, 1, 1, 1], padding='VALID')
-    reg_error = tf.reduce_sum(tf.square(laplacian_reg))
+    reg_error = tf.reduce_sum(tf.square(laplacian_reg)) + 0.001*tf.reduce_sum(tf.abs(fpf))
     # get total error
-    total_error = 10*error + l2_error + reg_error
+    total_error = 10*error + 0.1*l2_error + reg_error
     
     # graph config
     config = tf.ConfigProto()
@@ -332,7 +332,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
     #solver =  tf.train.GradientDescentOptimizer(0.005).minimize(total_error,
     #                                                var_list = vars_x)
-    solver =  tf.train.AdamOptimizer(1e-4).minimize(total_error,
+    solver =  tf.train.AdamOptimizer(0.0005).minimize(total_error,
                                                     var_list = vars_x)
     sess.run(tf.global_variables_initializer())
 
@@ -350,11 +350,11 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     print val_rsp.shape
 
     # model training
-    batch_size = 10
+    batch_size = 7
     index_in_epoch = 0
     epochs_completed = 0
-    for i in range(14001):
-        print 'Step %s'%(i)
+    for i in range(4001):
+        #print 'Step %s'%(i)
         start = index_in_epoch
         if epochs_completed==0 and start==0:
             perm0 = np.arange(train_imgs.shape[2])
@@ -395,18 +395,26 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
         _, step_error, step_fpf, step_b, step_w = sess.run(
                 [solver, total_error, fpf, b, w],
                                 feed_dict={img: batch[0], rsp_: batch[1]})
-        print 'Training Error: %s'%(step_error)
+        #print 'Training Error: %s'%(step_error)
         #print 'weights:',
         #print step_w
         #print 'bias:',
         #print step_b
-        if i%70==0:
+        if i%100==0:
+            print 'Ep %s'%(i*1.0/200)
+            print 'Training Error: %s'%(step_error)
+            rsp_err = sess.run(error, feed_dict={img: batch[0], rsp_: batch[1]})
+            l2_err = sess.run(l2_error, feed_dict={img:batch[0],rsp_: batch[1]})
+            reg_err =sess.run(reg_error,feed_dict={img:batch[0],rsp_: batch[1]})
+            print 'Rsp error: %s'%(rsp_err)
+            print 'L2 error: %s'%(l2_err)
+            print 'Laplacian error: %s'%(reg_err)
             fig, ax = plt.subplots()
             cax = ax.imshow(step_fpf, cmap='gray')
             fig.colorbar(cax)
             plt.savefig('fpf_step%s.png'%(i))
             plt.close(fig)
-            if i%140==0:
+            if i%200==0:
                 # model validation
                 pred_val_rsp = np.zeros(350)
                 for j in range(35):
@@ -416,6 +424,8 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
                     pred_val_rsp[(j*10):(j*10+10)] = part_rsp
                 val_err = np.mean(np.square(pred_val_rsp - val_rsp))
                 print 'Validation Error: %s'%(val_err)
+                val_corr = np.corrcoef(pred_val_rsp, val_rsp)[0, 1]
+                print 'Validation Corr: %s'%(val_corr)
 
     return step_b, step_w
 
