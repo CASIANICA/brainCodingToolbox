@@ -180,6 +180,11 @@ def gabor_test(input_imgs, gabor_bank):
 
 def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     """laplacian regularized pRF model."""
+    # get image mask and image preprocessing
+    img_m = np.mean(input_imgs, axis=2, keepdims=True)
+    img_mask = tf.image.resize_images(img_m, [250, 250])
+    img_mask = np.reshape(np.abs(img_mask)>0, [-1])
+    
     # vars for input data
     img = tf.placeholder("float", [None, 500, 500, 1])
     rsp_ = tf.placeholder("float", [None,])
@@ -198,7 +203,8 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     fpf_kernel = tf.nn.conv2d(fpf_kernel, blur_kernel, strides=[1, 1, 1, 1],
                               padding='SAME')
     fpf = tf.Variable(tf.reshape(fpf_kernel, [250, 250]), name='fpf')
-    flat_fpf = tf.reshape(fpf, (1, 62500))
+    # pos_fpf = tf.nn.relu(fpf)
+    flat_fpf = tf.boolean_mask(tf.reshape(fpf, (1, 62500)), img_mask, axis=1)
 
     # gabor features extraction
     feat_vtr = []
@@ -212,7 +218,8 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
                                  padding='SAME')
         gabor_energy = tf.sqrt(tf.square(real_conv) + tf.square(imag_conv))
         gabor_energy = tf.transpose(gabor_energy, perm=[1, 2, 3, 0])
-        gabor_energy = tf.reshape(gabor_energy, [62500, -1])
+        gabor_energy = tf.boolean_mask(tf.reshape(gabor_energy, [62500, -1]),
+                                       img_mask, axis=0)
         # get feature summary from pooling field
         gabor_feat = tf.reshape(tf.matmul(flat_fpf, gabor_energy), (8, -1))
         feat_vtr.append(gabor_feat)
@@ -255,6 +262,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     sess.run(tf.global_variables_initializer())
 
     # data splitting
+    input_imgs = input_imgs - img_m
     sample_num = input_imgs.shape[2]
     train_imgs = input_imgs[..., :int(sample_num*0.8)]
     val_imgs = input_imgs[..., int(sample_num*0.8):]
@@ -417,8 +425,6 @@ if __name__ == '__main__':
     # laplacian regularized pRF
     stimuli_file = os.path.join(db_dir, 'train_stimuli.npy')
     input_imgs = np.load(stimuli_file)
-    img_m = np.mean(input_imgs, axis=2, keepdims=True)
-    input_imgs = input_imgs - img_m
     resp_file = os.path.join(db_dir, 'EstimatedResponses.mat')
     resp_mat = tables.open_file(resp_file)
     train_ts = resp_mat.get_node('/dataTrnS%s'%(subj_id))[:]
