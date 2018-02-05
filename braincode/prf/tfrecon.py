@@ -2,11 +2,10 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 import os    
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ['CUDA_VISIBLE_DEVICES']='1'
+os.environ['CUDA_VISIBLE_DEVICES']='3'
 import numpy as np
 import tables
 import tensorflow as tf
-import tensorflow.contrib.distributions as ds
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -181,93 +180,12 @@ def gabor_test(input_imgs, gabor_bank):
 
 def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     """laplacian regularized pRF model."""
-    # var for input data
+    # vars for input data
     img = tf.placeholder("float", [None, 500, 500, 1])
     rsp_ = tf.placeholder("float", [None,])
-    # config for the gabor filters
-    f1_real = np.expand_dims(gabor_bank['f1_real'], 2)
-    f1_imag = np.expand_dims(gabor_bank['f1_imag'], 2)
-    f1_real_conv = tf.nn.conv2d(img, f1_real, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f1_imag_conv = tf.nn.conv2d(img, f1_imag, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f1_energy = tf.sqrt(tf.square(f1_real_conv) + tf.square(f1_imag_conv))
-    f1_energy = tf.transpose(f1_energy, perm=[1, 2, 3, 0])
-    f1_energy = tf.reshape(f1_energy, [62500, -1])
-    f2_real = np.expand_dims(gabor_bank['f2_real'], 2)
-    f2_imag = np.expand_dims(gabor_bank['f2_imag'], 2)
-    f2_real_conv = tf.nn.conv2d(img, f2_real, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f2_imag_conv = tf.nn.conv2d(img, f2_imag, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f2_energy = tf.sqrt(tf.square(f2_real_conv) + tf.square(f2_imag_conv))
-    f2_energy = tf.transpose(f2_energy, perm=[1, 2, 3, 0])
-    f2_energy = tf.reshape(f2_energy, [62500, -1])
-    f3_real = np.expand_dims(gabor_bank['f3_real'], 2)
-    f3_imag = np.expand_dims(gabor_bank['f3_imag'], 2)
-    f3_real_conv = tf.nn.conv2d(img, f3_real, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f3_imag_conv = tf.nn.conv2d(img, f3_imag, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f3_energy = tf.sqrt(tf.square(f3_real_conv) + tf.square(f3_imag_conv))
-    f3_energy = tf.transpose(f3_energy, perm=[1, 2, 3, 0])
-    f3_energy = tf.reshape(f3_energy, [62500, -1])
-    f4_real = np.expand_dims(gabor_bank['f4_real'], 2)
-    f4_imag = np.expand_dims(gabor_bank['f4_imag'], 2)
-    f4_real_conv = tf.nn.conv2d(img, f4_real, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f4_imag_conv = tf.nn.conv2d(img, f4_imag, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f4_energy = tf.sqrt(tf.square(f4_real_conv) + tf.square(f4_imag_conv))
-    f4_energy = tf.transpose(f4_energy, perm=[1, 2, 3, 0])
-    f4_energy = tf.reshape(f4_energy, [62500, -1])
-    f5_real = np.expand_dims(gabor_bank['f5_real'], 2)
-    f5_imag = np.expand_dims(gabor_bank['f5_imag'], 2)
-    f5_real_conv = tf.nn.conv2d(img, f5_real, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f5_imag_conv = tf.nn.conv2d(img, f5_imag, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f5_energy = tf.sqrt(tf.square(f5_real_conv) + tf.square(f5_imag_conv))
-    f5_energy = tf.transpose(f5_energy, perm=[1, 2, 3, 0])
-    f5_energy = tf.reshape(f5_energy, [62500, -1])
-    f6_real = np.expand_dims(gabor_bank['f6_real'], 2)
-    f6_imag = np.expand_dims(gabor_bank['f6_imag'], 2)
-    f6_real_conv = tf.nn.conv2d(img, f6_real, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f6_imag_conv = tf.nn.conv2d(img, f6_imag, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f6_energy = tf.sqrt(tf.square(f6_real_conv) + tf.square(f6_imag_conv))
-    f6_energy = tf.transpose(f6_energy, perm=[1, 2, 3, 0])
-    f6_energy = tf.reshape(f6_energy, [62500, -1])
-    f7_real = np.expand_dims(gabor_bank['f7_real'], 2)
-    f7_imag = np.expand_dims(gabor_bank['f7_imag'], 2)
-    f7_real_conv = tf.nn.conv2d(img, f7_real, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f7_imag_conv = tf.nn.conv2d(img, f7_imag, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f7_energy = tf.sqrt(tf.square(f7_real_conv) + tf.square(f7_imag_conv))
-    f7_energy = tf.transpose(f7_energy, perm=[1, 2, 3, 0])
-    f7_energy = tf.reshape(f7_energy, [62500, -1])
-    f8_real = np.expand_dims(gabor_bank['f8_real'], 2)
-    f8_imag = np.expand_dims(gabor_bank['f8_imag'], 2)
-    f8_real_conv = tf.nn.conv2d(img, f8_real, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f8_imag_conv = tf.nn.conv2d(img, f8_imag, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f8_energy = tf.sqrt(tf.square(f8_real_conv) + tf.square(f8_imag_conv))
-    f8_energy = tf.transpose(f8_energy, perm=[1, 2, 3, 0])
-    f8_energy = tf.reshape(f8_energy, [62500, -1])
-    f9_real = np.expand_dims(gabor_bank['f9_real'], 2)
-    f9_imag = np.expand_dims(gabor_bank['f9_imag'], 2)
-    f9_real_conv = tf.nn.conv2d(img, f9_real, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f9_imag_conv = tf.nn.conv2d(img, f9_imag, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f9_energy = tf.sqrt(tf.square(f9_real_conv) + tf.square(f9_imag_conv))
-    f9_energy = tf.transpose(f9_energy, perm=[1, 2, 3, 0])
-    f9_energy = tf.reshape(f9_energy, [62500, -1])
+
     # var for feature pooling field
-    fpf_kernel = tf.random_normal([1, 250, 250, 1], stddev=0.1)
+    fpf_kernel = tf.random_normal([1, 250, 250, 1], stddev=0.001)
     blur_kernel = np.array([[1.0/256,  4.0/256,  6.0/256,  4.0/256, 1.0/256],
                             [4.0/256, 16.0/256, 24.0/256, 16.0/256, 4.0/256],
                             [6.0/256, 24.0/256, 36.0/256, 24.0/256, 6.0/256],
@@ -281,37 +199,35 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
                               padding='SAME')
     fpf = tf.Variable(tf.reshape(fpf_kernel, [250, 250]), name='fpf')
     flat_fpf = tf.reshape(fpf, (1, 62500))
-    # get features from pooling field
-    f1_feats = tf.matmul(flat_fpf, f1_energy)
-    f1_feats = tf.reshape(f1_feats, (8, -1))
-    f2_feats = tf.matmul(flat_fpf, f2_energy)
-    f2_feats = tf.reshape(f2_feats, (8, -1))
-    f3_feats = tf.matmul(flat_fpf, f3_energy)
-    f3_feats = tf.reshape(f3_feats, (8, -1))
-    f4_feats = tf.matmul(flat_fpf, f4_energy)
-    f4_feats = tf.reshape(f4_feats, (8, -1))
-    f5_feats = tf.matmul(flat_fpf, f5_energy)
-    f5_feats = tf.reshape(f5_feats, (8, -1))
-    f6_feats = tf.matmul(flat_fpf, f6_energy)
-    f6_feats = tf.reshape(f6_feats, (8, -1))
-    f7_feats = tf.matmul(flat_fpf, f7_energy)
-    f7_feats = tf.reshape(f7_feats, (8, -1))
-    f8_feats = tf.matmul(flat_fpf, f8_energy)
-    f8_feats = tf.reshape(f8_feats, (8, -1))
-    f9_feats = tf.matmul(flat_fpf, f9_energy)
-    f9_feats = tf.reshape(f9_feats, (8, -1))
+
+    # gabor features extraction
+    feat_vtr = []
+    for i in range(9):
+        # config for the gabor filters
+        gabor_real = np.expand_dims(gabor_bank['f%s_real'%(i+1)], 2)
+        gabor_imag = np.expand_dims(gabor_bank['f%s_imag'%(i+1)], 2)
+        real_conv = tf.nn.conv2d(img, gabor_real, strides=[1, 2, 2, 1],
+                                 padding='SAME')
+        imag_conv = tf.nn.conv2d(img, gabor_imag, strides=[1, 2, 2, 1],
+                                 padding='SAME')
+        gabor_energy = tf.sqrt(tf.square(real_conv) + tf.square(imag_conv))
+        gabor_energy = tf.transpose(gabor_energy, perm=[1, 2, 3, 0])
+        gabor_energy = tf.reshape(gabor_energy, [62500, -1])
+        # get feature summary from pooling field
+        gabor_feat = tf.reshape(tf.matmul(flat_fpf, gabor_energy), (8, -1))
+        feat_vtr.append(gabor_feat)
     # concatenate gabor features within fpf
-    vxl_feats = tf.concat([f1_feats, f2_feats, f3_feats,
-                           f4_feats, f5_feats, f6_feats,
-                           f7_feats, f8_feats, f9_feats], 0)
+    vxl_feats = tf.concat(feat_vtr, 0)
+
     # vars for feature weights
-    b = tf.Variable(tf.constant(0.1, shape=[1]), name='b')
+    b = tf.Variable(tf.constant(0.01, shape=[1]), name='b')
     w = tf.Variable(tf.constant(0.01, shape=[1, 72]), name='W')
     vxl_wt_feats = tf.matmul(w, vxl_feats)
     rsp = tf.reshape(vxl_wt_feats + b, [-1])
 
     # calculate fitting error
     error = tf.reduce_mean(tf.square(rsp - rsp_))
+    
     # parameter regularization
     l2_error = tf.nn.l2_loss(w) + tf.nn.l2_loss(b)
     # laplacian regularization
@@ -325,11 +241,11 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
                                                          padding='VALID')))
     l1_error = tf.reduce_sum(tf.abs(fpf))
     # get total error
-    total_error = 10*error + 0.1*l2_error + laplacian_error + 0.01*l1_error
+    total_error = 10*error + 0.001*l2_error + 0.1*laplacian_error + 0.0001*l1_error
  
     # graph config
     config = tf.ConfigProto()
-    config.gpu_options.per_process_gpu_memory_fraction = 0.95
+    #config.gpu_options.per_process_gpu_memory_fraction = 0.95
     sess = tf.Session(config=config)
     vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
     #solver =  tf.train.GradientDescentOptimizer(0.005).minimize(total_error,
