@@ -296,7 +296,6 @@ def get_gabor_features(input_imgs, gabor_bank):
                                  padding='SAME')
         gabor_energy = tf.sqrt(tf.square(real_conv) + tf.square(imag_conv))
         feat_vtr.append(gabor_energy)
-
     # concatenate gabor features from various channels
     gabor_feat = tf.concat(feat_vtr, 3)
 
@@ -307,7 +306,6 @@ def get_gabor_features(input_imgs, gabor_bank):
         gabor_file = 'train_gabor_feat.memdat'
         fp = np.memmap(gabor_file, dtype='float32', mode='w+',
                        shape=(input_imgs.shape[2], 250, 250, 72))
-        head_idx = 0
         for i in range(input_imgs.shape[2]/10):
             x = input_imgs[..., (i*10):(i*10+10)]
             x = np.transpose(x, (2, 0, 1))
