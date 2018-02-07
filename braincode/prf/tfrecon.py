@@ -96,88 +96,6 @@ def model_test(input_imgs, gabor_bank, vxl_coding_paras):
             resp = sess.run(vxl_out, feed_dict={img: x})
             print resp
 
-def gabor_test(input_imgs, gabor_bank):
-    """Test gabor wavelets for feature extraction."""
-    # var for input stimuli
-    img = tf.placeholder("float", shape=[None, 500, 500, 1])
-    # config for the gabor filters
-    f1_real = np.expand_dims(gabor_bank['f1_real'], 2)
-    f1_imag = np.expand_dims(gabor_bank['f1_imag'], 2)
-    f1_real_conv = tf.nn.conv2d(img, f1_real, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f1_imag_conv = tf.nn.conv2d(img, f1_imag, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f1_energy = tf.sqrt(tf.square(f1_real_conv) + tf.square(f1_imag_conv))
-    f2_real = np.expand_dims(gabor_bank['f2_real'], 2)
-    f2_imag = np.expand_dims(gabor_bank['f2_imag'], 2)
-    f2_real_conv = tf.nn.conv2d(img, f2_real, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f2_imag_conv = tf.nn.conv2d(img, f2_imag, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f2_energy = tf.sqrt(tf.square(f2_real_conv) + tf.square(f2_imag_conv))
-    f3_real = np.expand_dims(gabor_bank['f3_real'], 2)
-    f3_imag = np.expand_dims(gabor_bank['f3_imag'], 2)
-    f3_real_conv = tf.nn.conv2d(img, f3_real, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f3_imag_conv = tf.nn.conv2d(img, f3_imag, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f3_energy = tf.sqrt(tf.square(f3_real_conv) + tf.square(f3_imag_conv))
-    f4_real = np.expand_dims(gabor_bank['f4_real'], 2)
-    f4_imag = np.expand_dims(gabor_bank['f4_imag'], 2)
-    f4_real_conv = tf.nn.conv2d(img, f4_real, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f4_imag_conv = tf.nn.conv2d(img, f4_imag, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f4_energy = tf.sqrt(tf.square(f4_real_conv) + tf.square(f4_imag_conv))
-    f5_real = np.expand_dims(gabor_bank['f5_real'], 2)
-    f5_imag = np.expand_dims(gabor_bank['f5_imag'], 2)
-    f5_real_conv = tf.nn.conv2d(img, f5_real, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f5_imag_conv = tf.nn.conv2d(img, f5_imag, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f5_energy = tf.sqrt(tf.square(f5_real_conv) + tf.square(f5_imag_conv))
-    f6_real = np.expand_dims(gabor_bank['f6_real'], 2)
-    f6_imag = np.expand_dims(gabor_bank['f6_imag'], 2)
-    f6_real_conv = tf.nn.conv2d(img, f6_real, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f6_imag_conv = tf.nn.conv2d(img, f6_imag, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f6_energy = tf.sqrt(tf.square(f6_real_conv) + tf.square(f6_imag_conv))
-    f7_real = np.expand_dims(gabor_bank['f7_real'], 2)
-    f7_imag = np.expand_dims(gabor_bank['f7_imag'], 2)
-    f7_real_conv = tf.nn.conv2d(img, f7_real, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f7_imag_conv = tf.nn.conv2d(img, f7_imag, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f7_energy = tf.sqrt(tf.square(f7_real_conv) + tf.square(f7_imag_conv))
-    f8_real = np.expand_dims(gabor_bank['f8_real'], 2)
-    f8_imag = np.expand_dims(gabor_bank['f8_imag'], 2)
-    f8_real_conv = tf.nn.conv2d(img, f8_real, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f8_imag_conv = tf.nn.conv2d(img, f8_imag, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f8_energy = tf.sqrt(tf.square(f8_real_conv) + tf.square(f8_imag_conv))
-    f9_real = np.expand_dims(gabor_bank['f9_real'], 2)
-    f9_imag = np.expand_dims(gabor_bank['f9_imag'], 2)
-    f9_real_conv = tf.nn.conv2d(img, f9_real, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f9_imag_conv = tf.nn.conv2d(img, f9_imag, strides=[1, 2, 2, 1],
-                                padding='SAME')
-    f9_energy = tf.sqrt(tf.square(f9_real_conv) + tf.square(f9_imag_conv))
-    # concatenate gabor energy
-    gabor_energy = tf.concat([f1_energy, f2_energy, f3_energy,
-                              f4_energy, f5_energy, f6_energy,
-                              f7_energy, f8_energy, f9_energy], 3)
-
-    with tf.Session() as sess:
-        sess.run(tf.initialize_all_variables())
-        for i in range(input_imgs.shape[2]):
-            x = input_imgs[..., i].T
-            x = np.expand_dims(x, 0)
-            x = np.expand_dims(x, 3)
-            ge = sess.run(gabor_energy, feed_dict={img: x})
-            np.save('gabor_feat_%s.npy'%(i), ge)
-
 def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     """laplacian regularized pRF model."""
     # get image mask and image preprocessing
@@ -361,6 +279,42 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
 
     return step_b, step_w
 
+def get_gabor_features(input_imgs, gabor_bank):
+    """Get Gabor features from images"""
+    # vars for input data
+    img = tf.placeholder("float", [None, 500, 500, 1])
+
+    # gabor features extraction
+    feat_vtr = []
+    for i in range(9):
+        # config for the gabor filters
+        gabor_real = np.expand_dims(gabor_bank['f%s_real'%(i+1)], 2)
+        gabor_imag = np.expand_dims(gabor_bank['f%s_imag'%(i+1)], 2)
+        real_conv = tf.nn.conv2d(img, gabor_real, strides=[1, 2, 2, 1],
+                                 padding='SAME')
+        imag_conv = tf.nn.conv2d(img, gabor_imag, strides=[1, 2, 2, 1],
+                                 padding='SAME')
+        gabor_energy = tf.sqrt(tf.square(real_conv) + tf.square(imag_conv))
+        feat_vtr.append(gabor_energy)
+
+    # concatenate gabor features from various channels
+    gabor_feat = tf.concat(feat_vtr, 3)
+
+    # graph config
+    config = tf.ConfigProto()
+    with tf.Session(config=config) as sess:
+        sess.run(tf.initialize_all_variables())
+        gabor_file = 'train_gabor_feat.memdat'
+        fp = np.memmap(gabor_file, dtype='float32', mode='w+',
+                       shape=(input_imgs.shape[2], 250, 250, 72))
+        head_idx = 0
+        for i in range(input_imgs.shape[2]/10):
+            x = input_imgs[..., (i*10):(i*10+10)]
+            x = np.transpose(x, (2, 0, 1))
+            x = np.expand_dims(x, 3)
+            gf = sess.run(gabor_feat, feed_dict={img: x})
+            fp[(i*10):(i*10+10)] = gf
+
 
 if __name__ == '__main__':
     """Main function"""
@@ -395,9 +349,6 @@ if __name__ == '__main__':
     #imgs = np.load(img_file)
     #model_test(imgs, gabor_bank, vxl_coding_paras)
 
-    #-- test gabor banks
-    #gabor_test(imgs, gabor_bank)
-
     #-- stimuli reconstruction
     #resp_file = os.path.join(db_dir, 'EstimatedResponses.mat')
     #resp_mat = tables.open_file(resp_file)
@@ -425,20 +376,22 @@ if __name__ == '__main__':
     # laplacian regularized pRF
     stimuli_file = os.path.join(db_dir, 'train_stimuli.npy')
     input_imgs = np.load(stimuli_file)
-    resp_file = os.path.join(db_dir, 'EstimatedResponses.mat')
-    resp_mat = tables.open_file(resp_file)
-    train_ts = resp_mat.get_node('/dataTrnS%s'%(subj_id))[:]
-    train_ts = np.nan_to_num(train_ts.T)
-    resp_mat.close()
-    ts_m = np.mean(train_ts, axis=1, keepdims=True)
-    ts_s = np.std(train_ts, axis=1, keepdims=True)
-    train_ts = (train_ts - ts_m) / (ts_s + 1e-5)
-    # select voxel 19165 as an example
-    vxl_rsp = train_ts[24031]
-    print 'Image data shape ',
-    print input_imgs.shape
-    print 'Voxel time point number',
-    print vxl_rsp.shape
-    tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank)
-    #np.save('prf_example.npy', prf)
+    # get gabor features
+    get_gabor_features(input_imgs, gabor_bank)
+    #resp_file = os.path.join(db_dir, 'EstimatedResponses.mat')
+    #resp_mat = tables.open_file(resp_file)
+    #train_ts = resp_mat.get_node('/dataTrnS%s'%(subj_id))[:]
+    #train_ts = np.nan_to_num(train_ts.T)
+    #resp_mat.close()
+    #ts_m = np.mean(train_ts, axis=1, keepdims=True)
+    #ts_s = np.std(train_ts, axis=1, keepdims=True)
+    #train_ts = (train_ts - ts_m) / (ts_s + 1e-5)
+    ## select voxel 19165 as an example
+    #vxl_rsp = train_ts[24031]
+    #print 'Image data shape ',
+    #print input_imgs.shape
+    #print 'Voxel time point number',
+    #print vxl_rsp.shape
+    #tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank)
+    ##np.save('prf_example.npy', prf)
 
