@@ -554,7 +554,7 @@ if __name__ == '__main__':
     root_dir = cf.get('base', 'path')
     feat_dir = os.path.join(root_dir, 'sfeatures', 'vim1')
     res_dir = os.path.join(root_dir, 'subjects')
-    db_dir = os.path.join(root_dir, 'db')
+    db_dir = os.path.join(root_dir, 'db', 'vim1')
  
     # get gabor features
     #get_stim_features(db_dir, feat_dir, 'train')
