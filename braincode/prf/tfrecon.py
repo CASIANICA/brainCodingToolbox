@@ -187,8 +187,11 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
                                                          strides=[1, 1, 1, 1],
                                                          padding='VALID')))
         l1_error = tf.reduce_sum(tf.abs(fpf))
+        # minimize fpf size
+        size_error = tf.reduce_sum(tf.to_int32(flat_fpf>0))
         # get total error
         total_error = 10*error + 0.1*laplacian_error
+        #total_error = 10*error + 0.000011*size_error
 
     tf.summary.scalar('fitting-loss', error)
     tf.summary.scalar('total-loss', total_error)
