@@ -4,6 +4,7 @@ import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ['CUDA_VISIBLE_DEVICES']='3'
 import numpy as np
+from scipy.misc import imresize
 import tables
 import tensorflow as tf
 import matplotlib
@@ -96,78 +97,100 @@ def model_test(input_imgs, gabor_bank, vxl_coding_paras):
             resp = sess.run(vxl_out, feed_dict={img: x})
             print resp
 
+def variable_summaries(var):
+    """Attach a lot of summaries to Tensor for TensorBoard visualization."""
+    with tf.name_scope('summaries'):
+        mean = tf.reduce_mean(var)
+        tf.summary.scalar('mean', mean)
+        stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
+        tf.summary.scalar('stddev', stddev)
+        tf.summary.scalar('max', tf.reduce_max(var))
+        tf.summary.scalar('min', tf.reduce_min(var))
+        tf.summary.histogram('histogram', var)
+
 def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     """laplacian regularized pRF model."""
-    # get image mask and image preprocessing
-    img_m = np.mean(input_imgs, axis=2, keepdims=True)
-    img_mask = tf.image.resize_images(img_m, [250, 250])
-    img_mask = np.reshape(np.abs(img_mask)>0, [-1])
+    # get image mask
+    img_m = np.mean(input_imgs, axis=2)
+    img_mask = imresize(img_m, (250, 250))
+    # resized image value range: 0-255
+    img_mask = np.reshape(img_mask<170, [-1])
     
     # vars for input data
-    img = tf.placeholder("float", [None, 500, 500, 1])
-    rsp_ = tf.placeholder("float", [None,])
+    with tf.name_scope('input'):
+        img = tf.placeholder("float", [None, 500, 500, 1], name='input-img')
+        rsp_ = tf.placeholder("float", [None,], name='vxl-rsp')
 
     # var for feature pooling field
-    fpf_kernel = tf.random_normal([1, 250, 250, 1], stddev=0.001)
-    blur_kernel = np.array([[1.0/256,  4.0/256,  6.0/256,  4.0/256, 1.0/256],
-                            [4.0/256, 16.0/256, 24.0/256, 16.0/256, 4.0/256],
-                            [6.0/256, 24.0/256, 36.0/256, 24.0/256, 6.0/256],
-                            [4.0/256, 16.0/256, 24.0/256, 16.0/256, 4.0/256],
-                            [1.0/256,  4.0/256,  6.0/256,  4.0/256, 1.0/256]])
-    blur_kernel = np.expand_dims(blur_kernel, 2)
-    blur_kernel = np.expand_dims(blur_kernel, 3)
-    fpf_kernel = tf.nn.conv2d(fpf_kernel, blur_kernel, strides=[1, 1, 1, 1],
-                              padding='SAME')
-    fpf_kernel = tf.nn.conv2d(fpf_kernel, blur_kernel, strides=[1, 1, 1, 1],
-                              padding='SAME')
-    fpf = tf.Variable(tf.reshape(fpf_kernel, [250, 250]), name='fpf')
-    # pos_fpf = tf.nn.relu(fpf)
-    flat_fpf = tf.boolean_mask(tf.reshape(fpf, (1, 62500)), img_mask, axis=1)
+    with tf.name_scope('fpf'):
+        fpf_kernel = tf.random_normal([1, 250, 250, 1], stddev=0.001)
+        blur = np.array([[1.0/256,  4.0/256,  6.0/256,  4.0/256, 1.0/256],
+                         [4.0/256, 16.0/256, 24.0/256, 16.0/256, 4.0/256],
+                         [6.0/256, 24.0/256, 36.0/256, 24.0/256, 6.0/256],
+                         [4.0/256, 16.0/256, 24.0/256, 16.0/256, 4.0/256],
+                         [1.0/256,  4.0/256,  6.0/256,  4.0/256, 1.0/256]])
+        blur = np.expand_dims(blur, 2)
+        blur = np.expand_dims(blur, 3)
+        fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
+                                  padding='SAME')
+        fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
+                                  padding='SAME')
+        fpf = tf.Variable(tf.reshape(fpf_kernel, [250, 250]), name='fpf')
+        flat_fpf = tf.boolean_mask(tf.reshape(tf.nn.relu(fpf), (1, 62500)),
+                                   img_mask, axis=1)
 
     # gabor features extraction
-    feat_vtr = []
-    for i in range(9):
-        # config for the gabor filters
-        gabor_real = np.expand_dims(gabor_bank['f%s_real'%(i+1)], 2)
-        gabor_imag = np.expand_dims(gabor_bank['f%s_imag'%(i+1)], 2)
-        real_conv = tf.nn.conv2d(img, gabor_real, strides=[1, 2, 2, 1],
-                                 padding='SAME')
-        imag_conv = tf.nn.conv2d(img, gabor_imag, strides=[1, 2, 2, 1],
-                                 padding='SAME')
-        gabor_energy = tf.sqrt(tf.square(real_conv) + tf.square(imag_conv))
-        gabor_energy = tf.transpose(gabor_energy, perm=[1, 2, 3, 0])
-        gabor_energy = tf.boolean_mask(tf.reshape(gabor_energy, [62500, -1]),
-                                       img_mask, axis=0)
-        # get feature summary from pooling field
-        gabor_feat = tf.reshape(tf.matmul(flat_fpf, gabor_energy), (8, -1))
-        feat_vtr.append(gabor_feat)
-    # concatenate gabor features within fpf
-    vxl_feats = tf.concat(feat_vtr, 0)
+    with tf.name_scope('feature-extract'):
+        feat_vtr = []
+        for i in range(9):
+            # config for the gabor filters
+            gabor_real = np.expand_dims(gabor_bank['f%s_real'%(i+1)], 2)
+            gabor_imag = np.expand_dims(gabor_bank['f%s_imag'%(i+1)], 2)
+            real_conv = tf.nn.conv2d(img, gabor_real, strides=[1, 2, 2, 1],
+                                     padding='SAME')
+            imag_conv = tf.nn.conv2d(img, gabor_imag, strides=[1, 2, 2, 1],
+                                     padding='SAME')
+            gabor_energy = tf.sqrt(tf.square(real_conv) + tf.square(imag_conv))
+            gabor_energy = tf.transpose(gabor_energy, perm=[1, 2, 3, 0])
+            gabor_energy = tf.boolean_mask(tf.reshape(gabor_energy,[62500, -1]),
+                                           img_mask, axis=0)
+            # get feature summary from pooling field
+            gabor_feat = tf.reshape(tf.matmul(flat_fpf, gabor_energy), (8, -1))
+            feat_vtr.append(gabor_feat)
+        # concatenate gabor features within fpf
+        vxl_feats = tf.concat(feat_vtr, 0)
 
     # vars for feature weights
-    b = tf.Variable(tf.constant(0.01, shape=[1]), name='b')
-    w = tf.Variable(tf.constant(0.01, shape=[1, 72]), name='W')
-    vxl_wt_feats = tf.matmul(w, vxl_feats)
-    rsp = tf.reshape(vxl_wt_feats + b, [-1])
+    with tf.name_scope('weighted-features'):
+        b = tf.Variable(tf.constant(0.01, shape=[1]), name='bias')
+        variable_summaries(b)
+        w = tf.Variable(tf.constant(0.01, shape=[1, 72]), name='weights')
+        variable_summaries(w)
+        vxl_wt_feats = tf.matmul(w, vxl_feats)
+        rsp = tf.reshape(vxl_wt_feats + b, [-1])
 
-    # calculate fitting error
-    error = tf.reduce_mean(tf.square(rsp - rsp_))
-    
-    # parameter regularization
-    l2_error = tf.nn.l2_loss(w) + tf.nn.l2_loss(b)
-    # laplacian regularization
-    laplacian_kernel = np.array([[0, -1, 0], [-1, 4, -1], [0, -1, 0]])
-    laplacian_kernel = np.expand_dims(laplacian_kernel, 2)
-    laplacian_kernel = np.expand_dims(laplacian_kernel, 3)
-    fpf_shadow = tf.expand_dims(tf.expand_dims(fpf, 0), 3)
-    laplacian_error = tf.reduce_sum(tf.square(tf.nn.conv2d(fpf_shadow,
+    # loss defination
+    with tf.name_scope('loss'):
+        # calculate fitting error
+        error = tf.reduce_mean(tf.square(rsp - rsp_))
+        # parameter regularization
+        l2_error = tf.nn.l2_loss(w) + tf.nn.l2_loss(b)
+        # laplacian regularization
+        laplacian_kernel = np.array([[0, -1, 0], [-1, 4, -1], [0, -1, 0]])
+        laplacian_kernel = np.expand_dims(laplacian_kernel, 2)
+        laplacian_kernel = np.expand_dims(laplacian_kernel, 3)
+        fpf_shadow = tf.expand_dims(tf.expand_dims(fpf, 0), 3)
+        laplacian_error = tf.reduce_sum(tf.square(tf.nn.conv2d(fpf_shadow,
                                                          laplacian_kernel,
                                                          strides=[1, 1, 1, 1],
                                                          padding='VALID')))
-    l1_error = tf.reduce_sum(tf.abs(fpf))
-    # get total error
-    total_error = 10*error + 0.001*l2_error + 0.1*laplacian_error + 0.0001*l1_error
- 
+        l1_error = tf.reduce_sum(tf.abs(fpf))
+        # get total error
+        total_error = 10*error + 0.1*laplacian_error
+
+    tf.summary.scalar('fitting-loss', error)
+    tf.summary.scalar('total-loss', total_error)
+
     # graph config
     config = tf.ConfigProto()
     #config.gpu_options.per_process_gpu_memory_fraction = 0.95
@@ -177,10 +200,14 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     #                                                var_list = vars_x)
     solver =  tf.train.AdamOptimizer(0.0005).minimize(total_error,
                                                     var_list = vars_x)
+    # merge summaries
+    merged = tf.summary.merge_all()
+    train_writer = tf.summary.FileWriter('./train', sess.graph)
+    test_writer = tf.summary.FileWriter('./test')
     sess.run(tf.global_variables_initializer())
 
     # data splitting
-    input_imgs = input_imgs - img_m
+    input_imgs = input_imgs - np.expand_dims(img_m, 2)
     sample_num = input_imgs.shape[2]
     train_imgs = input_imgs[..., :int(sample_num*0.8)]
     val_imgs = input_imgs[..., int(sample_num*0.8):]
@@ -374,22 +401,24 @@ if __name__ == '__main__':
     # laplacian regularized pRF
     stimuli_file = os.path.join(db_dir, 'train_stimuli.npy')
     input_imgs = np.load(stimuli_file)
+    
     # get gabor features
-    get_gabor_features(input_imgs, gabor_bank)
-    #resp_file = os.path.join(db_dir, 'EstimatedResponses.mat')
-    #resp_mat = tables.open_file(resp_file)
-    #train_ts = resp_mat.get_node('/dataTrnS%s'%(subj_id))[:]
-    #train_ts = np.nan_to_num(train_ts.T)
-    #resp_mat.close()
-    #ts_m = np.mean(train_ts, axis=1, keepdims=True)
-    #ts_s = np.std(train_ts, axis=1, keepdims=True)
-    #train_ts = (train_ts - ts_m) / (ts_s + 1e-5)
-    ## select voxel 19165 as an example
-    #vxl_rsp = train_ts[24031]
-    #print 'Image data shape ',
-    #print input_imgs.shape
-    #print 'Voxel time point number',
-    #print vxl_rsp.shape
-    #tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank)
-    ##np.save('prf_example.npy', prf)
+    #get_gabor_features(input_imgs, gabor_bank)
+    
+    resp_file = os.path.join(db_dir, 'EstimatedResponses.mat')
+    resp_mat = tables.open_file(resp_file)
+    train_ts = resp_mat.get_node('/dataTrnS%s'%(subj_id))[:]
+    train_ts = np.nan_to_num(train_ts.T)
+    resp_mat.close()
+    ts_m = np.mean(train_ts, axis=1, keepdims=True)
+    ts_s = np.std(train_ts, axis=1, keepdims=True)
+    train_ts = (train_ts - ts_m) / (ts_s + 1e-5)
+    # select voxel 19165 as an example
+    vxl_rsp = train_ts[24031]
+    print 'Image data shape ',
+    print input_imgs.shape
+    print 'Voxel time point number',
+    print vxl_rsp.shape
+    tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank)
+    #np.save('prf_example.npy', prf)
 
