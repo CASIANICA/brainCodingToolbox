@@ -265,7 +265,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
             img_batch = np.transpose(img_batch, (2, 0, 1))
             img_batch = np.expand_dims(img_batch, 3)
             batch = [img_batch, shuffle_rsp[start:end]]
-        _, summary step_error, step_fpf = sess.run(
+        _, summary, step_error, step_fpf = sess.run(
                 [solver, merged, total_error, fpf],
                                 feed_dict={img: batch[0], rsp_: batch[1]})
         train_writer.add_summary(summary, i)
@@ -307,7 +307,10 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
                 val_corr = np.corrcoef(pred_val_rsp, val_rsp)[0, 1]
                 print 'Validation Corr: %s'%(val_corr)
 
-    return step_b, step_w
+    train_writer.close()
+    test_writer.close()
+
+    return step_fpf
 
 def get_gabor_features(input_imgs, gabor_bank):
     """Get Gabor features from images"""
