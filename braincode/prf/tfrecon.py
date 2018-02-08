@@ -265,9 +265,10 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
             img_batch = np.transpose(img_batch, (2, 0, 1))
             img_batch = np.expand_dims(img_batch, 3)
             batch = [img_batch, shuffle_rsp[start:end]]
-        _, step_error, step_fpf, step_b, step_w = sess.run(
-                [solver, total_error, fpf, b, w],
+        _, summary step_error, step_fpf = sess.run(
+                [solver, merged, total_error, fpf],
                                 feed_dict={img: batch[0], rsp_: batch[1]})
+        train_writer.add_summary(summary, i)
         #print 'Training Error: %s'%(step_error)
         #print 'weights:',
         #print step_w
