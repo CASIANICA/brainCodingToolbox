@@ -122,7 +122,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
         rsp_ = tf.placeholder("float", [None,], name='vxl-rsp')
 
     # var for feature pooling field
-    with tf.name_scope('fpf'):
+    with tf.name_scope('pooling-field'):
         fpf_kernel = tf.random_normal([1, 250, 250, 1], stddev=0.001)
         blur = np.array([[1.0/256,  4.0/256,  6.0/256,  4.0/256, 1.0/256],
                          [4.0/256, 16.0/256, 24.0/256, 16.0/256, 4.0/256],
@@ -136,8 +136,10 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
         fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
                                   padding='SAME')
         fpf = tf.Variable(tf.reshape(fpf_kernel, [250, 250]), name='fpf')
-        flat_fpf = tf.boolean_mask(tf.reshape(tf.nn.relu(fpf), (1, 62500)),
-                                   img_mask, axis=1)
+        flat_fpf = tf.transpose(tf.boolean_mask(tf.reshape(tf.nn.relu(fpf),
+                                                           (62500, 1)),
+                                                img_mask),
+                                [1, 0])
 
     # gabor features extraction
     with tf.name_scope('feature-extract'):
@@ -153,7 +155,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
             gabor_energy = tf.sqrt(tf.square(real_conv) + tf.square(imag_conv))
             gabor_energy = tf.transpose(gabor_energy, perm=[1, 2, 3, 0])
             gabor_energy = tf.boolean_mask(tf.reshape(gabor_energy,[62500, -1]),
-                                           img_mask, axis=0)
+                                           img_mask)
             # get feature summary from pooling field
             gabor_feat = tf.reshape(tf.matmul(flat_fpf, gabor_energy), (8, -1))
             feat_vtr.append(gabor_feat)
