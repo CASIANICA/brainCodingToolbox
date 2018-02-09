@@ -222,10 +222,10 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
     val_imgs = np.expand_dims(val_imgs, 3)
     train_rsp = vxl_rsp[:int(sample_num*0.9)]
     val_rsp = vxl_rsp[int(sample_num*0.9):]
-    print train_imgs.shape
-    print val_imgs.shape
-    print train_rsp.shape
-    print val_rsp.shape
+    #print train_imgs.shape
+    #print val_imgs.shape
+    #print train_rsp.shape
+    #print val_rsp.shape
 
     # model training
     batch_size = 9
@@ -291,11 +291,6 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
             #print 'L2 error: %s'%(l2_err)
             print 'Laplacian error: %s'%(lap_err)
             #print 'L1 error: %s'%(l1_err)
-            #fig, ax = plt.subplots()
-            #cax = ax.imshow(step_fpf, cmap='gray')
-            #fig.colorbar(cax)
-            #plt.savefig('fpf_step%s.png'%(i))
-            #plt.close(fig)
             # model validation
             pred_val_rsp = np.zeros(175)
             for j in range(35):
@@ -307,16 +302,24 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
             print 'Validation Error: %s'%(val_err)
             #val_corr = np.corrcoef(pred_val_rsp, val_rsp)[0, 1]
             #print 'Validation Corr: %s'%(val_corr)
-            if pre_err:
+            if i:
                 if (pre_err - val_err) > 0.01:
                     patience_cnt = 0
                 else:
                     patience_cnt += 1
+                pre_err = val_err
             else:
                 pre_err = val_err
             # stop signal
             if patience_cnt > 5:
                 print 'Early stopping - step %s'%(i)
+                # plot fpf
+                fig, ax = plt.subplots()
+                cax = ax.imshow(step_fpf, cmap='gray')
+                fig.colorbar(cax)
+                plt.savefig(os.path.join(vxl_dir, 'fpf_step%s.png'%(i)))
+                plt.close(fig)
+                # save model
                 saver.save(sess, os.path.join(vxl_dir, 'prf_model'),
                            global_step=i)
                 break
