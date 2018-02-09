@@ -398,16 +398,17 @@ if __name__ == '__main__':
     ts_m = np.mean(train_ts, axis=1, keepdims=True)
     ts_s = np.std(train_ts, axis=1, keepdims=True)
     train_ts = (train_ts - ts_m) / (ts_s + 1e-5)
-    for i in range(vxl_idx.shape[0]):
+    #for i in range(vxl_idx.shape[0]):
+    for i in range(5):
         print 'Voxel %s - %s'%(i, vxl_idx[i])
         vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
         os.makedirs(vxl_dir, 0755)
         # load voxel fmri data
         vxl_rsp = train_ts[i]
-        print 'Image data shape ',
-        print input_imgs.shape
-        print 'Voxel time point number',
-        print vxl_rsp.shape
+        #print 'Image data shape ',
+        #print input_imgs.shape
+        #print 'Voxel time point number',
+        #print vxl_rsp.shape
         tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir)
 
     #-- parameter preparation
