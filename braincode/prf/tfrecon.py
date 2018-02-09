@@ -176,7 +176,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
         # calculate fitting error
         error = tf.reduce_mean(tf.square(rsp - rsp_))
         # parameter regularization
-        l2_error = tf.nn.l2_loss(w) + tf.nn.l2_loss(b)
+        #l2_error = tf.nn.l2_loss(w) + tf.nn.l2_loss(b)
         # laplacian regularization
         laplacian_kernel = np.array([[0, -1, 0], [-1, 4, -1], [0, -1, 0]])
         laplacian_kernel = np.expand_dims(laplacian_kernel, 2)
@@ -186,12 +186,9 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
                                                          laplacian_kernel,
                                                          strides=[1, 1, 1, 1],
                                                          padding='VALID')))
-        l1_error = tf.reduce_sum(tf.abs(fpf))
-        # minimize fpf size
-        size_error = tf.reduce_sum(tf.to_int32(flat_fpf>0))
+        #l1_error = tf.reduce_sum(tf.abs(fpf))
         # get total error
         total_error = 10*error + 0.1*laplacian_error
-        #total_error = 10*error + 0.000011*size_error
 
     tf.summary.scalar('fitting-loss', error)
     tf.summary.scalar('total-loss', total_error)
@@ -203,7 +200,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
     #solver =  tf.train.GradientDescentOptimizer(0.005).minimize(total_error,
     #                                                var_list = vars_x)
-    solver =  tf.train.AdamOptimizer(0.0005).minimize(total_error,
+    solver =  tf.train.AdamOptimizer(0.001).minimize(total_error,
                                                     var_list = vars_x)
     # merge summaries
     merged = tf.summary.merge_all()
@@ -214,22 +211,22 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     # data splitting
     input_imgs = input_imgs - np.expand_dims(img_m, 2)
     sample_num = input_imgs.shape[2]
-    train_imgs = input_imgs[..., :int(sample_num*0.8)]
-    val_imgs = input_imgs[..., int(sample_num*0.8):]
+    train_imgs = input_imgs[..., :int(sample_num*0.9)]
+    val_imgs = input_imgs[..., int(sample_num*0.9):]
     val_imgs = np.transpose(val_imgs, (2, 0, 1))
     val_imgs = np.expand_dims(val_imgs, 3)
-    train_rsp = vxl_rsp[:int(sample_num*0.8)]
-    val_rsp = vxl_rsp[int(sample_num*0.8):]
+    train_rsp = vxl_rsp[:int(sample_num*0.9)]
+    val_rsp = vxl_rsp[int(sample_num*0.9):]
     print train_imgs.shape
     print val_imgs.shape
     print train_rsp.shape
     print val_rsp.shape
 
     # model training
-    batch_size = 7
+    batch_size = 9
     index_in_epoch = 0
     epochs_completed = 0
-    for i in range(4001):
+    for i in range(7001):
         #print 'Step %s'%(i)
         start = index_in_epoch
         if epochs_completed==0 and start==0:
@@ -277,38 +274,37 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
         #print step_w
         #print 'bias:',
         #print step_b
-        if i%100==0:
-            print 'Ep %s'%(i*1.0/200)
+        if i%175==0:
+            print 'Ep %s'%(i/175)
             print 'Training Error: %s'%(step_error)
             rsp_err = sess.run(error, feed_dict={img: batch[0],
                                                  rsp_: batch[1]})
-            l2_err = sess.run(l2_error, feed_dict={img:batch[0],
-                                                   rsp_: batch[1]})
+            #l2_err = sess.run(l2_error, feed_dict={img:batch[0],
+            #                                       rsp_: batch[1]})
             lap_err = sess.run(laplacian_error, feed_dict={img:batch[0],
                                                            rsp_: batch[1]})
-            l1_err = sess.run(l1_error, feed_dict={img:batch[0],
-                                                   rsp_: batch[1]})
+            #l1_err = sess.run(l1_error, feed_dict={img:batch[0],
+            #                                       rsp_: batch[1]})
             print 'Rsp error: %s'%(rsp_err)
-            print 'L2 error: %s'%(l2_err)
+            #print 'L2 error: %s'%(l2_err)
             print 'Laplacian error: %s'%(lap_err)
-            print 'L1 error: %s'%(l1_err)
+            #print 'L1 error: %s'%(l1_err)
             fig, ax = plt.subplots()
             cax = ax.imshow(step_fpf, cmap='gray')
             fig.colorbar(cax)
             plt.savefig('fpf_step%s.png'%(i))
             plt.close(fig)
-            if i%200==0:
-                # model validation
-                pred_val_rsp = np.zeros(350)
-                for j in range(35):
-                    part_rsp = sess.run(rsp,
-                                feed_dict={img: val_imgs[(j*10):(j*10+10)],
-                                           rsp_: val_rsp[(j*10):(j*10+10)]})
-                    pred_val_rsp[(j*10):(j*10+10)] = part_rsp
-                val_err = np.mean(np.square(pred_val_rsp - val_rsp))
-                print 'Validation Error: %s'%(val_err)
-                val_corr = np.corrcoef(pred_val_rsp, val_rsp)[0, 1]
-                print 'Validation Corr: %s'%(val_corr)
+            # model validation
+            pred_val_rsp = np.zeros(175)
+            for j in range(35):
+                part_rsp = sess.run(rsp,
+                            feed_dict={img: val_imgs[(j*5):(j*5+5)],
+                                       rsp_: val_rsp[(j*5):(j*5+5)]})
+                pred_val_rsp[(j*5):(j*5+5)] = part_rsp
+            val_err = np.mean(np.square(pred_val_rsp - val_rsp))
+            print 'Validation Error: %s'%(val_err)
+            val_corr = np.corrcoef(pred_val_rsp, val_rsp)[0, 1]
+            print 'Validation Corr: %s'%(val_corr)
 
     train_writer.close()
     test_writer.close()
