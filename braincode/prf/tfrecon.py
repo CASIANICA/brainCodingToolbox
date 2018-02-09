@@ -12,6 +12,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from braincode.util import configParser
+from braincode.prf import dataio
 
 def reconstructor(gabor_bank, vxl_coding_paras, y):
     """Stimuli reconstructor based on Activation Maximization"""
@@ -108,7 +109,7 @@ def variable_summaries(var):
         tf.summary.scalar('min', tf.reduce_min(var))
         tf.summary.histogram('histogram', var)
 
-def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
+def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
     """laplacian regularized pRF model."""
     # get image mask
     img_m = np.mean(input_imgs, axis=2)
@@ -193,6 +194,9 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     tf.summary.scalar('fitting-loss', error)
     tf.summary.scalar('total-loss', total_error)
 
+    # for model saving
+    saver = tf.train.Saver()
+
     # graph config
     config = tf.ConfigProto()
     #config.gpu_options.per_process_gpu_memory_fraction = 0.95
@@ -204,8 +208,9 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
                                                     var_list = vars_x)
     # merge summaries
     merged = tf.summary.merge_all()
-    train_writer = tf.summary.FileWriter('./train', sess.graph)
-    test_writer = tf.summary.FileWriter('./test')
+    train_writer = tf.summary.FileWriter(os.path.join(vxl_dir, 'train'),
+                                         sess.graph)
+    #test_writer = tf.summary.FileWriter('./test')
     sess.run(tf.global_variables_initializer())
 
     # data splitting
@@ -226,7 +231,9 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
     batch_size = 9
     index_in_epoch = 0
     epochs_completed = 0
-    for i in range(7001):
+    pre_err = None
+    patience_cnt = 0
+    for i in range(8751):
         #print 'Step %s'%(i)
         start = index_in_epoch
         if epochs_completed==0 and start==0:
@@ -266,14 +273,9 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
             img_batch = np.expand_dims(img_batch, 3)
             batch = [img_batch, shuffle_rsp[start:end]]
         _, summary, step_error, step_fpf = sess.run(
-                [solver, merged, total_error, fpf],
+                                [solver, merged, total_error, fpf],
                                 feed_dict={img: batch[0], rsp_: batch[1]})
         train_writer.add_summary(summary, i)
-        #print 'Training Error: %s'%(step_error)
-        #print 'weights:',
-        #print step_w
-        #print 'bias:',
-        #print step_b
         if i%175==0:
             print 'Ep %s'%(i/175)
             print 'Training Error: %s'%(step_error)
@@ -289,11 +291,11 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
             #print 'L2 error: %s'%(l2_err)
             print 'Laplacian error: %s'%(lap_err)
             #print 'L1 error: %s'%(l1_err)
-            fig, ax = plt.subplots()
-            cax = ax.imshow(step_fpf, cmap='gray')
-            fig.colorbar(cax)
-            plt.savefig('fpf_step%s.png'%(i))
-            plt.close(fig)
+            #fig, ax = plt.subplots()
+            #cax = ax.imshow(step_fpf, cmap='gray')
+            #fig.colorbar(cax)
+            #plt.savefig('fpf_step%s.png'%(i))
+            #plt.close(fig)
             # model validation
             pred_val_rsp = np.zeros(175)
             for j in range(35):
@@ -303,13 +305,25 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank):
                 pred_val_rsp[(j*5):(j*5+5)] = part_rsp
             val_err = np.mean(np.square(pred_val_rsp - val_rsp))
             print 'Validation Error: %s'%(val_err)
-            val_corr = np.corrcoef(pred_val_rsp, val_rsp)[0, 1]
-            print 'Validation Corr: %s'%(val_corr)
+            #val_corr = np.corrcoef(pred_val_rsp, val_rsp)[0, 1]
+            #print 'Validation Corr: %s'%(val_corr)
+            if pre_err:
+                if (pre_err - val_err) > 0.01:
+                    patience_cnt = 0
+                else:
+                    patience_cnt += 1
+            else:
+                pre_err = val_err
+            # stop signal
+            if patience_cnt > 5:
+                print 'Early stopping - step %s'%(i)
+                saver.save(sess, os.path.join(vxl_dir, 'prf_model'),
+                           global_step=i)
+                break
 
     train_writer.close()
-    test_writer.close()
-
-    return step_fpf
+    #test_writer.close()
+    return
 
 def get_gabor_features(input_imgs, gabor_bank):
     """Get Gabor features from images"""
@@ -364,11 +378,41 @@ if __name__ == '__main__':
     # directory config
     subj_dir = os.path.join(res_dir, 'vim1_S%s'%(subj_id))
     prf_dir = os.path.join(subj_dir, 'prf')
+    roi_dir = os.path.join(prf_dir, roi)
+    if not os.path.exists(roi_dir):
+        os.makedirs(roi_dir, 0755)
+
+    #-- parameter preparation
+    gabor_bank_file = os.path.join(db_dir, 'gabor_kernels_small.npz')
+    gabor_bank = np.load(gabor_bank_file)
+
+    #-- load vim1 stimuli
+    stimuli_file = os.path.join(db_dir, 'train_stimuli.npy')
+    input_imgs = np.load(stimuli_file)
+
+    #-- get gabor features from stimuli
+    #get_gabor_features(input_imgs, gabor_bank)
+
+    #-- laplacian regularized pRF
+    vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
+    ts_m = np.mean(train_ts, axis=1, keepdims=True)
+    ts_s = np.std(train_ts, axis=1, keepdims=True)
+    train_ts = (train_ts - ts_m) / (ts_s + 1e-5)
+    for i in range(vxl_idx.shape[0]):
+        print 'Voxel %s - %s'%(i, vxl_idx[i])
+        vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
+        os.makedirs(vxl_dir, 0755)
+        # load voxel fmri data
+        vxl_rsp = train_ts[i]
+        print 'Image data shape ',
+        print input_imgs.shape
+        print 'Voxel time point number',
+        print vxl_rsp.shape
+        tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir)
 
     #-- parameter preparation
     #gabor_bank_file = os.path.join(feat_dir, 'gabor_kernels.npz')
-    gabor_bank_file = os.path.join(db_dir, 'gabor_kernels_small.npz')
-    gabor_bank = np.load(gabor_bank_file)
+    #gabor_bank = np.load(gabor_bank_file)
     #vxl_coding_paras_file =os.path.join(prf_dir,'tfrecon','vxl_coding_wts.npz')
     #vxl_coding_paras = np.load(vxl_coding_paras_file)
 
@@ -403,27 +447,5 @@ if __name__ == '__main__':
     #plt.imshow(recon_img. cmap='gray')
     #plt.savefig('recons.png')
 
-    # laplacian regularized pRF
-    stimuli_file = os.path.join(db_dir, 'train_stimuli.npy')
-    input_imgs = np.load(stimuli_file)
     
-    # get gabor features
-    #get_gabor_features(input_imgs, gabor_bank)
-    
-    resp_file = os.path.join(db_dir, 'EstimatedResponses.mat')
-    resp_mat = tables.open_file(resp_file)
-    train_ts = resp_mat.get_node('/dataTrnS%s'%(subj_id))[:]
-    train_ts = np.nan_to_num(train_ts.T)
-    resp_mat.close()
-    ts_m = np.mean(train_ts, axis=1, keepdims=True)
-    ts_s = np.std(train_ts, axis=1, keepdims=True)
-    train_ts = (train_ts - ts_m) / (ts_s + 1e-5)
-    # select voxel 19165 as an example
-    vxl_rsp = train_ts[24031]
-    print 'Image data shape ',
-    print input_imgs.shape
-    print 'Voxel time point number',
-    print vxl_rsp.shape
-    tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank)
-    #np.save('prf_example.npy', prf)
 
