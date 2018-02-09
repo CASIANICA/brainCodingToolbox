@@ -233,6 +233,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
     epochs_completed = 0
     pre_err = None
     patience_cnt = 0
+    patience = 5
     for i in range(8751):
         #print 'Step %s'%(i)
         start = index_in_epoch
@@ -311,7 +312,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
             else:
                 pre_err = val_err
             # stop signal
-            if patience_cnt > 5:
+            if patience_cnt > patience:
                 print 'Early stopping - step %s'%(i)
                 # plot fpf
                 fig, ax = plt.subplots()
@@ -321,10 +322,13 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
                 plt.close(fig)
                 # save model
                 saver.save(sess, os.path.join(vxl_dir, 'prf_model'),
-                           global_step=i)
+                           global_step=(i - (patience+1)*175))
+                saver.save(sess, os.path.join(vxl_dir, 'prf_model'),
+                           global_step=i, write_meta_graph=False)
                 break
 
     train_writer.close()
+    sess.close()
     #test_writer.close()
     return
 
