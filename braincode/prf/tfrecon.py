@@ -301,7 +301,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
                 #val_corr = np.corrcoef(pred_val_rsp, val_rsp)[0, 1]
                 #print 'Validation Corr: %s'%(val_corr)
                 if i:
-                    if (pre_err - val_err) > 0.01:
+                    if (pre_err - val_err) > 0.005:
                         patience_cnt = 0
                     else:
                         patience_cnt += 1
@@ -402,7 +402,7 @@ if __name__ == '__main__':
     ts_s = np.std(train_ts, axis=1, keepdims=True)
     train_ts = (train_ts - ts_m) / (ts_s + 1e-5)
     #for i in range(vxl_idx.shape[0]):
-    for i in range(5):
+    for i in range(100):
         print 'Voxel %s - %s'%(i, vxl_idx[i])
         vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
         os.makedirs(vxl_dir, 0755)
