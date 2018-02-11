@@ -327,7 +327,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
                                global_step=iter_num, write_meta_graph=False)
                     # save final validation loss
                     with open(os.path.join(vxl_dir, 'val_loss.txt'), 'w+') as f:
-                        val_idx = -1 * patience - 1
+                        val_idx = -1 * patience - 2
                         f.write('%s\n'%(val_loss[val_idx]))
                     break
             iter_num += 1
