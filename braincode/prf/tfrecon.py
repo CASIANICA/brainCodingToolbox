@@ -231,8 +231,9 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
         pre_err = None
         patience_cnt = 0
         patience = 5
-        for i in range(8751):
-            #print 'Step %s'%(i)
+        iter_num = 0
+        val_loss = []
+        while 1:
             start = index_in_epoch
             if epochs_completed==0 and start==0:
                 perm0 = np.arange(train_imgs.shape[2])
@@ -273,9 +274,9 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
             _, summary, step_error, step_fpf = sess.run(
                                     [solver, merged, total_error, fpf],
                                     feed_dict={img: batch[0], rsp_: batch[1]})
-            train_writer.add_summary(summary, i)
-            if i%175==0:
-                print 'Ep %s'%(i/175)
+            train_writer.add_summary(summary, iter_num)
+            if (iter_num+1)%175==0:
+                print 'Ep %s'%((iter_num+1)/175)
                 print 'Training Error: %s'%(step_error)
                 rsp_err = sess.run(error, feed_dict={img: batch[0],
                                                      rsp_: batch[1]})
@@ -298,9 +299,10 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
                     pred_val_rsp[(j*5):(j*5+5)] = part_rsp
                 val_err = np.mean(np.square(pred_val_rsp - val_rsp))
                 print 'Validation Error: %s'%(val_err)
+                val_loss.append(val_err)
                 #val_corr = np.corrcoef(pred_val_rsp, val_rsp)[0, 1]
                 #print 'Validation Corr: %s'%(val_corr)
-                if i:
+                if iter_num:
                     if (pre_err - val_err) > 0.005:
                         patience_cnt = 0
                     else:
@@ -310,19 +312,25 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
                     pre_err = val_err
                 # stop signal
                 if patience_cnt > patience:
-                    print 'Early stopping - step %s'%(i)
+                    print 'Early stopping - step %s'%(iter_num)
                     # plot fpf
                     fig, ax = plt.subplots()
                     cax = ax.imshow(step_fpf, cmap='gray')
                     fig.colorbar(cax)
-                    plt.savefig(os.path.join(vxl_dir, 'fpf_step%s.png'%(i)))
+                    plt.savefig(os.path.join(vxl_dir,
+                            'fpf_epoch%s.png'%((iter_num+1)/175)))
                     plt.close(fig)
                     # save model
                     saver.save(sess, os.path.join(vxl_dir, 'prf_model'),
-                               global_step=(i - (patience+1)*175))
+                               global_step=(iter_num - (patience+1)*175))
                     saver.save(sess, os.path.join(vxl_dir, 'prf_model'),
-                               global_step=i, write_meta_graph=False)
+                               global_step=iter_num, write_meta_graph=False)
+                    # save final validation loss
+                    with open(os.path.join(vxl_dir, 'val_loss.txt', 'w+')) as f:
+                        val_idx = -1 * patience - 1
+                        f.write('%s\n'%(val_loss[val_idx]))
                     break
+            iter_num += 1
 
         train_writer.close()
         #test_writer.close()
