@@ -230,7 +230,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
         epochs_completed = 0
         pre_err = None
         patience_cnt = 0
-        patience = 5
+        patience = 3
         iter_num = 0
         val_loss = []
         while 1:
