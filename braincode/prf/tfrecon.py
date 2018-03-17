@@ -201,7 +201,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
 
     with tf.Session(graph=graph) as sess:
         vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
-        solver =  tf.train.AdamOptimizer(0.001).minimize(total_error,
+        solver =  tf.train.AdamOptimizer(0.0005).minimize(total_error,
                                                          var_list = vars_x)
         # merge summaries
         merged = tf.summary.merge_all()
