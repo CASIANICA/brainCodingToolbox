@@ -181,7 +181,9 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
             # parameter regularization
             #l2_error = tf.nn.l2_loss(w) + tf.nn.l2_loss(b)
             # laplacian regularization
-            laplacian_kernel = np.array([[0, -1, 0], [-1, 4, -1], [0, -1, 0]])
+            laplacian_kernel = np.array([[0, -1, 0],
+                                         [-1, 4, -1],
+                                         [0, -1, 0]])
             laplacian_kernel = np.expand_dims(laplacian_kernel, 2)
             laplacian_kernel = np.expand_dims(laplacian_kernel, 3)
             fpf_shadow = tf.expand_dims(tf.expand_dims(fpf, 0), 3)
@@ -201,7 +203,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
 
     with tf.Session(graph=graph) as sess:
         vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
-        solver =  tf.train.AdamOptimizer(0.0005).minimize(total_error,
+        solver =  tf.train.AdamOptimizer(0.001).minimize(total_error,
                                                          var_list = vars_x)
         # merge summaries
         merged = tf.summary.merge_all()
