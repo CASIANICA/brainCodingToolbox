@@ -27,7 +27,11 @@ def get_gabor_kernels(feat_dir):
     np.savez(outfile, gabor_real=gabor_real, gabor_imag = gabor_imag)
 
 def get_gabor_kernels_small(feat_dir):
-    """gabor bank generation"""
+    """gabor bank generation.
+    The smallest wavelength is 4 pixels (frequency 6.25 cyc/deg),
+    and the largest is 96 pixels (frequency 0.26 cyc/deg).
+    Each pixel indicates 0.04 degree of visual angle.
+    """
     n_scale = 9
     gwt = bob.ip.gabor.Transform(number_of_scales=n_scale)
     gwt.generate_wavelets(500, 500)
