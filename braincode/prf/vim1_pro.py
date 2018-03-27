@@ -299,8 +299,7 @@ def ridge_regression(prf_dir, db_dir, subj_id, roi):
     tune_fmri_ts = train_fmri_ts[:, :int(1750*0.9)]
     sel_fmri_ts = train_fmri_ts[:, int(1750*0.9):]
     # model fitting
-    #for i in range(len(vxl_idx)):
-    for i in range(1):
+    for i in range(len(vxl_idx)):
         print '-----------------'
         print 'Voxel %s'%(i)
         for j in range(25000):
@@ -321,9 +320,9 @@ def ridge_regression(prf_dir, db_dir, subj_id, roi):
             tune_x = train_x[:int(1750*0.9), :]
             sel_x = train_x[int(1750*0.9):, :]
             for a in range(ALPHA_NUM):
-                alphas = np.logspace(-2, 3, ALPHA_NUM)
+                alpha_list = np.logspace(-2, 3, ALPHA_NUM)
                 # model fitting
-                reg = linear_model.Ridge(alpha=alphas[a])
+                reg = linear_model.Ridge(alpha=alpha_list[a])
                 reg.fit(tune_x, tune_fmri_ts[i])
                 val_pred = reg.predict(sel_x)
                 ss_tol = np.var(sel_fmri_ts[i]) * 175
@@ -336,9 +335,9 @@ def ridge_regression(prf_dir, db_dir, subj_id, roi):
         # split training dataset into model tunning and selection sets
         tune_x = train_x[:int(1750*0.9), :]
         sel_x = train_x[int(1750*0.9):, :]
-        alphas = np.logspace(-2, 3, ALPHA_NUM)
+        alpha_list = np.logspace(-2, 3, ALPHA_NUM)
         # selected model fitting
-        reg = linear_model.Ridge(alpha=alphas[sel_alpha_i])
+        reg = linear_model.Ridge(alpha=alpha_list[sel_alpha_i])
         reg.fit(tune_x, tune_fmri_ts[i])
         val_pred = reg.predict(sel_x)
         ss_tol = np.var(sel_fmri_ts[i]) * 175
@@ -346,7 +345,7 @@ def ridge_regression(prf_dir, db_dir, subj_id, roi):
         print 'r-square recal: %s'%(r2)
         print 'r-square cal: %s'%(vxl_r2.max())
         paras[i, ...] = np.concatenate((np.array([reg.intercept_]), reg.coef_))
-        alphas[i] = alphas[sel_alpha_i]
+        alphas[i] = alpha_list[sel_alpha_i]
     # save output
     paras = np.array(paras)
     np.save(paras_file, paras)
