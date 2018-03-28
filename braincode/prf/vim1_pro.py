@@ -303,7 +303,7 @@ def ridge_regression(prf_dir, db_dir, subj_id, roi):
         print '-----------------'
         print 'Voxel %s'%(i)
         for j in range(25000):
-            print 'Model %s'%(j)
+            #print 'Model %s'%(j)
             # remove models which centered outside the 20 degree of visual angle
             xi = (j % 2500) / 50
             yi = (j % 2500) % 50
@@ -311,7 +311,7 @@ def ridge_regression(prf_dir, db_dir, subj_id, roi):
             y0 = np.arange(2, 250, 5)[yi]
             d = np.sqrt(np.square(x0-125)+np.square(y0-125))
             if d > 124:
-                print 'Model center outside the visual angle'
+                #print 'Model center outside the visual angle'
                 paras[i, ...] = np.NaN
                 val_r2[i, j, :] = np.NaN
                 continue
@@ -343,7 +343,7 @@ def ridge_regression(prf_dir, db_dir, subj_id, roi):
         ss_tol = np.var(sel_fmri_ts[i]) * 175
         r2 = 1.0 - np.sum(np.square(sel_fmri_ts[i] - val_pred))/ss_tol
         print 'r-square recal: %s'%(r2)
-        print 'r-square cal: %s'%(vxl_r2.max())
+        #print 'r-square cal: %s'%(vxl_r2.max())
         paras[i, ...] = np.concatenate((np.array([reg.intercept_]), reg.coef_))
         alphas[i] = alpha_list[sel_alpha_i]
     # save output
@@ -653,21 +653,21 @@ if __name__ == '__main__':
     #get_stim_features(db_dir, feat_dir, 'train')
     # get candidate models
     #get_candidate_model(feat_dir, 'val')
-    get_candidate_model_new(db_dir, 'train')
+    #get_candidate_model_new(db_dir, 'train')
 
     #-- general config
-    #subj_id = 1
-    #roi = 'v1'
-    ## directory config
-    #subj_dir = os.path.join(res_dir, 'vim1_S%s'%(subj_id))
-    #prf_dir = os.path.join(subj_dir, 'regress_prf')
+    subj_id = 1
+    roi = 'v1'
+    # directory config
+    subj_dir = os.path.join(res_dir, 'vim1_S%s'%(subj_id))
+    prf_dir = os.path.join(subj_dir, 'regress_prf')
 
     #-- pRF model fitting
     # pRF model tunning
-    #get_vxl_idx(prf_dir, db_dir, subj_id, roi)
+    get_vxl_idx(prf_dir, db_dir, subj_id, roi)
     #ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
     #prf_selection(feat_dir, prf_dir, db_dir, subj_id, roi)
-    #ridge_regression(prf_dir, db_dir, subj_id, roi)
+    ridge_regression(prf_dir, db_dir, subj_id, roi)
     # get null distribution of tunning performance
     #null_distribution_prf_tunning(feat_dir, prf_dir, db_dir, subj_id, roi)
     # calculate tunning contribution of each gabor sub-banks
