@@ -354,6 +354,65 @@ def ridge_regression(prf_dir, db_dir, subj_id, roi):
     alphas = np.array(alphas)
     np.save(alphas_file, alphas)
 
+def ridge_regression_model_test(prf_dir, db_dir, subj_id, roi):
+    """Test pRF model derived from ridge regression with test dataset."""
+    # load fmri response
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_vim1_fmri(db_dir, subj_id,
+                                                                roi=roi)
+    del train_fmri_ts
+    print 'Voxel number: %s'%(len(vxl_idx))
+    # load candidate models
+    val_models = np.load(os.path.join(db_dir, 'val_candidate_model.npy'),
+                         mmap_mode='r')
+    # fMRI data z-score
+    print 'fmri data temporal z-score'
+    m = np.mean(val_fmri_ts, axis=1, keepdims=True)
+    s = np.std(val_fmri_ts, axis=1, keepdims=True)
+    val_fmri_ts = (val_fmri_ts - m) / (1e-5 + s)
+    # output directory config
+    roi_dir = os.path.join(prf_dir,  roi)
+    check_path(roi_dir)
+
+    # load selected models and the corresponding parameters
+    val_r2_file = os.path.join(roi_dir, 'reg_val_r2.npy')
+    val_r2 = np.load(val_r2_file, mmap_mode='r')
+    paras_file = os.path.join(roi_dir, 'reg_paras.npy')
+    paras = np.load(paras_file)
+    alphas_file = os.path.join(roi_dir, 'reg_alphas.npy')
+    alphas = np.load(alphas_file)
+
+    # output var
+    test_r2 = np.zeros(len(vxl_idx))
+    prf_pos = np.zeros((len(vxl_idx), 3))
+    # parameter candidates
+    alpha_list = np.logspace(-2, 3, 10)
+    sigma = [2, 4, 8, 16, 32, 60, 70, 80, 90, 100]
+    for i in range(len(vxl_idx)):
+        print '----------------'
+        print 'Voxel %s'%(i)
+        vxl_r2 = np.nan_to_num(val_r2[i, ...])
+        sel_mdl_i, sel_alpha_i = np.unravel_index(vxl_r2.argmax(), vxl_r2.shape)
+        print 'Select model %s'%(sel_mdl_i)
+        print 'Select alpha value %s - %s'%(alpha_list[sel_alpha_i], alphas[i])
+        # get model position info
+        xi = (sel_mdl_i % 2500) / 50
+        yi = (sel_mdl_i % 2500) % 50
+        x0 = np.arange(2, 250, 5)[xi]
+        y0 = np.arange(2, 250, 5)[yi]
+        s = sigma[sel_mdl_i / 2500]
+        prf_pos[i] = np.array([y0, x0, s])
+        # compute r^2 using test dataset
+        test_x = np.array(val_models[sel_mdl_i, ...]).astype(np.float64)
+        test_x = np.concatenate((np.ones((120, 1)), test_x), axis=1)
+        val_pred = test_x.dot(paras[i])
+        ss_tol = np.var(val_fmri_ts[i]) * 120
+        r2 = 1.0 - np.sum(np.square(val_fmri_ts[i] - val_pred))/ss_tol
+        print 'r-square on test dataset: %s'%(r2)
+        test_r2[i] = r2
+    # save output
+    np.save(os.path.join(roi_dir, 'test_r2.npy'), test_r2)
+    np.save(os.path.join(roi_dir, 'sel_reg_prf_pos.npy'), prf_pos)
+
 def prf_selection(feat_dir, prf_dir, db_dir, subj_id, roi):
     """Select best model for each voxel and validating."""
     # load fmri response
@@ -664,10 +723,11 @@ if __name__ == '__main__':
 
     #-- pRF model fitting
     # pRF model tunning
-    get_vxl_idx(prf_dir, db_dir, subj_id, roi)
+    #get_vxl_idx(prf_dir, db_dir, subj_id, roi)
     #ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
     #prf_selection(feat_dir, prf_dir, db_dir, subj_id, roi)
-    ridge_regression(prf_dir, db_dir, subj_id, roi)
+    #ridge_regression(prf_dir, db_dir, subj_id, roi)
+    ridge_regression_model_test(prf_dir, db_dir, subj_id, roi)
     # get null distribution of tunning performance
     #null_distribution_prf_tunning(feat_dir, prf_dir, db_dir, subj_id, roi)
     # calculate tunning contribution of each gabor sub-banks
