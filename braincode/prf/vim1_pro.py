@@ -410,7 +410,7 @@ def ridge_regression_model_test(prf_dir, db_dir, subj_id, roi):
         print 'r-square on test dataset: %s'%(r2)
         test_r2[i] = r2
     # save output
-    np.save(os.path.join(roi_dir, 'test_r2.npy'), test_r2)
+    np.save(os.path.join(roi_dir, 'reg_prf_test_r2.npy'), test_r2)
     np.save(os.path.join(roi_dir, 'sel_reg_prf_pos.npy'), prf_pos)
 
 def prf_selection(feat_dir, prf_dir, db_dir, subj_id, roi):
