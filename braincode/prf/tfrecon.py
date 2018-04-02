@@ -203,7 +203,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
 
     with tf.Session(graph=graph) as sess:
         vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
-        solver =  tf.train.AdamOptimizer(0.001).minimize(total_error,
+        solver =  tf.train.AdamOptimizer(0.0005).minimize(total_error,
                                                          var_list = vars_x)
         # merge summaries
         merged = tf.summary.merge_all()
@@ -396,33 +396,45 @@ if __name__ == '__main__':
         os.makedirs(roi_dir, 0755)
 
     #-- parameter preparation
-    gabor_bank_file = os.path.join(db_dir, 'gabor_kernels_small.npz')
-    gabor_bank = np.load(gabor_bank_file)
+    #gabor_bank_file = os.path.join(db_dir, 'gabor_kernels_small.npz')
+    #gabor_bank = np.load(gabor_bank_file)
 
     #-- load vim1 stimuli
-    stimuli_file = os.path.join(db_dir, 'train_stimuli.npy')
-    input_imgs = np.load(stimuli_file)
+    #stimuli_file = os.path.join(db_dir, 'train_stimuli.npy')
+    #input_imgs = np.load(stimuli_file)
 
     #-- get gabor features from stimuli
     #get_gabor_features(input_imgs, gabor_bank)
 
     #-- laplacian regularized pRF
+    #vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
+    #ts_m = np.mean(train_ts, axis=1, keepdims=True)
+    #ts_s = np.std(train_ts, axis=1, keepdims=True)
+    #train_ts = (train_ts - ts_m) / (ts_s + 1e-5)
+    ##for i in range(vxl_idx.shape[0]):
+    #for i in range(100):
+    #    print 'Voxel %s - %s'%(i, vxl_idx[i])
+    #    vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
+    #    os.makedirs(vxl_dir, 0755)
+    #    # load voxel fmri data
+    #    vxl_rsp = train_ts[i]
+    #    #print 'Image data shape ',
+    #    #print input_imgs.shape
+    #    #print 'Voxel time point number',
+    #    #print vxl_rsp.shape
+    #    tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir)
+
+    #-- get validation r^2
     vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
-    ts_m = np.mean(train_ts, axis=1, keepdims=True)
-    ts_s = np.std(train_ts, axis=1, keepdims=True)
-    train_ts = (train_ts - ts_m) / (ts_s + 1e-5)
-    #for i in range(vxl_idx.shape[0]):
-    for i in range(100):
+    val_r2 = np.zeros(vxl_idx.shape[0])
+    for i in range(vxl_idx.shape[0]):
         print 'Voxel %s - %s'%(i, vxl_idx[i])
         vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
-        os.makedirs(vxl_dir, 0755)
-        # load voxel fmri data
-        vxl_rsp = train_ts[i]
-        #print 'Image data shape ',
-        #print input_imgs.shape
-        #print 'Voxel time point number',
-        #print vxl_rsp.shape
-        tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir)
+        r2 = open(os.path.join(vxl_dir, 'val_loss.txt'), 'r').readlines()
+        r2 = 1 - float(r2[0].strip())
+        val_r2[i] = r2
+    outfile = os.path.join(roi_dir, 'val_r2.npy')
+    np.save(outfile, val_r2)
 
     #-- parameter preparation
     #gabor_bank_file = os.path.join(feat_dir, 'gabor_kernels.npz')
