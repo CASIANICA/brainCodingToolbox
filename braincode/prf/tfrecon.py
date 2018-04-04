@@ -338,7 +338,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
         #test_writer.close()
     return
 
-def tfprf_test(train_imgs, val_imgs, vxl_rsp, vxl_dir):
+def tfprf_test(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir):
     """Test laplacian regularized pRF model on test dataset."""
     # get image mask
     img_m = np.mean(train_imgs, axis=2)
@@ -509,8 +509,8 @@ if __name__ == '__main__':
     #gabor_bank = np.load(gabor_bank_file)
 
     #-- load vim1 stimuli of training dataset
-    train_stimuli_file = os.path.join(db_dir, 'train_stimuli.npy')
-    train_imgs = np.load(train_stimuli_file)
+    #train_stimuli_file = os.path.join(db_dir, 'train_stimuli.npy')
+    #train_imgs = np.load(train_stimuli_file)
 
     #-- get gabor features from stimuli
     #get_gabor_features(input_imgs, gabor_bank)
@@ -546,19 +546,31 @@ if __name__ == '__main__':
     #np.save(outfile, val_r2)
 
     #-- test prf model on test dataset
-    # load vim1 stimuli of validation dataset
-    val_stimuli_file = os.path.join(db_dir, 'val_stimuli.npy')
-    val_imgs = np.load(val_stimuli_file)
-    # load fmri data
+    ## load vim1 stimuli of validation dataset
+    #val_stimuli_file = os.path.join(db_dir, 'val_stimuli.npy')
+    #val_imgs = np.load(val_stimuli_file)
+    ## load fmri data
+    #vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
+    #ts_m = np.mean(val_ts, axis=1, keepdims=True)
+    #ts_s = np.std(val_ts, axis=1, keepdims=True)
+    #val_ts = (val_ts - ts_m) / (ts_s + 1e-5)
+    #for i in range(vxl_idx.shape[0]):
+    #    print 'Voxel %s - %s'%(i, vxl_idx[i])
+    #    vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
+    #    vxl_rsp = val_ts[i]
+    #    tfprf_test(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir)
+
+    #-- get r^2 on test dataset
     vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
-    ts_m = np.mean(val_ts, axis=1, keepdims=True)
-    ts_s = np.std(val_ts, axis=1, keepdims=True)
-    val_ts = (val_ts - ts_m) / (ts_s + 1e-5)
+    test_r2 = np.zeros(vxl_idx.shape[0])
     for i in range(vxl_idx.shape[0]):
         print 'Voxel %s - %s'%(i, vxl_idx[i])
         vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
-        vxl_rsp = val_ts[i]
-        tfprf_test(train_imgs, val_imgs, vxl_rsp, vxl_dir)
+        r2 = open(os.path.join(vxl_dir, 'test_loss.txt'), 'r').readlines()
+        r2 = 1 - float(r2[0].strip())
+        test_r2[i] = r2
+    outfile = os.path.join(roi_dir, 'test_r2.npy')
+    np.save(outfile, test_r2)
 
     #-- parameter preparation
     #gabor_bank_file = os.path.join(feat_dir, 'gabor_kernels.npz')
