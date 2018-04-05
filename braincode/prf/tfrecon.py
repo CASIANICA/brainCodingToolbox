@@ -307,7 +307,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
                 if iter_num==174:
                     pre_err = val_err
                 else:
-                    if (pre_err - val_err) > 0.005:
+                    if (pre_err - val_err) >= 0.004:
                         patience_cnt = 0
                     else:
                         patience_cnt += 1
