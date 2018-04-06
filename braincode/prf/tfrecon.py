@@ -230,9 +230,9 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
         batch_size = 9
         index_in_epoch = 0
         epochs_completed = 0
-        pre_err = None
+        min_err = None
         patience_cnt = 0
-        patience = 3
+        patience = 4
         iter_num = 0
         val_loss = []
         while 1:
@@ -305,13 +305,13 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
                 #val_corr = np.corrcoef(pred_val_rsp, val_rsp)[0, 1]
                 #print 'Validation Corr: %s'%(val_corr)
                 if iter_num==174:
-                    pre_err = val_err
+                    min_err = val_err
                 else:
-                    if (pre_err - val_err) >= 0.004:
+                    if (min_err - val_err) >= 0.0025:
+                        min_err = val_err
                         patience_cnt = 0
                     else:
                         patience_cnt += 1
-                    pre_err = val_err
                 # stop signal
                 if patience_cnt > patience:
                     print 'Early stopping - step %s'%(iter_num)
