@@ -534,23 +534,25 @@ if __name__ == '__main__':
     #    tfprf_laplacian(train_imgs, vxl_rsp, gabor_bank, vxl_dir)
 
     #-- get validation r^2
-    vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
-    ts_m = np.mean(train_ts, axis=1, keepdims=True)
-    ts_s = np.std(train_ts, axis=1, keepdims=True)
-    train_ts = (train_ts - ts_m) / (ts_s + 1e-5)
-    val_r2 = np.zeros(vxl_idx.shape[0])
-    for i in range(vxl_idx.shape[0]):
-        print 'Voxel %s - %s'%(i, vxl_idx[i])
-        vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
-        val_mse = open(os.path.join(vxl_dir, 'val_loss.txt'), 'r').readlines()
-        val_mes = float(val_mse[0].strip())
-        # calculate r^2
-        val_rsp = train_ts[i, 1575:]
-        ss_tol = np.var(val_rsp)
-        r2 = 1.0 - val_mse * 1.0 / ss_tol
-        val_r2[i] = r2
-    outfile = os.path.join(roi_dir, 'val_r2.npy')
-    np.save(outfile, val_r2)
+    #vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
+    #ts_m = np.mean(train_ts, axis=1, keepdims=True)
+    #ts_s = np.std(train_ts, axis=1, keepdims=True)
+    #train_ts = (train_ts - ts_m) / (ts_s + 1e-5)
+    #val_r2 = np.zeros(vxl_idx.shape[0])
+    #for i in range(vxl_idx.shape[0]):
+    #    print 'Voxel %s - %s'%(i, vxl_idx[i])
+    #    vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
+    #    val_mse = open(os.path.join(vxl_dir, 'val_loss.txt'), 'r').readlines()
+    #    val_mse = float(val_mse[0].strip())
+    #    # calculate r^2
+    #    val_rsp = train_ts[i, 1575:]
+    #    ss_tol = np.var(val_rsp)
+    #    print 'Total variance: %s'%(ss_tol)
+    #    print 'MSE: %s'%(val_mse)
+    #    r2 = 1.0 - val_mse * 1.0 / ss_tol
+    #    val_r2[i] = r2
+    #outfile = os.path.join(roi_dir, 'val_r2.npy')
+    #np.save(outfile, val_r2)
 
     #-- test prf model on test dataset
     ## load vim1 stimuli of validation dataset
@@ -568,16 +570,25 @@ if __name__ == '__main__':
     #    tfprf_test(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir)
 
     #-- get r^2 on test dataset
-    #vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
-    #test_r2 = np.zeros(vxl_idx.shape[0])
-    #for i in range(vxl_idx.shape[0]):
-    #    print 'Voxel %s - %s'%(i, vxl_idx[i])
-    #    vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
-    #    r2 = open(os.path.join(vxl_dir, 'test_loss.txt'), 'r').readlines()
-    #    r2 = 1 - float(r2[0].strip())
-    #    test_r2[i] = r2
-    #outfile = os.path.join(roi_dir, 'test_r2.npy')
-    #np.save(outfile, test_r2)
+    vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
+    ts_m = np.mean(val_ts, axis=1, keepdims=True)
+    ts_s = np.std(val_ts, axis=1, keepdims=True)
+    val_ts = (val_ts - ts_m) / (ts_s + 1e-5)
+    test_r2 = np.zeros(vxl_idx.shape[0])
+    for i in range(vxl_idx.shape[0]):
+        print 'Voxel %s - %s'%(i, vxl_idx[i])
+        vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
+        test_mse = open(os.path.join(vxl_dir, 'test_loss.txt'), 'r').readlines()
+        test_mse = float(test_mse[0].strip())
+        # calculate r^2
+        vxl_rsp = val_ts[i]
+        ss_tol = np.var(vxl_rsp)
+        print 'Total variance: %s'%(ss_tol)
+        print 'MSE: %s'%(test_mse)
+        r2 = 1.0 - test_mse * 1.0 / ss_tol
+        test_r2[i] = r2
+    outfile = os.path.join(roi_dir, 'test_r2.npy')
+    np.save(outfile, test_r2)
 
     #-- parameter preparation
     #gabor_bank_file = os.path.join(feat_dir, 'gabor_kernels.npz')
