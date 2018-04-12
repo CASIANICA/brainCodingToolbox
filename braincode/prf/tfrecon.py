@@ -551,7 +551,7 @@ if __name__ == '__main__':
     #    print 'MSE: %s'%(val_mse)
     #    r2 = 1.0 - val_mse * 1.0 / ss_tol
     #    val_r2[i] = r2
-    #outfile = os.path.join(roi_dir, 'val_r2.npy')
+    #outfile = os.path.join(roi_dir, 'dl_prf_val_r2.npy')
     #np.save(outfile, val_r2)
 
     #-- test prf model on test dataset
@@ -571,9 +571,6 @@ if __name__ == '__main__':
 
     #-- get r^2 on test dataset
     vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
-    ts_m = np.mean(val_ts, axis=1, keepdims=True)
-    ts_s = np.std(val_ts, axis=1, keepdims=True)
-    val_ts = (val_ts - ts_m) / (ts_s + 1e-5)
     test_r2 = np.zeros(vxl_idx.shape[0])
     for i in range(vxl_idx.shape[0]):
         print 'Voxel %s - %s'%(i, vxl_idx[i])
@@ -581,13 +578,10 @@ if __name__ == '__main__':
         test_mse = open(os.path.join(vxl_dir, 'test_loss.txt'), 'r').readlines()
         test_mse = float(test_mse[0].strip())
         # calculate r^2
-        vxl_rsp = val_ts[i]
-        ss_tol = np.var(vxl_rsp)
-        print 'Total variance: %s'%(ss_tol)
         print 'MSE: %s'%(test_mse)
-        r2 = 1.0 - test_mse * 1.0 / ss_tol
+        r2 = 1.0 - test_mse*1.0
         test_r2[i] = r2
-    outfile = os.path.join(roi_dir, 'test_r2.npy')
+    outfile = os.path.join(roi_dir, 'dl_prf_test_r2.npy')
     np.save(outfile, test_r2)
 
     #-- parameter preparation
