@@ -17,6 +17,7 @@ from braincode.pipeline.base import ridge_regression, random_ridge_regression
 from braincode.pipeline.base import layer_ridge_regression
 from braincode.pipeline.base import pred_cnn_ridge
 from braincode.vim2 import util as vutil
+from braincode.vim2 import dataio
 
 
 def check_path(dir_path):
@@ -267,55 +268,19 @@ if __name__ == '__main__':
     """Main function."""
     # config parser
     cf = configParser.Config('config')
+    db_dir - os.path.join(cf.get('database', 'path'), 'vim2')
     root_dir = cf.get('base', 'path')
-    feat_dir = os.path.join(root_dir, 'sfeatures')
-    db_dir = os.path.join(root_dir, 'subjects')
- 
-    # phrase 'test': analyses were only conducted within v1rh for code test
-    # phrase 'work': for real analyses
-    phrase = 'test'
+    feat_dir = os.path.join(root_dir, 'sfeatures', 'vim2', 'caffenet')
+    res_dir = os.path.join(root_dir, 'subjects')
  
     # subj config
     subj_id = 1
+    roi = 'v1rh'
     subj_dir = os.path.join(db_dir, 'vim2_S%s'%(subj_id))
- 
-    #-- load fmri data
-    fmri_file = os.path.join(subj_dir, 'VoxelResponses.mat')
-    tf = tables.open_file(fmri_file)
-    #tf.list_nodes
-    #-- roi mat to nii
-    #roi_file = os.path.join(subj_dir, 'S%s_small_roi.nii.gz'%(subj_id))
-    #vutil.roi2nifti(tf, roi_file, mode='small')
-    #-- get mean fmri responses
-    #dataset = 'rt'
-    #mean_file = os.path.join(subj_dir, 'S%s_mean_%s.nii.gz'%(subj_id, dataset))
-    #vutil.gen_mean_vol(tf, dataset, mean_file)
 
-    #-- create mask
-    train_fmri_ts = tf.get_node('/rt')[:]
-    # data.shape = (73728, 7200)
-    # get non-nan voxel indexs
-    fmri_s = train_fmri_ts.sum(axis=1)
-    non_nan_idx = np.nonzero(np.logical_not(np.isnan(fmri_s)))[0]
-    # create mask
-    full_mask_file = os.path.join(subj_dir, 'S%s_mask.nii.gz'%(subj_id))
-    full_mask = vutil.data_swap(full_mask_file).flatten()
-    full_vxl_idx = np.nonzero(full_mask==1)[0]
-    full_vxl_idx = np.intersect1d(full_vxl_idx, non_nan_idx)
-    if phrase=='test':
-        mask = tf.get_node('/roi/v1rh')[:].flatten()
-        vxl_idx = np.nonzero(mask)[0]
-        vxl_idx = np.intersect1d(vxl_idx, non_nan_idx)
-    else:
-        vxl_idx = full_vxl_idx
-
-    #-- load fmri response
-    # data.shape = (73728, 7200/540)
-    # select voxels from whole dataset, test data shape = (504, 7200/540)
-    train_fmri_ts = tf.get_node('/rt')[:]
-    train_fmri_ts = np.nan_to_num(train_fmri_ts[vxl_idx])
-    #val_fmri_ts = tf.get_node('/rv')[:]
-    #val_fmri_ts = np.nan_to_num(val_fmri_ts[vxl_idx])
+    # load fmri data
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_vim2_fmri(db_dir, subj_id,
+                                                                roi=roi)
 
     #-- load cnn activation data
     # norm1 data shape = (96, 27, 27, 7200/540)
@@ -327,7 +292,7 @@ if __name__ == '__main__':
     #-- Cross-modality mapping: voxel~CNN unit corrlation
     cross_corr_dir = os.path.join(subj_dir, 'ridge', 'cross_corr')
     check_path(cross_corr_dir)
-    corr_file = os.path.join(cross_corr_dir, 'train_norm1_corr.npy')
+    corr_file = os.path.join(cross_corr_dir, 'v1rh_train_norm1_corr.npy')
     feat_ts = train_feat_ts.reshape(69984, 7200)
     parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=96)
     #-- random cross-modal correlation
