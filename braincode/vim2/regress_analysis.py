@@ -23,7 +23,7 @@ from braincode.vim2 import dataio
 def check_path(dir_path):
     """Check whether the directory does exist, if not, create it."""
     if not os.path.exists(dir_path):
-        os.mkdir(dir_path, 0755)
+        os.makedirs(dir_path, 0755)
 
 def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
     """Make the retinotopic mapping using activation map from CNN."""
@@ -268,7 +268,7 @@ if __name__ == '__main__':
     """Main function."""
     # config parser
     cf = configParser.Config('config')
-    db_dir - os.path.join(cf.get('database', 'path'), 'vim2')
+    db_dir = os.path.join(cf.get('database', 'path'), 'vim2')
     root_dir = cf.get('base', 'path')
     feat_dir = os.path.join(root_dir, 'sfeatures', 'vim2', 'caffenet')
     res_dir = os.path.join(root_dir, 'subjects')
@@ -276,7 +276,7 @@ if __name__ == '__main__':
     # subj config
     subj_id = 1
     roi = 'v1rh'
-    subj_dir = os.path.join(db_dir, 'vim2_S%s'%(subj_id))
+    subj_dir = os.path.join(res_dir, 'vim2_S%s'%(subj_id))
 
     # load fmri data
     vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_vim2_fmri(db_dir, subj_id,
