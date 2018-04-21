@@ -378,10 +378,10 @@ if __name__ == '__main__':
         test_r2s[i] = test_r2
         val_r2s[i] = val_r2
         val_alphas[i] = sel_alpha
-    np.save(os.path.join(roi_dir, 'norm1_ridge_wts.npy'), reg_wts)
-    np.save(os.path.join(roi_dir, 'norm1_ridge_test_r2.npy'), test_r2s)
-    np.save(os.path.join(roi_dir, 'norm1_ridge_val_r2.npy'), val_r2s)
-    np.save(os.path.join(roi_dir, 'norm1_ridge_alphas.npy'), val_alphas)
+    np.save(os.path.join(roi_dir, '%s_ridge_wts.npy'%(layer)), reg_wts)
+    np.save(os.path.join(roi_dir, '%s_ridge_test_r2.npy'%(layer)), test_r2s)
+    np.save(os.path.join(roi_dir, '%s_ridge_val_r2.npy'%(layer)), val_r2s)
+    np.save(os.path.join(roi_dir, '%s_ridge_alphas.npy'%(layer)), val_alphas)
 
     #-- retinotopic mapping based on cross-correlation with norm1
     #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
