@@ -23,7 +23,7 @@ def check_path(dir_path):
     if not os.path.exists(dir_path):
         os.makedirs(dir_path, 0755)
 
-def ridge_regression(train_x, train_y):
+def ridge_regression(train_x, train_y, val_x, val_y):
     """fMRI encoding model fitting using ridge regression.
     90% training data used for model tuning, and the remaining 10% data used
     for model selection.
@@ -33,6 +33,8 @@ def ridge_regression(train_x, train_y):
     s = np.std(train_x, axis=1, keepdims=True)
     train_x = (train_x - m) / (1e-5 + s)
     train_x = train_x.T
+    val_x = (val_x -m) / (1e-5 + s)
+    val_x = val_x.T
     # split training dataset into model tunning set and model selection set
     tune_x = train_x[:int(7200*0.9), :]
     sel_x = train_x[int(7200*0.9):, :]
@@ -41,21 +43,24 @@ def ridge_regression(train_x, train_y):
     # alphas config
     alpha_num = 10
     # model fitting
-    val_r2 = np.zeros(alpha_num)
+    test_r2 = np.zeros(alpha_num)
     for a in range(alpha_num):
         alpha_list = np.logspace(-2, 3, alpha_num)
         reg = linear_model.Ridge(alpha=alpha_list[a])
         reg.fit(tune_x, tune_y)
         pred_sel_y = reg.predict(sel_x)
-        ss_tol = np.var(sel_y) * 720
-        r2 = 1.0 - np.sum(np.square(sel_y - pred_sel_y)) / ss_tol
-        val_r2[a] = r2
+        r2 = 1.0 - np.mean(np.square(sel_y - pred_sel_y)) / np.var(sel_y)
+        test_r2[a] = r2
     # select the best model
-    sel_alpha = alpha_list[val_r2.argmax()]
+    print 'Max R^2 on test dataset: %s'%(test_r2.max())
+    sel_alpha = alpha_list[test_r2.argmax()]
     reg = linear_model.Ridge(alpha=sel_alpha)
     reg.fit(tune_x, tune_y)
-    paras = np.concatenate((np.array([reg.intercept_]). reg.coef_))
-    return paras, val_r2, sel_alpha
+    pred_val_y = reg.predict(val_x)
+    val_r2 = 1.0 - np.mean(np.square(val_y - pred_val_y))
+    print 'R^2 on validation dataset: %s'%(val_r2)
+    paras = np.concatenate((np.array([reg.intercept_]), reg.coef_))
+    return paras,sel_alpha, test_r2, val_r2
 
 def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
     """Make the retinotopic mapping using activation map from CNN."""
@@ -305,9 +310,18 @@ if __name__ == '__main__':
     feat_dir = os.path.join(root_dir, 'sfeatures', 'vim2', 'caffenet')
     res_dir = os.path.join(root_dir, 'subjects')
  
+    # layer info
+    layer_info = {'norm1': [96, 27, 27],
+                  'norm2': [256, 13, 13],
+                  'conv3': [384, 13, 13],
+                  'conv4': [384, 13, 13],
+                  'conv5': [256, 13, 13]}
+
     # subj config
     subj_id = 1
     roi = 'v1rh'
+    layer = 'norm1'
+    layer_size = layer_info[layer]
     subj_dir = os.path.join(res_dir, 'vim2_S%s'%(subj_id))
     roi_dir = os.path.join(subj_dir, 'ridge', roi)
     check_path(roi_dir)
@@ -318,14 +332,14 @@ if __name__ == '__main__':
 
     #-- load cnn activation data
     # norm1 data shape = (96, 27, 27, 7200/540)
-    train_feat_file = os.path.join(feat_dir, 'norm1_train_trs.npy')
+    train_feat_file = os.path.join(feat_dir, '%s_train_trs.npy'%(layer))
     train_feat_ts = np.load(train_feat_file, mmap_mode='r')
-    #val_feat_file = os.path.join(feat_dir, 'norm1_val_trs.npy')
-    #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
+    val_feat_file = os.path.join(feat_dir, '%s_val_trs.npy'%(layer))
+    val_feat_ts = np.load(val_feat_file, mmap_mode='r')
  
     #-- Cross-modality mapping: voxel~CNN unit corrlation
-    corr_file = os.path.join(roi_dir, 'train_norm1_corr.npy')
-    feat_ts = train_feat_ts.reshape(69984, 7200)
+    corr_file = os.path.join(roi_dir, 'train_%s_corr.npy'%(layer))
+    feat_ts = train_feat_ts.reshape(-1, 7200)
     parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=96)
     #-- random cross-modal correlation
     #rand_corr_file = os.path.join(roi_dir, 'rand_train_norm1_corr.npy')
@@ -334,28 +348,38 @@ if __name__ == '__main__':
 
     #-- multiple regression
     # reshape train feature vector
-    corr_file = os.path.join(roi_dir, 'train_norm1_corr.npy')
+    corr_file = os.path.join(roi_dir, 'train_%s_corr.npy'%(layer))
     corr_mtx = np.load(corr_file, mmap_mode='r')
-    corr_mtx = corr_mtx.reshape(corr_mtx.shape[0], 96, 27, 27)
-    reg_wts = np.zeros((corr_mtx.shape[0], 97))
-    val_r2s = np.zeros((corr_mtx.shape[0], 10))
+    corr_mtx = corr_mtx.reshape(corr_mtx.shape[0], layer_size[0],
+                                layer_size[1], layer_size[2])
+    reg_wts = np.zeros((corr_mtx.shape[0], layer_size[0]+1))
+    test_r2s = np.zeros((corr_mtx.shape[0], 10))
+    val_r2s = np.zeros(corr_mtx.shape[0])
     val_alphas = np.zeros(corr_mtx.shape[0])
     for i in range(corr_mtx.shape[0]):
         corr = np.array(corr_mtx[i], dtype=np.float64)
         mcorr = corr.max(axis=0)
         prf = (mcorr - mcorr.min()) / (mcorr.max() - mcorr.min())
         prf = prf.reshape(1, -1)
-        train_x = np.zeros((96, 7200))
-        for j in range(96):
+        train_x = np.zeros((layer_size[0], 7200))
+        val_x = np.zeros((layer_size[0], 540))
+        for j in range(layer_size[0]):
             feat_ts = np.array(train_feat_ts[j], dtype=np.float64)
-            feat_ts = feat_ts.reshape(729, 7200)
+            feat_ts = feat_ts.reshape(layer_size[1]*layer_size[2], 7200)
             train_x[j] = np.dot(prf, feat_ts)
+            feat_ts = np.array(val_feat_ts[j], dtype=np.float64)
+            feat_ts = feat_ts.reshape(layer_size[1]*layer_size[2], 540)
+            val_x[j] = np.dot(prf, feat_ts)
         train_y = train_fmri_ts[i]
-        wts, val_r2, sel_alpha = ridge_regression(train_x, train_y)
+        val_y = val_fmri_ts[i]
+        wts, sel_alpha, test_r2, val_r2 = ridge_regression(train_x, train_y,
+                                                           val_x, val_y)
         reg_wts[i] = wts
+        test_r2s[i] = test_r2
         val_r2s[i] = val_r2
         val_alphas[i] = sel_alpha
     np.save(os.path.join(roi_dir, 'norm1_ridge_wts.npy'), reg_wts)
+    np.save(os.path.join(roi_dir, 'norm1_ridge_test_r2.npy'), test_r2s)
     np.save(os.path.join(roi_dir, 'norm1_ridge_val_r2.npy'), val_r2s)
     np.save(os.path.join(roi_dir, 'norm1_ridge_alphas.npy'), val_alphas)
 
