@@ -6,15 +6,13 @@ import numpy as np
 import tables
 from scipy import ndimage
 from scipy.misc import imsave
+from sklearn import linear_model
 
 from braincode.util import configParser
-from braincode.math import parallel_corr2_coef, corr2_coef, ridge
-from braincode.math.norm import zero_one_norm
+from braincode.math import parallel_corr2_coef, ridge
 from braincode.pipeline import retinotopy
 from braincode.pipeline.base import random_cross_modal_corr
-from braincode.pipeline.base import multiple_regression
-from braincode.pipeline.base import ridge_regression, random_ridge_regression
-from braincode.pipeline.base import layer_ridge_regression
+from braincode.pipeline.base import random_ridge_regression
 from braincode.pipeline.base import pred_cnn_ridge
 from braincode.vim2 import util as vutil
 from braincode.vim2 import dataio
@@ -24,6 +22,40 @@ def check_path(dir_path):
     """Check whether the directory does exist, if not, create it."""
     if not os.path.exists(dir_path):
         os.makedirs(dir_path, 0755)
+
+def ridge_regression(train_x, train_y):
+    """fMRI encoding model fitting using ridge regression.
+    90% training data used for model tuning, and the remaining 10% data used
+    for model selection.
+    """
+    print 'Feature data temporal z-score'
+    m = np.mean(train_x, axis=1, keepdims=True)
+    s = np.std(train_x, axis=1, keepdims=True)
+    train_x = (train_x - m) / (1e-5 + s)
+    train_x = train_x.T
+    # split training dataset into model tunning set and model selection set
+    tune_x = train_x[:int(7200*0.9), :]
+    sel_x = train_x[int(7200*0.9):, :]
+    tune_y = train_y[:int(7200*0.9)]
+    sel_y = train_y[int(7200*0.9):]
+    # alphas config
+    alpha_num = 10
+    # model fitting
+    val_r2 = np.zeros(alpha_num)
+    for a in range(alpha_num):
+        alpha_list = np.logspace(-2, 3, alpha_num)
+        reg = linear_model.Ridge(alpha=alpha_list[a])
+        reg.fit(tune_x, tune_y)
+        pred_sel_y = reg.predict(sel_x)
+        ss_tol = np.var(sel_y) * 720
+        r2 = 1.0 - np.sum(np.square(sel_y - pred_sel_y)) / ss_tol
+        val_r2[a] = r2
+    # select the best model
+    sel_alpha = alpha_list[val_r2.argmax()]
+    reg = linear_model.Ridge(alpha=sel_alpha)
+    reg.fit(tune_x, tune_y)
+    paras = np.concatenate((np.array([reg.intercept_]). reg.coef_))
+    return paras, val_r2, sel_alpha
 
 def retinotopic_mapping(corr_file, data_dir, vxl_idx=None, figout=False):
     """Make the retinotopic mapping using activation map from CNN."""
@@ -277,6 +309,8 @@ if __name__ == '__main__':
     subj_id = 1
     roi = 'v1rh'
     subj_dir = os.path.join(res_dir, 'vim2_S%s'%(subj_id))
+    roi_dir = os.path.join(subj_dir, 'ridge', roi)
+    check_path(roi_dir)
 
     # load fmri data
     vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_vim2_fmri(db_dir, subj_id,
@@ -290,44 +324,48 @@ if __name__ == '__main__':
     #val_feat_ts = np.load(val_feat_file, mmap_mode='r')
  
     #-- Cross-modality mapping: voxel~CNN unit corrlation
-    cross_corr_dir = os.path.join(subj_dir, 'ridge', 'cross_corr')
-    check_path(cross_corr_dir)
-    corr_file = os.path.join(cross_corr_dir, 'v1rh_train_norm1_corr.npy')
+    corr_file = os.path.join(roi_dir, 'train_norm1_corr.npy')
     feat_ts = train_feat_ts.reshape(69984, 7200)
     parallel_corr2_coef(train_fmri_ts, feat_ts, corr_file, block_size=96)
     #-- random cross-modal correlation
-    #rand_corr_file = os.path.join(cross_corr_dir, 'rand_train_norm1_corr.npy')
+    #rand_corr_file = os.path.join(roi_dir, 'rand_train_norm1_corr.npy')
     #feat_ts = tr_mag_ts.reshape(16384, 7200)
     #random_cross_modal_corr(train_fmri_ts, feat_ts, 1000, 1000, rand_corr_file)
- 
+
+    #-- multiple regression
+    # reshape train feature vector
+    corr_file = os.path.join(roi_dir, 'train_norm1_corr.npy')
+    corr_mtx = np.load(corr_file, mmap_mode='r')
+    corr_mtx = corr_mtx.reshape(corr_mtx.shape[0], 96, 27, 27)
+    reg_wts = np.zeros((corr_mtx.shape[0], 97))
+    val_r2s = np.zeros((corr_mtx.shape[0], 10))
+    val_alphas = np.zeros(corr_mtx.shape[0])
+    for i in range(corr_mtx.shape[0]):
+        corr = np.array(corr_mtx[i], dtype=np.float64)
+        mcorr = corr.max(axis=0)
+        prf = (mcorr - mcorr.min()) / (mcorr.max() - mcorr.min())
+        prf = prf.reshape(1, -1)
+        train_x = np.zeros((96, 7200))
+        for j in range(96):
+            feat_ts = np.array(train_feat_ts[j], dtype=np.float64)
+            feat_ts = feat_ts.reshape(729, 7200)
+            train_x[j] = np.dot(prf, feat_ts)
+        train_y = train_fmri_ts[i]
+        wts, val_r2, sel_alpha = ridge_regression(train_x, train_y)
+        reg_wts[i] = wts
+        val_r2s[i] = val_r2
+        val_alphas[i] = sel_alpha
+    np.save(os.path.join(roi_dir, 'norm1_ridge_wts.npy'), reg_wts)
+    np.save(os.path.join(roi_dir, 'norm1_ridge_val_r2.npy'), val_r2s)
+    np.save(os.path.join(roi_dir, 'norm1_ridge_alphas.npy'), val_alphas)
+
     #-- retinotopic mapping based on cross-correlation with norm1
     #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
     #retino_dir = os.path.join(cross_corr_dir, 'retinotopic')
     #check_path(retino_dir)
     #corr_file = os.path.join(cross_corr_dir, 'train_norm1_corr.npy')
     #retinotopic_mapping(corr_file, retino_dir, vxl_idx, figout=False)
-
-    #-- cnn layer assignment based on cross-correlation
-    #cross_corr_dir = os.path.join(subj_dir, 'cross_corr')
-    #layer_names = ['norm1', 'norm2', 'conv3', 'conv4', 'pool5']
-    #vxl_num = len(vxl_idx)
-    #layer_num = len(layer_names)
-    #max_corr = np.zeros((vxl_num, layer_num))
-    #for i in range(layer_num):
-    #    l = layer_names[i]
-    #    corr_file = os.path.join(cross_corr_dir, 'train_%s_corr.npy'%l)
-    #    corr = np.nan_to_num(np.load(corr_file))
-    #    max_corr[:, i] = corr.max(axis=1)
-    #max_corr_file = os.path.join(cross_corr_dir, 'max_corr_across_layers.npy')
-    #np.save(max_corr_file, max_corr)
-    #layer_idx = np.argmax(max_corr, axis=1) + 1
-    #layer_file = os.path.join(cross_corr_dir, 'layer_mapping.nii.gz')
-    #vutil.vxl_data2nifti(layer_idx, vxl_idx, layer_file)
-
-    #-- Encoding: ridge regression
-    #ridge_dir = os.path.join(subj_dir, 'ridge')
-    #check_path(ridge_dir)
-    
+ 
     #-- feature temporal z-score
     #print 'CNN features temporal z-score ...'
     #train_feat_m = train_feat_ts.mean(axis=3, keepdims=True)
@@ -344,15 +382,6 @@ if __name__ == '__main__':
     #train_feat_ts = train_feat_ts.reshape(69984, 7200)
     #val_feat_ts = np.load(tmp_val_file, mmap_mode='r')
     #val_feat_ts = val_feat_ts.reshape(69984, 540)
-
-    #-- fmri data z-score
-    #print 'fmri data temporal z-score'
-    #m = np.mean(train_fmri_ts, axis=1, keepdims=True)
-    #s = np.std(train_fmri_ts, axis=1, keepdims=True)
-    #train_fmri_ts = (train_fmri_ts - m) / (1e-10 + s)
-    #m = np.mean(val_fmri_ts, axis=1, keepdims=True)
-    #s = np.std(val_fmri_ts, axis=1, keepdims=True)
-    #val_fmri_ts = (val_fmri_ts - m) / (1e-10 + s)
 
     #-- layer-wise ridge regression: select cnn units whose correlation with
     #-- the given voxel exceeded the half of the maximal correlation within
@@ -437,42 +466,6 @@ if __name__ == '__main__':
     #pred_file = os.path.join(ridge_dir, 'vxl_%s_pred_norm1.npy'%(v_idx))
     #np.save(pred_file, pred_ts)
 
-
-    #-----------------
-
-    #-- pixel-wise regression
-    #ridge_prefix = 'norm1_pixel_wise'
-    #ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts, val_fmri_ts,
-    #                 ridge_dir, ridge_prefix, with_wt=True, n_cpus=4)
-    
-    #-- layer-wise ridge regression
-    #-- remember to modify the data type of wt in ridge function!
-    #ridge_prefix = 'layer_wise_norm1'
-    #print 'layer-wise regression'
-    #layer_ridge_regression(train_feat_ts, train_fmri_ts, val_feat_ts,
-    #                       val_fmri_ts, ridge_dir, ridge_prefix,
-    #                       with_wt=True)
-    #-- predicted voxel activity to nifti
-    #corr_file = os.path.join(ridge_dir, 'norm1_layer_wise_corr.npy')
-    #corr_data = np.load(corr_file)
-    #nii_file = os.path.join(ridge_dir, 'norm1_vxl_corr.nii.gz')
-    #vutil.vxl_data2nifti(corr_data, vxl_idx, nii_file)
-    #vxl_assign_layer(ridge_dir, vxl_idx)
-    
-    #-- roi_stats
-    #corr_file = os.path.join(ridge_dir, 'conv3_pixel_wise_corr.npy')
-    #wt_file = os.path.join(ridge_dir, 'conv3_pixel_wise_weights.npy')
-    #corr_mtx = np.load(corr_file, mmap_mode='r')
-    #wt_mtx = np.load(wt_file, mmap_mode='r')
-    #roi_info(corr_mtx, wt_mtx, tf, vxl_idx, ridge_dir)
-    #-- retinotopic mapping
-    #ridge_retinotopic_mapping(corr_file, vxl_idx, 5)
-
-    #-- multiple regression voxel ~ channels from each location
-    #regress_file = os.path.join(retino_dir, 'val_fmri_feat1_regress.npy')
-    #roi_mask = get_roi_mask(tf)
-    #multiple_regression(fmri_ts, feat_ts, regress_file)
-    
     #-- pixel-wise random regression
     #selected_vxl_idx = [5666, 9697, 5533, 5597, 5285, 5538, 5273, 5465, 38695,
     #                    38826, 42711, 46873, 30444, 34474, 38548, 42581, 5097,
