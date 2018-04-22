@@ -311,16 +311,19 @@ if __name__ == '__main__':
     res_dir = os.path.join(root_dir, 'subjects')
  
     # layer info
-    layer_info = {'norm1': [96, 27, 27],
+    layer_info = {'conv1': [96, 55, 55],
+                  'norm1': [96, 27, 27],
+                  'conv2': [256, 27, 27],
                   'norm2': [256, 13, 13],
                   'conv3': [384, 13, 13],
                   'conv4': [384, 13, 13],
+                  'conv5': [256, 13, 13],
                   'pool5': [256, 6, 6]}
 
     # subj config
     subj_id = 1
     roi = 'v1rh'
-    layer = 'norm1'
+    layer = 'conv11'
     layer_size = layer_info[layer]
     subj_dir = os.path.join(res_dir, 'vim2_S%s'%(subj_id))
     roi_dir = os.path.join(subj_dir, 'ridge', roi)
