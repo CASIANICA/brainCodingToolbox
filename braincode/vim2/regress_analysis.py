@@ -323,7 +323,7 @@ if __name__ == '__main__':
     # subj config
     subj_id = 1
     roi = 'v1rh'
-    layer = 'conv11'
+    layer = 'conv1'
     layer_size = layer_info[layer]
     subj_dir = os.path.join(res_dir, 'vim2_S%s'%(subj_id))
     roi_dir = os.path.join(subj_dir, 'ridge', roi)
