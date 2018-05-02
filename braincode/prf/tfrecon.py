@@ -365,8 +365,8 @@ def tfprf_test(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir):
             blur = np.expand_dims(blur, 3)
             fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
                                       padding='SAME')
-            fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
-                                      padding='SAME')
+            #fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
+            #                          padding='SAME')
             fpf = tf.Variable(tf.reshape(fpf_kernel, [250, 250]), name='fpf')
             flat_fpf = tf.transpose(tf.boolean_mask(tf.reshape(tf.nn.relu(fpf),
                                                                (62500, 1)),
