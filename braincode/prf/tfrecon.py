@@ -523,7 +523,7 @@ if __name__ == '__main__':
     #for i in range(vxl_idx.shape[0]):
     #for i in range(100):
     # to test the model. select following voxels
-    sel_vxl_idx = [93, 819, 820, 822, 603, 517, 409, 485, 1211, 614, 385, 953, 929, 257, 826, 518, 511, 807, 871, 262]
+    sel_vxl_idx = [93, 257, 262, 385, 409, 485, 511, 517, 518, 603, 614, 807, 819, 820, 822, 826, 871, 929, 953, 1211]
     for i in sel_vxl_idx:
         print 'Voxel %s - %s'%(i, vxl_idx[i])
         vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
