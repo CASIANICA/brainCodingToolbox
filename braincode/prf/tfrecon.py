@@ -2,7 +2,7 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 import os    
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ['CUDA_VISIBLE_DEVICES']='3'
+os.environ['CUDA_VISIBLE_DEVICES']='1'
 import numpy as np
 from scipy.misc import imresize
 import tables
@@ -136,8 +136,8 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
             blur = np.expand_dims(blur, 3)
             fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
                                       padding='SAME')
-            #fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
-            #                          padding='SAME')
+            fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
+                                      padding='SAME')
             fpf = tf.Variable(tf.reshape(fpf_kernel, [250, 250]), name='fpf')
             flat_fpf = tf.transpose(tf.boolean_mask(tf.reshape(tf.nn.relu(fpf),
                                                                (62500, 1)),
@@ -365,8 +365,8 @@ def tfprf_test(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir):
             blur = np.expand_dims(blur, 3)
             fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
                                       padding='SAME')
-            #fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
-            #                          padding='SAME')
+            fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
+                                      padding='SAME')
             fpf = tf.Variable(tf.reshape(fpf_kernel, [250, 250]), name='fpf')
             flat_fpf = tf.transpose(tf.boolean_mask(tf.reshape(tf.nn.relu(fpf),
                                                                (62500, 1)),
@@ -505,33 +505,36 @@ if __name__ == '__main__':
         os.makedirs(roi_dir, 0755)
 
     #-- parameter preparation
-    #gabor_bank_file = os.path.join(db_dir, 'gabor_kernels_small.npz')
-    #gabor_bank = np.load(gabor_bank_file)
+    gabor_bank_file = os.path.join(db_dir, 'gabor_kernels_small.npz')
+    gabor_bank = np.load(gabor_bank_file)
 
     #-- load vim1 stimuli of training dataset
-    #train_stimuli_file = os.path.join(db_dir, 'train_stimuli.npy')
-    #train_imgs = np.load(train_stimuli_file)
+    train_stimuli_file = os.path.join(db_dir, 'train_stimuli.npy')
+    train_imgs = np.load(train_stimuli_file)
 
     #-- get gabor features from stimuli
     #get_gabor_features(input_imgs, gabor_bank)
 
     #-- laplacian regularized pRF
-    #vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
-    #ts_m = np.mean(train_ts, axis=1, keepdims=True)
-    #ts_s = np.std(train_ts, axis=1, keepdims=True)
-    #train_ts = (train_ts - ts_m) / (ts_s + 1e-5)
-    ##for i in range(vxl_idx.shape[0]):
+    vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
+    ts_m = np.mean(train_ts, axis=1, keepdims=True)
+    ts_s = np.std(train_ts, axis=1, keepdims=True)
+    train_ts = (train_ts - ts_m) / (ts_s + 1e-5)
+    #for i in range(vxl_idx.shape[0]):
     #for i in range(100):
-    #    print 'Voxel %s - %s'%(i, vxl_idx[i])
-    #    vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
-    #    os.makedirs(vxl_dir, 0755)
-    #    # load voxel fmri data
-    #    vxl_rsp = train_ts[i]
-    #    #print 'Image data shape ',
-    #    #print input_imgs.shape
-    #    #print 'Voxel time point number',
-    #    #print vxl_rsp.shape
-    #    tfprf_laplacian(train_imgs, vxl_rsp, gabor_bank, vxl_dir)
+    # to test the model. select following voxels
+    sel_vxl_idx = [93, 819, 820, 822, 603, 517, 409, 485, 1211, 614, 385, 953, 929, 257, 826, 518, 511, 807, 871, 262]
+    for i in sel_vxl_idx:
+        print 'Voxel %s - %s'%(i, vxl_idx[i])
+        vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
+        os.makedirs(vxl_dir, 0755)
+        # load voxel fmri data
+        vxl_rsp = train_ts[i]
+        #print 'Image data shape ',
+        #print input_imgs.shape
+        #print 'Voxel time point number',
+        #print vxl_rsp.shape
+        tfprf_laplacian(train_imgs, vxl_rsp, gabor_bank, vxl_dir)
 
     #-- get validation r^2
     #vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
@@ -570,19 +573,19 @@ if __name__ == '__main__':
     #    tfprf_test(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir)
 
     #-- get r^2 on test dataset
-    vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
-    test_r2 = np.zeros(vxl_idx.shape[0])
-    for i in range(vxl_idx.shape[0]):
-        print 'Voxel %s - %s'%(i, vxl_idx[i])
-        vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
-        test_mse = open(os.path.join(vxl_dir, 'test_loss.txt'), 'r').readlines()
-        test_mse = float(test_mse[0].strip())
-        # calculate r^2
-        print 'MSE: %s'%(test_mse)
-        r2 = 1.0 - test_mse*1.0
-        test_r2[i] = r2
-    outfile = os.path.join(roi_dir, 'dl_prf_test_r2.npy')
-    np.save(outfile, test_r2)
+    #vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
+    #test_r2 = np.zeros(vxl_idx.shape[0])
+    #for i in range(vxl_idx.shape[0]):
+    #    print 'Voxel %s - %s'%(i, vxl_idx[i])
+    #    vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
+    #    test_mse = open(os.path.join(vxl_dir, 'test_loss.txt'), 'r').readlines()
+    #    test_mse = float(test_mse[0].strip())
+    #    # calculate r^2
+    #    print 'MSE: %s'%(test_mse)
+    #    r2 = 1.0 - test_mse*1.0
+    #    test_r2[i] = r2
+    #outfile = os.path.join(roi_dir, 'dl_prf_test_r2.npy')
+    #np.save(outfile, test_r2)
 
     #-- parameter preparation
     #gabor_bank_file = os.path.join(feat_dir, 'gabor_kernels.npz')
