@@ -515,26 +515,46 @@ if __name__ == '__main__':
     #-- get gabor features from stimuli
     #get_gabor_features(input_imgs, gabor_bank)
 
-    #-- laplacian regularized pRF
+    #-- pRF model test bench
+    val_stimuli_file = os.path.join(db_dir, 'val_stimuli.npy')
+    val_imgs = np.load(val_stimuli_file)
     vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
     ts_m = np.mean(train_ts, axis=1, keepdims=True)
     ts_s = np.std(train_ts, axis=1, keepdims=True)
     train_ts = (train_ts - ts_m) / (ts_s + 1e-5)
-    #for i in range(vxl_idx.shape[0]):
-    #for i in range(100):
+    ts_m = np.mean(val_ts, axis=1, keepdims=True)
+    ts_s = np.std(val_ts, axis=1, keepdims=True)
+    val_ts = (val_ts - ts_m) / (ts_s + 1e-5)
     # to test the model. select following voxels
-    sel_vxl_idx = [93, 257, 262, 385, 409, 485, 511, 517, 518, 603, 614, 807, 819, 820, 822, 826, 871, 929, 953, 1211]
+    sel_vxl_idx = [93, 257, 262, 385, 409, 485, 511, 517, 518, 603, 614,
+                   807, 819, 820, 822, 826, 871, 929, 953, 1211]
     for i in sel_vxl_idx:
         print 'Voxel %s - %s'%(i, vxl_idx[i])
         vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
         os.makedirs(vxl_dir, 0755)
         # load voxel fmri data
         vxl_rsp = train_ts[i]
-        #print 'Image data shape ',
-        #print input_imgs.shape
-        #print 'Voxel time point number',
-        #print vxl_rsp.shape
         tfprf_laplacian(train_imgs, vxl_rsp, gabor_bank, vxl_dir)
+        vxl_rsp = val_ts[i]
+        tfprf_test(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir)
+
+    #-- laplacian regularized pRF
+    #vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
+    #ts_m = np.mean(train_ts, axis=1, keepdims=True)
+    #ts_s = np.std(train_ts, axis=1, keepdims=True)
+    #train_ts = (train_ts - ts_m) / (ts_s + 1e-5)
+    ##for i in range(vxl_idx.shape[0]):
+    #for i in range(100):
+    #    print 'Voxel %s - %s'%(i, vxl_idx[i])
+    #    vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
+    #    os.makedirs(vxl_dir, 0755)
+    #    # load voxel fmri data
+    #    vxl_rsp = train_ts[i]
+    #    #print 'Image data shape ',
+    #    #print input_imgs.shape
+    #    #print 'Voxel time point number',
+    #    #print vxl_rsp.shape
+    #    tfprf_laplacian(train_imgs, vxl_rsp, gabor_bank, vxl_dir)
 
     #-- get validation r^2
     #vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
