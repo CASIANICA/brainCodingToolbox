@@ -126,7 +126,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
 
         # var for feature pooling field
         with tf.name_scope('pooling-field'):
-            fpf_kernel = tf.random_normal([1, 250, 250, 1], stddev=0.001)
+            fpf_kernel = tf.random_normal([1, 250, 250, 1], stddev=0.01)
             blur = np.array([[1.0/256,  4.0/256,  6.0/256,  4.0/256, 1.0/256],
                              [4.0/256, 16.0/256, 24.0/256, 16.0/256, 4.0/256],
                              [6.0/256, 24.0/256, 36.0/256, 24.0/256, 6.0/256],
@@ -136,8 +136,8 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
             blur = np.expand_dims(blur, 3)
             fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
                                       padding='SAME')
-            fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
-                                      padding='SAME')
+            #fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
+            #                          padding='SAME')
             fpf = tf.Variable(tf.reshape(fpf_kernel, [250, 250]), name='fpf')
             flat_fpf = tf.transpose(tf.boolean_mask(tf.reshape(tf.nn.relu(fpf),
                                                                (62500, 1)),
@@ -193,7 +193,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
                                                          padding='VALID')))
             #l1_error = tf.reduce_sum(tf.abs(fpf))
             # get total error
-            total_error = 10*error + 0.1*laplacian_error
+            total_error = 10*error + 10*laplacian_error
 
         tf.summary.scalar('fitting-loss', error)
         tf.summary.scalar('total-loss', total_error)
@@ -232,7 +232,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
         epochs_completed = 0
         min_err = None
         patience_cnt = 0
-        patience = 4
+        patience = 6
         iter_num = 0
         val_loss = []
         while 1:
@@ -355,7 +355,7 @@ def tfprf_test(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir):
 
         # var for feature pooling field
         with tf.name_scope('pooling-field'):
-            fpf_kernel = tf.random_normal([1, 250, 250, 1], stddev=0.001)
+            fpf_kernel = tf.random_normal([1, 250, 250, 1], stddev=0.01)
             blur = np.array([[1.0/256,  4.0/256,  6.0/256,  4.0/256, 1.0/256],
                              [4.0/256, 16.0/256, 24.0/256, 16.0/256, 4.0/256],
                              [6.0/256, 24.0/256, 36.0/256, 24.0/256, 6.0/256],
@@ -365,8 +365,8 @@ def tfprf_test(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir):
             blur = np.expand_dims(blur, 3)
             fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
                                       padding='SAME')
-            fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
-                                      padding='SAME')
+            #fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
+            #                          padding='SAME')
             fpf = tf.Variable(tf.reshape(fpf_kernel, [250, 250]), name='fpf')
             flat_fpf = tf.transpose(tf.boolean_mask(tf.reshape(tf.nn.relu(fpf),
                                                                (62500, 1)),
@@ -418,7 +418,7 @@ def tfprf_test(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir):
                                                          strides=[1, 1, 1, 1],
                                                          padding='VALID')))
             # get total error
-            total_error = 10*error + 0.1*laplacian_error
+            total_error = 10*error + 10*laplacian_error
 
     with tf.Session(graph=graph) as sess:
         # find the optimal model
