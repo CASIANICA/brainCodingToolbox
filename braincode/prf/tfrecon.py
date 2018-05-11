@@ -638,6 +638,13 @@ def tfprf_laplacian_entropy(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
                 print 'Rsp error: %s'%(rsp_err)
                 print 'Laplacian error: %s'%(lap_err)
                 print 'Spatial entropy: %s'%(entropy_err)
+                # plot fpf
+                fig, ax = plt.subplots()
+                cax = ax.imshow(step_fpf, cmap='gray')
+                fig.colorbar(cax)
+                plt.savefig(os.path.join(vxl_dir,
+                            'fpf_epoch%s.png'%((iter_num+1)/175)))
+                plt.close(fig)
                 # model validation
                 pred_val_rsp = np.zeros(175)
                 for j in range(35):
