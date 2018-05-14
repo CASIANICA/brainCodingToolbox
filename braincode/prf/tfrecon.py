@@ -449,7 +449,7 @@ def tfprf_test(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir):
             f.write('%s\n'%(val_err))
     return
 
-def tfprf_laplacian_entropy(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
+def tfprf_laplacian_l1(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
     """laplacian regularized pRF model."""
     # get image mask
     img_m = np.mean(input_imgs, axis=2)
@@ -466,7 +466,7 @@ def tfprf_laplacian_entropy(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
 
         # var for feature pooling field
         with tf.name_scope('pooling-field'):
-            fpf_kernel = tf.random_normal([1, 250, 250, 1], stddev=0.01)
+            fpf_kernel = tf.random_normal([1, 250, 250, 1], stddev=0.001)
             blur = np.array([[1.0/256,  4.0/256,  6.0/256,  4.0/256, 1.0/256],
                              [4.0/256, 16.0/256, 24.0/256, 16.0/256, 4.0/256],
                              [6.0/256, 24.0/256, 36.0/256, 24.0/256, 6.0/256],
@@ -526,19 +526,10 @@ def tfprf_laplacian_entropy(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
                                                          laplacian_kernel,
                                                          strides=[1, 1, 1, 1],
                                                          padding='VALID')))
-            # entropy regularization
-            abstract_fpf = tf.nn.avg_pool(tf.sign(fpf_shadow),
-                                          ksize=[1, 2, 2, 1],
-                                          strides=[1, 1, 1, 1],
-                                          padding='VALID')
-            abstract_fpf = tf.reshape(abstract_fpf, [-1])
-            total_count = tf.size(abstract_fpf, out_type=tf.float32)
-            uni_val, uni_idx, uni_count = tf.unique_with_counts(abstract_fpf)
-            val_dist = tf.cast(uni_count, tf.float32) / total_count
-            entropy = tf.reduce_sum(val_dist * tf.log(val_dist) / tf.log(tf.constant(2, dtype=tf.float32)))
+            l1_error = tf.reduce_sum(tf.abs(fpf))
 
             # get total error
-            total_error = 10*error + laplacian_error - entropy
+            total_error = 10*error + laplacian_error + 10*l1_error
 
         tf.summary.scalar('fitting-loss', error)
         tf.summary.scalar('total-loss', total_error)
@@ -629,14 +620,11 @@ def tfprf_laplacian_entropy(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
                                                      rsp_: batch[1]})
                 lap_err = sess.run(laplacian_error, feed_dict={img:batch[0],
                                                                rsp_: batch[1]})
-                entropy_err = sess.run(entropy, feed_dict={img:batch[0],
-                                                           rsp_: batch[1]})
-                xxx = sess.run(val_dist, feed_dict={img:batch[0],
-                                                           rsp_: batch[1]})
-                print xxx
+                l1_err = sess.run(l1_error, feed_dict={img:batch[0],
+                                                       rsp_: batch[1]})
                 print 'Rsp error: %s'%(rsp_err)
                 print 'Laplacian error: %s'%(lap_err)
-                print 'Spatial entropy: %s'%(entropy_err)
+                print 'L1 error: %s'%(l1_err)
                 # plot fpf
                 fig, ax = plt.subplots()
                 cax = ax.imshow(step_fpf, cmap='gray')
@@ -688,7 +676,7 @@ def tfprf_laplacian_entropy(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
         #test_writer.close()
     return
 
-def tfprf_test_entropy(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir):
+def tfprf_test_l1(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir):
     """Test laplacian regularized pRF model on test dataset."""
     # get image mask
     img_m = np.mean(train_imgs, axis=2)
@@ -705,7 +693,7 @@ def tfprf_test_entropy(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir):
 
         # var for feature pooling field
         with tf.name_scope('pooling-field'):
-            fpf_kernel = tf.random_normal([1, 250, 250, 1], stddev=0.01)
+            fpf_kernel = tf.random_normal([1, 250, 250, 1], stddev=0.001)
             blur = np.array([[1.0/256,  4.0/256,  6.0/256,  4.0/256, 1.0/256],
                              [4.0/256, 16.0/256, 24.0/256, 16.0/256, 4.0/256],
                              [6.0/256, 24.0/256, 36.0/256, 24.0/256, 6.0/256],
@@ -764,21 +752,9 @@ def tfprf_test_entropy(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir):
                                                          laplacian_kernel,
                                                          strides=[1, 1, 1, 1],
                                                          padding='VALID')))
-            # entropy regularization
-            abstract_fpf = tf.nn.avg_pool(tf.sign(tf.abs(fpf_shadow)),
-                                          ksize=[1, 2, 2, 1],
-                                          strides=[1, 1, 1, 1],
-                                          padding='VALID')
-            abstract_fpf = tf.reshape(abstract_fpf, [-1])
-            total_count = tf.size(abstract_fpf)
-            uni_val, uni_idx, uni_count = tf.unique_with_counts(abstract_fpf)
-            val_dist = uni_count / total_count
-            entropy = tf.reduce_sum(val_dist * tf.log(val_dist) / tf.log(tf.constant(10)))
-            if entropy != 0:
-                entropy *= -1
-            
+            l1_error = tf.reduce_sum(tf.abs(fpf))
             # get total error
-            total_error = 10*error + 10*laplacian_error
+            total_error = 10*error + laplacian_error + 10*l1_error
 
     with tf.Session(graph=graph) as sess:
         # find the optimal model
@@ -890,15 +866,15 @@ if __name__ == '__main__':
                    807, 819, 820, 822, 826, 871, 929, 953, 1211]
     for i in sel_vxl_idx[:1]:
         print 'Voxel %s - %s'%(i, vxl_idx[i])
-        vxl_dir = os.path.join(roi_dir, 'entropy_1', 'voxel_%s'%(vxl_idx[i]))
+        vxl_dir = os.path.join(roi_dir, 'l1_1', 'voxel_%s'%(vxl_idx[i]))
         os.makedirs(vxl_dir, 0755)
         # load voxel fmri data
         vxl_rsp = train_ts[i]
         #tfprf_laplacian(train_imgs, vxl_rsp, gabor_bank, vxl_dir)
-        tfprf_laplacian_entropy(train_imgs, vxl_rsp, gabor_bank, vxl_dir)
+        tfprf_laplacian_l1(train_imgs, vxl_rsp, gabor_bank, vxl_dir)
         vxl_rsp = val_ts[i]
         #tfprf_test(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir)
-        tfprf_test_entropy(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir)
+        tfprf_test_l1(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir)
 
     #-- laplacian regularized pRF
     #vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
