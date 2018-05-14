@@ -529,7 +529,7 @@ def tfprf_laplacian_l1(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
             l1_error = tf.reduce_sum(tf.abs(fpf))
 
             # get total error
-            total_error = 10*error + laplacian_error + 10*l1_error
+            total_error = 10*error + laplacian_error + l1_error
 
         tf.summary.scalar('fitting-loss', error)
         tf.summary.scalar('total-loss', total_error)
@@ -754,7 +754,7 @@ def tfprf_test_l1(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir):
                                                          padding='VALID')))
             l1_error = tf.reduce_sum(tf.abs(fpf))
             # get total error
-            total_error = 10*error + laplacian_error + 10*l1_error
+            total_error = 10*error + laplacian_error + l1_error
 
     with tf.Session(graph=graph) as sess:
         # find the optimal model
