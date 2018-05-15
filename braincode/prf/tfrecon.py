@@ -134,8 +134,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
                              [6.0/256, 24.0/256, 36.0/256, 24.0/256, 6.0/256],
                              [4.0/256, 16.0/256, 24.0/256, 16.0/256, 4.0/256],
                              [1.0/256,  4.0/256,  6.0/256,  4.0/256, 1.0/256]])
-            blur = np.expand_dims(blur, 2)
-            blur = np.expand_dims(blur, 3)
+            blur = np.expand_dims(np.expand_dims(blur, 2), 3)
             fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
                                       padding='SAME')
             #fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
@@ -363,8 +362,7 @@ def tfprf_test(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir):
                              [6.0/256, 24.0/256, 36.0/256, 24.0/256, 6.0/256],
                              [4.0/256, 16.0/256, 24.0/256, 16.0/256, 4.0/256],
                              [1.0/256,  4.0/256,  6.0/256,  4.0/256, 1.0/256]])
-            blur = np.expand_dims(blur, 2)
-            blur = np.expand_dims(blur, 3)
+            blur = np.expand_dims(np.expand_dims(blur, 2), 3)
             fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
                                       padding='SAME')
             #fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
@@ -472,8 +470,7 @@ def tfprf_laplacian_l1(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
                              [6.0/256, 24.0/256, 36.0/256, 24.0/256, 6.0/256],
                              [4.0/256, 16.0/256, 24.0/256, 16.0/256, 4.0/256],
                              [1.0/256,  4.0/256,  6.0/256,  4.0/256, 1.0/256]])
-            blur = np.expand_dims(blur, 2)
-            blur = np.expand_dims(blur, 3)
+            blur = np.expand_dims(np.expand_dims(blur, 2), 3)
             fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
                                       padding='SAME')
             fpf = tf.Variable(tf.reshape(fpf_kernel, [250, 250]), name='fpf')
@@ -529,7 +526,7 @@ def tfprf_laplacian_l1(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
             l1_error = tf.reduce_sum(tf.abs(fpf))
 
             # get total error
-            total_error = 10*error + laplacian_error + l1_error
+            total_error = 10*error + laplacian_error + 0.003*l1_error
 
         tf.summary.scalar('fitting-loss', error)
         tf.summary.scalar('total-loss', total_error)
@@ -699,8 +696,7 @@ def tfprf_test_l1(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir):
                              [6.0/256, 24.0/256, 36.0/256, 24.0/256, 6.0/256],
                              [4.0/256, 16.0/256, 24.0/256, 16.0/256, 4.0/256],
                              [1.0/256,  4.0/256,  6.0/256,  4.0/256, 1.0/256]])
-            blur = np.expand_dims(blur, 2)
-            blur = np.expand_dims(blur, 3)
+            blur = np.expand_dims(np.expand_dims(blur, 2), 3)
             fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
                                       padding='SAME')
             fpf = tf.Variable(tf.reshape(fpf_kernel, [250, 250]), name='fpf')
@@ -754,7 +750,7 @@ def tfprf_test_l1(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir):
                                                          padding='VALID')))
             l1_error = tf.reduce_sum(tf.abs(fpf))
             # get total error
-            total_error = 10*error + laplacian_error + l1_error
+            total_error = 10*error + laplacian_error + 0.003*l1_error
 
     with tf.Session(graph=graph) as sess:
         # find the optimal model
@@ -864,9 +860,9 @@ if __name__ == '__main__':
     # to test the model. select following voxels
     sel_vxl_idx = [93, 257, 262, 385, 409, 485, 511, 517, 518, 603, 614,
                    807, 819, 820, 822, 826, 871, 929, 953, 1211]
-    for i in sel_vxl_idx[:1]:
+    for i in sel_vxl_idx:
         print 'Voxel %s - %s'%(i, vxl_idx[i])
-        vxl_dir = os.path.join(roi_dir, 'l1_1', 'voxel_%s'%(vxl_idx[i]))
+        vxl_dir = os.path.join(roi_dir, 'l1_2', 'voxel_%s'%(vxl_idx[i]))
         os.makedirs(vxl_dir, 0755)
         # load voxel fmri data
         vxl_rsp = train_ts[i]
