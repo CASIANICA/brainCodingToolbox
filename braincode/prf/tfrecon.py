@@ -755,9 +755,11 @@ if __name__ == '__main__':
         # load voxel fmri data
         vxl_rsp = train_ts[i]
         #tfprf_laplacian(train_imgs, vxl_rsp, gabor_bank, vxl_dir)
+        refine_dir = os.path.join(vxl_dir, 'refine')
+        if os.path.exists(refine_dir):
+            os.system('rm -rf %s'%(refine_dir))
         tfprf_laplacian_refine(train_imgs, vxl_rsp, gabor_bank, vxl_dir)
         vxl_rsp = val_ts[i]
-        refine_dir = os.path.join(vxl_dir, 'refine')
         tfprf_test(train_imgs, val_imgs, vxl_rsp, gabor_bank, refine_dir)
 
     #-- get validation r^2
