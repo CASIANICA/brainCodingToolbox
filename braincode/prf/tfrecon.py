@@ -427,7 +427,7 @@ def tfprf_laplacian_refine(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
             os.makedirs(refine_dir, 0755)
         # refine model
         vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
-        adam_opt = tf.train.AdamOptimizer(0.00005)
+        adam_opt = tf.train.AdamOptimizer(0.0001)
         solver =  adam_opt.minimize(total_error, var_list = vars_x)
         # merge summaries
         merged = tf.summary.merge_all()
@@ -457,7 +457,10 @@ def tfprf_laplacian_refine(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
         epochs_completed = 0
         min_err = None
         patience_cnt = 0
-        patience = 4
+        if sel_iter_num>174:
+            patience = 6
+        else:
+            patience = 1
         iter_num = 0
         val_loss = []
         while 1:
@@ -524,7 +527,7 @@ def tfprf_laplacian_refine(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
                 if iter_num==174:
                     min_err = val_err
                 else:
-                    if (min_err - val_err) >= 0.0004:
+                    if (min_err - val_err) >= 0.0016:
                         min_err = val_err
                         patience_cnt = 0
                     else:
@@ -716,7 +719,7 @@ if __name__ == '__main__':
     # directory config
     subj_dir = os.path.join(res_dir, 'vim1_S%s'%(subj_id))
     prf_dir = os.path.join(subj_dir, 'prf')
-    roi_dir = os.path.join(prf_dir, roi, 'refine')
+    roi_dir = os.path.join(prf_dir, roi, 'test')
     if not os.path.exists(roi_dir):
         os.makedirs(roi_dir, 0755)
 
@@ -741,11 +744,11 @@ if __name__ == '__main__':
     ts_m = np.mean(val_ts, axis=1, keepdims=True)
     ts_s = np.std(val_ts, axis=1, keepdims=True)
     val_ts = (val_ts - ts_m) / (ts_s + 1e-5)
-    ## to test the model. select following voxels
-    #sel_vxl_idx = [93, 257, 262, 385, 409, 485, 511, 517, 518, 603, 614,
-    #               807, 819, 820, 822, 826, 871, 929, 953, 1211]
-    #for i in sel_vxl_idx[:2]:
-    for i in range(100):
+    # to test the model. select following voxels
+    sel_vxl_idx = [93, 257, 262, 385, 409, 485, 511, 517, 518, 603, 614,
+                   807, 819, 820, 822, 826, 871, 929, 953, 1211]
+    for i in sel_vxl_idx[:3]:
+    #for i in range(100):
         print 'Voxel %s - %s'%(i, vxl_idx[i])
         vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
         #os.makedirs(vxl_dir, 0755)
