@@ -427,7 +427,7 @@ def tfprf_laplacian_refine(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
             os.makedirs(refine_dir, 0755)
         # refine model
         vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
-        adam_opt = tf.train.AdamOptimizer(0.0001)
+        adam_opt = tf.train.AdamOptimizer(0.0003)
         solver =  adam_opt.minimize(total_error, var_list = vars_x)
         # merge summaries
         merged = tf.summary.merge_all()
@@ -527,7 +527,7 @@ def tfprf_laplacian_refine(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
                 if iter_num==174:
                     min_err = val_err
                 else:
-                    if (min_err - val_err) >= 0.0016:
+                    if (min_err - val_err) >= 0.001:
                         min_err = val_err
                         patience_cnt = 0
                     else:
