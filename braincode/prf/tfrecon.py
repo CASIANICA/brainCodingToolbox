@@ -460,7 +460,7 @@ def tfprf_laplacian_refine(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
         if sel_iter_num>174:
             patience = 6
         else:
-            patience = 1
+            patience = 0
         iter_num = 0
         val_loss = []
         while 1:
@@ -719,7 +719,7 @@ if __name__ == '__main__':
     # directory config
     subj_dir = os.path.join(res_dir, 'vim1_S%s'%(subj_id))
     prf_dir = os.path.join(subj_dir, 'prf')
-    roi_dir = os.path.join(prf_dir, roi, 'test')
+    roi_dir = os.path.join(prf_dir, roi, 'refine')
     if not os.path.exists(roi_dir):
         os.makedirs(roi_dir, 0755)
 
@@ -744,11 +744,11 @@ if __name__ == '__main__':
     ts_m = np.mean(val_ts, axis=1, keepdims=True)
     ts_s = np.std(val_ts, axis=1, keepdims=True)
     val_ts = (val_ts - ts_m) / (ts_s + 1e-5)
-    # to test the model. select following voxels
-    sel_vxl_idx = [93, 257, 262, 385, 409, 485, 511, 517, 518, 603, 614,
-                   807, 819, 820, 822, 826, 871, 929, 953, 1211]
-    for i in sel_vxl_idx[:3]:
-    #for i in range(100):
+    ## to test the model. select following voxels
+    #sel_vxl_idx = [93, 257, 262, 385, 409, 485, 511, 517, 518, 603, 614,
+    #               807, 819, 820, 822, 826, 871, 929, 953, 1211]
+    #for i in sel_vxl_idx[:3]:
+    for i in range(100):
         print 'Voxel %s - %s'%(i, vxl_idx[i])
         vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
         #os.makedirs(vxl_dir, 0755)
