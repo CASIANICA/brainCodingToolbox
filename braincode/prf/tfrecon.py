@@ -734,7 +734,7 @@ if __name__ == '__main__':
     val_imgs = np.load(val_stimuli_file)
 
     #-- get gabor features from stimuli
-    get_gabor_features(train_imgs, gabor_bank)
+    #get_gabor_features(train_imgs, gabor_bank)
 
     #-- pRF model estimate
     vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
