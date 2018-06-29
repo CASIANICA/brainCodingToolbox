@@ -700,6 +700,24 @@ def get_gabor_features(input_imgs, gabor_bank):
             gf = sess.run(gabor_feat, feed_dict={img: x})
             fp[(i*10):(i*10+10)] = gf
 
+def get_prf_weights(vxl_dir):
+    """Get feature weights and fpf from trained model."""
+    graph = tf.Graph()
+    with tf.Session(graph=graph) as sess:
+        # find the optimal model and restore it
+        file_list = os.listdir(vxl_dir)
+        file_list = [item for item in file_list if item[-5:]=='index']
+        iter_num = [int(item.split('.')[0].split('-')[1]) for item in file_list]
+        sel_iter_num = min(iter_num)
+        model_path = os.path.join(vxl_dir, 'prf_model-%s'%(sel_iter_num))
+        saver = tf.train.import_meta_graph(model_path+'.meta')
+        saver.restore(sess, model_path)
+        # get fpf
+        fpf = graph.get_tensor_by_name('pooling-field/fpf:0').eval()
+        # get feature weights
+        wts = graph.get_tensor_by_name('weighted-features/weights:0')
+        return fpf, wts
+
 
 if __name__ == '__main__':
     """Main function"""
@@ -784,20 +802,29 @@ if __name__ == '__main__':
     #np.save(outfile, val_r2)
 
     #-- get r^2 on test dataset
+    #vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
+    #test_r2 = np.zeros(vxl_idx.shape[0])
+    #for i in range(vxl_idx.shape[0]):
+    #    print 'Voxel %s - %s'%(i, vxl_idx[i])
+    #    vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]), 'refine')
+    #    test_mse = open(os.path.join(vxl_dir, 'test_loss.txt'), 'r').readlines()
+    #    test_mse = float(test_mse[0].strip())
+    #    # calculate r^2
+    #    print 'MSE: %s'%(test_mse)
+    #    r2 = 1.0 - test_mse*1.0
+    #    test_r2[i] = r2
+    #outfile = os.path.join(roi_dir, 'dl_prf_refine_test_r2.npy')
+    #np.save(outfile, test_r2)
+
+    #-- get learned weights from voxel-specific model
     vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
-    test_r2 = np.zeros(vxl_idx.shape[0])
     for i in range(vxl_idx.shape[0]):
         print 'Voxel %s - %s'%(i, vxl_idx[i])
         vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]), 'refine')
-        test_mse = open(os.path.join(vxl_dir, 'test_loss.txt'), 'r').readlines()
-        test_mse = float(test_mse[0].strip())
-        # calculate r^2
-        print 'MSE: %s'%(test_mse)
-        r2 = 1.0 - test_mse*1.0
-        test_r2[i] = r2
-    outfile = os.path.join(roi_dir, 'dl_prf_refine_test_r2.npy')
-    np.save(outfile, test_r2)
-
+        fpf, wts = get_prf_weights(vxl_dir)
+        outfile = os.path.join(vxl_dir, 'model_wts')
+        np.savez(outfile, fpf=fpf, wts=wts)
+    
     #-- parameter preparation
     #gabor_bank_file = os.path.join(feat_dir, 'gabor_kernels.npz')
     #gabor_bank = np.load(gabor_bank_file)
