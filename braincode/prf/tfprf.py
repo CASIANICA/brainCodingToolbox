@@ -715,7 +715,7 @@ def get_prf_weights(vxl_dir):
         # get fpf
         fpf = graph.get_tensor_by_name('pooling-field/fpf:0').eval()
         # get feature weights
-        wts = graph.get_tensor_by_name('weighted-features/weights:0')
+        wts = graph.get_tensor_by_name('weighted-features/weights:0').eval()
         return fpf, wts
 
 
