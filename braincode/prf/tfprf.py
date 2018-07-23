@@ -5,7 +5,6 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ['CUDA_VISIBLE_DEVICES']='0'
 import numpy as np
 from math import log
-from collections import Counter
 from scipy.misc import imresize
 import tables
 import tensorflow as tf
@@ -909,6 +908,9 @@ if __name__ == '__main__':
     vxl_rsp = val_ts[sel_idx, 0].astype(np.float32)
     print 'Voxel response shape: ',
     print vxl_rsp.shape
+    # chnage type of gabor bank
+    for k in gabor_bank:
+        gabor_bank[k] = gabor_bank[k].astype(np.float32)
     rec = prf_reconstructor(gabor_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp)
 
     ## model pre-testing and visual reconstruction
