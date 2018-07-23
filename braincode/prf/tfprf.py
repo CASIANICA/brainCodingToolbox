@@ -744,7 +744,6 @@ def prf_reconstructor(gobar_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp):
         # get feature summary from pooling field
         gabor_energy = tf.transpose(gabor_energy, perm=[3, 1, 2, 0])
         fpfs = np.expand_dims(np.moveaxis(sel_fpfs, 0, -1), 2)
-        #fpfs = tf.expand_dims(tf.transpose(sel_fpfs, perm=[1, 2, 0]), 2)
         feat_vtr = tf.nn.conv2d(gabor_energy, fpfs, strides=[1, 1, 1, 1],
                                 padding='VALID')
         feat_vtr = tf.transpose(tf.squeeze(feat_vtr), perm=[1, 0])
@@ -766,6 +765,7 @@ def prf_reconstructor(gobar_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp):
         for step in range(50):
             _, current_err, rec_img = sess.run([solver, error, img],
                                                feed_dict={real_rsp: vxl_rsp})
+            print 'Step %s'%(step)
             if step%10==0:
                 print('Iter: {}; loss: {:.4}'.format(step, current_err))    
                 fig=plt.figure()
@@ -905,12 +905,8 @@ if __name__ == '__main__':
     sel_wts = model_wts['wts'][sel_idx]
     sel_fpfs = model_wts['fpfs'][sel_idx]
     sel_bias = model_wts['biases'][sel_idx]
-    #sel_wts = model_wts['wts'][sel_idx].astype(np.float32)
-    #sel_fpfs = model_wts['fpfs'][sel_idx].astype(np.float32)
-    #sel_bias = model_wts['biases'][sel_idx].astype(np.float32)
     # get voxel response and reconstruct image
     vxl_rsp = val_ts[sel_idx, 0]
-    #vxl_rsp = val_ts[sel_idx, 0].astype(np.float32)
     print 'Voxel response shape: ',
     print vxl_rsp.shape
     rec = prf_reconstructor(gabor_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp)
