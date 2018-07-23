@@ -909,9 +909,10 @@ if __name__ == '__main__':
     print 'Voxel response shape: ',
     print vxl_rsp.shape
     # chnage type of gabor bank
+    ngabor_bank = {}
     for k in gabor_bank:
-        gabor_bank[k] = gabor_bank[k].astype(np.float32)
-    rec = prf_reconstructor(gabor_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp)
+        ngabor_bank[k] = gabor_bank[k].astype(np.float32)
+    rec = prf_reconstructor(ngabor_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp)
 
     ## model pre-testing and visual reconstruction
     #-- parameter preparation
