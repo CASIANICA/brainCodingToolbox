@@ -720,7 +720,7 @@ def get_prf_weights(vxl_dir):
         b = graph.get_tensor_by_name('weighted-features/bias:0').eval()
         return fpf, b, wts
 
-def prf_reconstructor(gobar_bank, sel_wts, sel_fpfs, vxl_rsp):
+def prf_reconstructor(gobar_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp):
     """Image reconstructor based on Activation Maximization."""
     graph = tf.Graph()
     with graph.as_default():
@@ -750,41 +750,29 @@ def prf_reconstructor(gobar_bank, sel_wts, sel_fpfs, vxl_rsp):
         feat_vtr = tf.transpose(tf.squeeze(feat_vtr), perm=[1, 0])
 
         # get estimate neural activity
-        rsp = tf.sum(tf.multiply(feat_vtr, sel_wts), 1)
+        pred_rsp = tf.sum(tf.multiply(feat_vtr, sel_wts), 1) + sel_bias
 
+        # loss config
+        real_rsp = tf.placeholder(tf.float32, shape=(vxl_rsp.shape[0],))
+        error = tf.reduce_mean(tf.square(real_rsp - pred_rsp))
+        opt = tf.train.GradientDescentOptimizer(0.5)
+        vars_x = tf.get_collection(tf.Graphkeys.TRAINABLE_VARIABLES,'input-img')
+        solver = opt.minimize(error, var_list=vars_x)
 
-        b = tf.Variable(tf.constant(0.01, shape=[1]), name='bias')
-        w = tf.Variable(tf.constant(0.01, shape=[1, 72]), name='weights')
-        vxl_wt_feats = tf.matmul(w, vxl_feats)
-        rsp = tf.reshape(vxl_wt_feats + b, [-1])
-
+    # model solving
     with tf.Session(graph=graph) as sess:
-        # find the optimal model
-        file_list = os.listdir(vxl_dir)
-        file_list = [item for item in file_list if item[-5:]=='index']
-        iter_num = [int(item.split('.')[0].split('-')[1]) for item in file_list]
-        sel_iter_num = min(iter_num)
-        model_path = os.path.join(vxl_dir, 'prf_model-%s'%(sel_iter_num))
-        # load saved model
-        saver = tf.train.Saver()
-        saver.restore(sess, model_path)
-        # test on validation dataset
-        input_imgs = val_imgs - np.expand_dims(img_m, 2)
-        input_imgs = np.transpose(input_imgs, (2, 0, 1))
-        input_imgs = np.expand_dims(input_imgs, 3)
+        sess.run(tf.global_variables_initializer())
+        for step in range(50):
+            _, current_err, rec_img = sess.run([solver, error, img],
+                                               feed_dict={real_rsp: vxl_rsp})
+            if step%10==0:
+                print('Iter: {}; loss: {:.4}'.format(step, current_err))    
+                fig=plt.figure()
+                plt.imshow(rec_img.reshape(500, 500))
+                plt.savefig('recons'+str(step)+'.png')
+                plt.close(fig)             
+    return rec_img
 
-        pred_val_rsp = np.zeros(120)
-        for i in range(24):
-            part_rsp = sess.run(rsp, feed_dict={img: input_imgs[(i*5):(i*5+5)],
-                                                rsp_: vxl_rsp[(i*5):(i*5+5)]})
-            pred_val_rsp[(i*5):(i*5+5)] = part_rsp
-        val_err = np.mean(np.square(pred_val_rsp - vxl_rsp))
-        print 'Validation Error: %s'%(val_err)
-        # save final validation loss
-        with open(os.path.join(vxl_dir, 'test_loss.txt'), 'w+') as f:
-            f.write('%s\n'%(val_err))
-    return
-    
 
 if __name__ == '__main__':
     """Main function"""
@@ -884,39 +872,40 @@ if __name__ == '__main__':
     #np.save(outfile, test_r2)
 
     #-- get learned weights from voxel-specific model
-    vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
-    wts = np.zeros((vxl_idx.shape[0], 72))
-    fpfs = np.zeros((vxl_idx.shape[0], 250, 250))
-    biases = np.zeros((vxl_idx.shape[0],))
-    for i in range(vxl_idx.shape[0]):
-        print 'Voxel %s - %s'%(i, vxl_idx[i])
-        vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]), 'refine')
-        fpf, b, wt = get_prf_weights(vxl_dir)
-        outfile = os.path.join(vxl_dir, 'model_wts')
-        np.savez(outfile, fpf=fpf, wt=wt, bias=b)
-        fpfs[i, ...] = fpf
-        wts[i] = wt
-        biases[i] = b
-    model_wts_file = os.path.join(roi_dir, 'merged_model_wts')
-    np.savez(model_wts_file, fpfs=fpfs, wts=wts, biases=biases)
+    #vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
+    #wts = np.zeros((vxl_idx.shape[0], 72))
+    #fpfs = np.zeros((vxl_idx.shape[0], 250, 250))
+    #biases = np.zeros((vxl_idx.shape[0],))
+    #for i in range(vxl_idx.shape[0]):
+    #    print 'Voxel %s - %s'%(i, vxl_idx[i])
+    #    vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]), 'refine')
+    #    fpf, b, wt = get_prf_weights(vxl_dir)
+    #    outfile = os.path.join(vxl_dir, 'model_wts')
+    #    np.savez(outfile, fpf=fpf, wt=wt, bias=b)
+    #    fpfs[i, ...] = fpf
+    #    wts[i] = wt
+    #    biases[i] = b
+    #model_wts_file = os.path.join(roi_dir, 'merged_model_wts')
+    #np.savez(model_wts_file, fpfs=fpfs, wts=wts, biases=biases)
 
     #-- visual reconstruction using cnn-prf
-    #vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
-    #ts_m = np.mean(val_ts, axis=1, keepdims=True)
-    #ts_s = np.std(val_ts, axis=1, keepdims=True)
-    #val_ts = (val_ts - ts_m) / (ts_s + 1e-5)
-    ## load estimated prf parameters
-    #model_wts = np.load(os.path.join(roi_dir, 'merged_model_wts.npz'))
-    ## load model test result
-    #dl_test_r2 = np.load(os.path.join(roi_dir, 'dl_prf_refine_test_r2.npy'))
-    ## select voxels
-    #thres = 0.1
-    #sel_idx = np.nonzero(dl_test_r2>=thres)[0]
-    #sel_wts = model_wts['wts'][sel_idx]
-    #sel_fpfs = model_wts['fpfs'][sel_idx]
-    ## get voxel response and reconstruct image
-    #vxl_rsp = val_ts[sel_idx, 0]
-    #recon_img = prf_reconstructor(gobar_bank, sel_wts, sel_fpfs, vxl_rsp)
+    vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
+    ts_m = np.mean(val_ts, axis=1, keepdims=True)
+    ts_s = np.std(val_ts, axis=1, keepdims=True)
+    val_ts = (val_ts - ts_m) / (ts_s + 1e-5)
+    # load estimated prf parameters
+    model_wts = np.load(os.path.join(roi_dir, 'merged_model_wts.npz'))
+    # load model test result
+    dl_test_r2 = np.load(os.path.join(roi_dir, 'dl_prf_refine_test_r2.npy'))
+    # select voxels
+    thres = 0.1
+    sel_idx = np.nonzero(dl_test_r2>=thres)[0]
+    sel_wts = model_wts['wts'][sel_idx]
+    sel_fpfs = model_wts['fpfs'][sel_idx]
+    sel_bias = model_wts['biases'][sel_idx]
+    # get voxel response and reconstruct image
+    vxl_rsp = val_ts[sel_idx, 0]
+    rec = prf_reconstructor(gobar_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp)
 
 
 
