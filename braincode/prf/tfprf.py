@@ -750,7 +750,7 @@ def prf_reconstructor(gobar_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp):
         feat_vtr = tf.transpose(tf.squeeze(feat_vtr), perm=[1, 0])
 
         # get estimate neural activity
-        pred_rsp = tf.sum(tf.multiply(feat_vtr, sel_wts), 1) + sel_bias
+        pred_rsp = tf.reduce_sum(tf.multiply(feat_vtr, sel_wts), 1) + sel_bias
 
         # loss config
         real_rsp = tf.placeholder(tf.float32, shape=(vxl_rsp.shape[0],))
