@@ -807,7 +807,7 @@ if __name__ == '__main__':
     #for i in range(vxl_idx.shape[0]):
     #    print 'Voxel %s - %s'%(i, vxl_idx[i])
     #    vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]), 'refine')
-    #    test_mse = open(os.path.join(vxl_dir, 'test_loss.txt'), 'r').readlines()
+    #    test_mse = open(os.path.join(vxl_dir,'test_loss.txt'), 'r').readlines()
     #    test_mse = float(test_mse[0].strip())
     #    # calculate r^2
     #    print 'MSE: %s'%(test_mse)
@@ -818,13 +818,19 @@ if __name__ == '__main__':
 
     #-- get learned weights from voxel-specific model
     vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
+    fpfs = np.zeros((vxl_idx.shape[0], 72))
+    wts = np.zeros((vxl_idx.shape[0], 250, 250))
     for i in range(vxl_idx.shape[0]):
         print 'Voxel %s - %s'%(i, vxl_idx[i])
         vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]), 'refine')
-        fpf, wts = get_prf_weights(vxl_dir)
+        fpf, wt = get_prf_weights(vxl_dir)
         outfile = os.path.join(vxl_dir, 'model_wts')
-        np.savez(outfile, fpf=fpf, wts=wts)
-    
+        np.savez(outfile, fpf=fpf, wt=wt)
+        fpfs[i, ...] = fpf
+        wts[i] = wt
+    np.savez('merged_model_wts', fpfs=fpfs, wts=wts)
+
+    ## model pre-testing and visual reconstruction
     #-- parameter preparation
     #gabor_bank_file = os.path.join(feat_dir, 'gabor_kernels.npz')
     #gabor_bank = np.load(gabor_bank_file)
