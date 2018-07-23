@@ -905,9 +905,7 @@ if __name__ == '__main__':
     sel_bias = model_wts['biases'][sel_idx]
     # get voxel response and reconstruct image
     vxl_rsp = val_ts[sel_idx, 0]
-    rec = prf_reconstructor(gobar_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp)
-
-
+    rec = prf_reconstructor(gabor_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp)
 
     ## model pre-testing and visual reconstruction
     #-- parameter preparation
