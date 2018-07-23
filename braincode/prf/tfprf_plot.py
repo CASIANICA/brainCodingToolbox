@@ -32,7 +32,7 @@ db_dir = r'/Users/sealhuang/project/brainCoding/subjects/vim1_S1/prf/v1'
 #plt.savefig(os.path.join(db_dir, 'test_r2_across_stages.png'))
 #plt.close()
 
-#-- plot test r-square across stages
+#-- plot test r-square of Gaussian- vs. CNN-pRF method
 #reg_test_r2 = np.load(os.path.join(db_dir, 'reg_prf_test_r2.npy'))
 #dl_refine_test_r2 = np.load(os.path.join(db_dir, 'dl_prf_refine_test_r2.npy'))
 #plt.scatter(reg_test_r2, dl_refine_test_r2, 4)

@@ -716,8 +716,75 @@ def get_prf_weights(vxl_dir):
         fpf = graph.get_tensor_by_name('pooling-field/fpf:0').eval()
         # get feature weights
         wts = graph.get_tensor_by_name('weighted-features/weights:0').eval()
-        return fpf, wts
+        # get feature biases
+        b = graph.get_tensor_by_name('weighted-features/bias:0').eval()
+        return fpf, b, wts
 
+def prf_reconstructor(gobar_bank, sel_wts, sel_fpfs, vxl_rsp):
+    """Image reconstructor based on Activation Maximization."""
+    graph = tf.Graph()
+    with graph.as_default():
+        # vars for image
+        img = tf.Variable(tf.random_normal([1, 500, 500, 1], stddev=0.001),
+                          name='input-img')
+
+        # gabor features extraction
+        gabor_list = []
+        for i in range(9):
+            # config for the gabor filters
+            gabor_real = np.expand_dims(gabor_bank['f%s_real'%(i+1)], 2)
+            gabor_imag = np.expand_dims(gabor_bank['f%s_imag'%(i+1)], 2)
+            rconv = tf.nn.conv2d(img, gabor_real, strides=[1, 2, 2, 1],
+                                 padding='SAME')
+            iconv = tf.nn.conv2d(img, gabor_imag, strides=[1, 2, 2, 1],
+                                 padding='SAME')
+            gabor_energy = tf.sqrt(tf.square(rconv) + tf.square(iconv))
+            gabor_list.append(gabor_energy)
+        gabor_energy = tf.concat(gabor_list, axis=3)
+
+        # get feature summary from pooling field
+        gabor_energy = tf.transpose(gabor_energy, perm=[3, 1, 2, 0])
+        fpfs = tf.expand_dims(tf.transpose(sel_fpfs, perm=[1, 2, 0]), 2)
+        feat_vtr = tf.nn.conv2d(gabor_energy, fpfs, strides=[1, 1, 1, 1],
+                                padding='VALID')
+        feat_vtr = tf.transpose(tf.squeeze(feat_vtr), perm=[1, 0])
+
+        # get estimate neural activity
+        rsp = tf.sum(tf.multiply(feat_vtr, sel_wts), 1)
+
+
+        b = tf.Variable(tf.constant(0.01, shape=[1]), name='bias')
+        w = tf.Variable(tf.constant(0.01, shape=[1, 72]), name='weights')
+        vxl_wt_feats = tf.matmul(w, vxl_feats)
+        rsp = tf.reshape(vxl_wt_feats + b, [-1])
+
+    with tf.Session(graph=graph) as sess:
+        # find the optimal model
+        file_list = os.listdir(vxl_dir)
+        file_list = [item for item in file_list if item[-5:]=='index']
+        iter_num = [int(item.split('.')[0].split('-')[1]) for item in file_list]
+        sel_iter_num = min(iter_num)
+        model_path = os.path.join(vxl_dir, 'prf_model-%s'%(sel_iter_num))
+        # load saved model
+        saver = tf.train.Saver()
+        saver.restore(sess, model_path)
+        # test on validation dataset
+        input_imgs = val_imgs - np.expand_dims(img_m, 2)
+        input_imgs = np.transpose(input_imgs, (2, 0, 1))
+        input_imgs = np.expand_dims(input_imgs, 3)
+
+        pred_val_rsp = np.zeros(120)
+        for i in range(24):
+            part_rsp = sess.run(rsp, feed_dict={img: input_imgs[(i*5):(i*5+5)],
+                                                rsp_: vxl_rsp[(i*5):(i*5+5)]})
+            pred_val_rsp[(i*5):(i*5+5)] = part_rsp
+        val_err = np.mean(np.square(pred_val_rsp - vxl_rsp))
+        print 'Validation Error: %s'%(val_err)
+        # save final validation loss
+        with open(os.path.join(vxl_dir, 'test_loss.txt'), 'w+') as f:
+            f.write('%s\n'%(val_err))
+    return
+    
 
 if __name__ == '__main__':
     """Main function"""
@@ -742,8 +809,8 @@ if __name__ == '__main__':
         os.makedirs(roi_dir, 0755)
 
     #-- parameter preparation
-    #gabor_bank_file = os.path.join(db_dir, 'gabor_kernels_small.npz')
-    #gabor_bank = np.load(gabor_bank_file)
+    gabor_bank_file = os.path.join(db_dir, 'gabor_kernels_small.npz')
+    gabor_bank = np.load(gabor_bank_file)
 
     #-- load vim1 stimuli
     #train_stimuli_file = os.path.join(db_dir, 'train_stimuli.npy')
@@ -820,15 +887,38 @@ if __name__ == '__main__':
     vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
     wts = np.zeros((vxl_idx.shape[0], 72))
     fpfs = np.zeros((vxl_idx.shape[0], 250, 250))
+    biases = np.zeros((vxl_idx.shape[0],))
     for i in range(vxl_idx.shape[0]):
         print 'Voxel %s - %s'%(i, vxl_idx[i])
         vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]), 'refine')
-        fpf, wt = get_prf_weights(vxl_dir)
+        fpf, b, wt = get_prf_weights(vxl_dir)
         outfile = os.path.join(vxl_dir, 'model_wts')
-        np.savez(outfile, fpf=fpf, wt=wt)
+        np.savez(outfile, fpf=fpf, wt=wt, bias=b)
         fpfs[i, ...] = fpf
         wts[i] = wt
-    np.savez('merged_model_wts', fpfs=fpfs, wts=wts)
+        biases[i] = b
+    model_wts_file = os.path.join(roi_dir, 'merged_model_wts')
+    np.savez(model_wts_file, fpfs=fpfs, wts=wts, biases=b)
+
+    #-- visual reconstruction using cnn-prf
+    #vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
+    #ts_m = np.mean(val_ts, axis=1, keepdims=True)
+    #ts_s = np.std(val_ts, axis=1, keepdims=True)
+    #val_ts = (val_ts - ts_m) / (ts_s + 1e-5)
+    ## load estimated prf parameters
+    #model_wts = np.load(os.path.join(roi_dir, 'merged_model_wts.npz'))
+    ## load model test result
+    #dl_test_r2 = np.load(os.path.join(roi_dir, 'dl_prf_refine_test_r2.npy'))
+    ## select voxels
+    #thres = 0.1
+    #sel_idx = np.nonzero(dl_test_r2>=thres)[0]
+    #sel_wts = model_wts['wts'][sel_idx]
+    #sel_fpfs = model_wts['fpfs'][sel_idx]
+    ## get voxel response and reconstruct image
+    #vxl_rsp = val_ts[sel_idx, 0]
+    #recon_img = prf_reconstructor(gobar_bank, sel_wts, sel_fpfs, vxl_rsp)
+
+
 
     ## model pre-testing and visual reconstruction
     #-- parameter preparation
