@@ -731,8 +731,8 @@ def prf_reconstructor(gobar_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp):
         gabor_list = []
         for i in range(9):
             # config for the gabor filters
-            gabor_real = tf.expand_dims(gabor_bank['f%s_real'%(i+1)], 2)
-            gabor_imag = tf.expand_dims(gabor_bank['f%s_imag'%(i+1)], 2)
+            gabor_real = np.expand_dims(gabor_bank['f%s_real'%(i+1)], 2)
+            gabor_imag = np.expand_dims(gabor_bank['f%s_imag'%(i+1)], 2)
             rconv = tf.nn.conv2d(img, gabor_real, strides=[1, 2, 2, 1],
                                  padding='SAME')
             iconv = tf.nn.conv2d(img, gabor_imag, strides=[1, 2, 2, 1],
@@ -901,18 +901,18 @@ if __name__ == '__main__':
     thres = 0.1
     sel_idx = np.nonzero(dl_test_r2>=thres)[0]
     print 'Select %s voxels for image reconstruction'%(sel_idx.shape[0])
-    sel_wts = model_wts['wts'][sel_idx].astype(np.float32)
-    sel_fpfs = model_wts['fpfs'][sel_idx].astype(np.float32)
-    sel_bias = model_wts['biases'][sel_idx].astype(np.float32)
+    sel_wts = model_wts['wts'][sel_idx]
+    sel_fpfs = model_wts['fpfs'][sel_idx]
+    sel_bias = model_wts['biases'][sel_idx]
+    #sel_wts = model_wts['wts'][sel_idx].astype(np.float32)
+    #sel_fpfs = model_wts['fpfs'][sel_idx].astype(np.float32)
+    #sel_bias = model_wts['biases'][sel_idx].astype(np.float32)
     # get voxel response and reconstruct image
-    vxl_rsp = val_ts[sel_idx, 0].astype(np.float32)
+    vxl_rsp = val_ts[sel_idx, 0]
+    #vxl_rsp = val_ts[sel_idx, 0].astype(np.float32)
     print 'Voxel response shape: ',
     print vxl_rsp.shape
-    # chnage type of gabor bank
-    ngabor_bank = {}
-    for k in gabor_bank:
-        ngabor_bank[k] = gabor_bank[k].astype(np.float32)
-    rec = prf_reconstructor(ngabor_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp)
+    rec = prf_reconstructor(gabor_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp)
 
     ## model pre-testing and visual reconstruction
     #-- parameter preparation
