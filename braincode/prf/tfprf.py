@@ -818,8 +818,8 @@ if __name__ == '__main__':
 
     #-- get learned weights from voxel-specific model
     vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
-    fpfs = np.zeros((vxl_idx.shape[0], 72))
-    wts = np.zeros((vxl_idx.shape[0], 250, 250))
+    wts = np.zeros((vxl_idx.shape[0], 72))
+    fpfs = np.zeros((vxl_idx.shape[0], 250, 250))
     for i in range(vxl_idx.shape[0]):
         print 'Voxel %s - %s'%(i, vxl_idx[i])
         vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]), 'refine')
