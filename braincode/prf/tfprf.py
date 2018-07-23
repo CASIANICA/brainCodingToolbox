@@ -898,7 +898,7 @@ if __name__ == '__main__':
         wts[i] = wt
         biases[i] = b
     model_wts_file = os.path.join(roi_dir, 'merged_model_wts')
-    np.savez(model_wts_file, fpfs=fpfs, wts=wts, biases=b)
+    np.savez(model_wts_file, fpfs=fpfs, wts=wts, biases=biases)
 
     #-- visual reconstruction using cnn-prf
     #vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
