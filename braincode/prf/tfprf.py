@@ -743,7 +743,8 @@ def prf_reconstructor(gobar_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp):
 
         # get feature summary from pooling field
         gabor_energy = tf.transpose(gabor_energy, perm=[3, 1, 2, 0])
-        fpfs = tf.expand_dims(tf.transpose(sel_fpfs, perm=[1, 2, 0]), 2)
+        fpfs = np.expand_dims(np.moveaxis(sel_fpfs, 0, -1), 2)
+        #fpfs = tf.expand_dims(tf.transpose(sel_fpfs, perm=[1, 2, 0]), 2)
         feat_vtr = tf.nn.conv2d(gabor_energy, fpfs, strides=[1, 1, 1, 1],
                                 padding='VALID')
         feat_vtr = tf.transpose(tf.squeeze(feat_vtr), perm=[1, 0])
