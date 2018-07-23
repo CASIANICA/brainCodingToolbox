@@ -900,11 +900,11 @@ if __name__ == '__main__':
     # select voxels
     thres = 0.1
     sel_idx = np.nonzero(dl_test_r2>=thres)[0]
-    sel_wts = model_wts['wts'][sel_idx]
-    sel_fpfs = model_wts['fpfs'][sel_idx]
-    sel_bias = model_wts['biases'][sel_idx]
+    sel_wts = model_wts['wts'][sel_idx].astype(np.float32)
+    sel_fpfs = model_wts['fpfs'][sel_idx].astype(np.float32)
+    sel_bias = model_wts['biases'][sel_idx].astype(np.float32)
     # get voxel response and reconstruct image
-    vxl_rsp = val_ts[sel_idx, 0]
+    vxl_rsp = val_ts[sel_idx, 0].astype(np.float32)
     rec = prf_reconstructor(gabor_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp)
 
     ## model pre-testing and visual reconstruction
