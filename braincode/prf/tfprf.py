@@ -732,8 +732,8 @@ def prf_reconstructor(gobar_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp):
         gabor_list = []
         for i in range(9):
             # config for the gabor filters
-            gabor_real = np.expand_dims(gabor_bank['f%s_real'%(i+1)], 2)
-            gabor_imag = np.expand_dims(gabor_bank['f%s_imag'%(i+1)], 2)
+            gabor_real = tf.expand_dims(gabor_bank['f%s_real'%(i+1)], 2)
+            gabor_imag = tf.expand_dims(gabor_bank['f%s_imag'%(i+1)], 2)
             rconv = tf.nn.conv2d(img, gabor_real, strides=[1, 2, 2, 1],
                                  padding='SAME')
             iconv = tf.nn.conv2d(img, gabor_imag, strides=[1, 2, 2, 1],
@@ -761,6 +761,7 @@ def prf_reconstructor(gobar_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp):
 
     # model solving
     with tf.Session(graph=graph) as sess:
+        print 'Start ...'
         sess.run(tf.global_variables_initializer())
         for step in range(50):
             _, current_err, rec_img = sess.run([solver, error, img],
