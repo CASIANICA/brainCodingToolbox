@@ -728,18 +728,27 @@ def prf_reconstructor(gobar_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp):
                           name='input-img')
 
         # gabor features extraction
-        gabor_list = []
-        for i in range(9):
-            # config for the gabor filters
-            gabor_real = np.expand_dims(gabor_bank['f%s_real'%(i+1)], 2)
-            gabor_imag = np.expand_dims(gabor_bank['f%s_imag'%(i+1)], 2)
-            rconv = tf.nn.conv2d(img, gabor_real, strides=[1, 2, 2, 1],
+        #gabor_list = []
+        #for i in range(9):
+        #    # config for the gabor filters
+        #    gabor_real = np.expand_dims(gabor_bank['f%s_real'%(i+1)], 2)
+        #    gabor_imag = np.expand_dims(gabor_bank['f%s_imag'%(i+1)], 2)
+        #    rconv = tf.nn.conv2d(img, gabor_real, strides=[1, 2, 2, 1],
+        #                         padding='SAME')
+        #    iconv = tf.nn.conv2d(img, gabor_imag, strides=[1, 2, 2, 1],
+        #                         padding='SAME')
+        #    gabor_energy = tf.sqrt(tf.square(rconv) + tf.square(iconv))
+        #    gabor_list.append(gabor_energy)
+        #gabor_energy = tf.concat(gabor_list, axis=3)
+        
+        # full-size gabor bank
+        gabor_real = np.expand_dims(gabor_bank['gabor_real'], 2)
+        gabor_imag = np.expand_dims(gabor_bank['gabor_imag'], 2)
+        real_conv = tf.nn.conv2d(img, gabor_real, strides=[1, 2, 2, 1],
                                  padding='SAME')
-            iconv = tf.nn.conv2d(img, gabor_imag, strides=[1, 2, 2, 1],
+        imag_conv = tf.nn.conv2d(img, gabor_imag, strides=[1, 2, 2, 1],
                                  padding='SAME')
-            gabor_energy = tf.sqrt(tf.square(rconv) + tf.square(iconv))
-            gabor_list.append(gabor_energy)
-        gabor_energy = tf.concat(gabor_list, axis=3)
+        gabor_energy = tf.sqrt(tf.square(real_conv) + tf.square(imag_conv))
 
         # get feature summary from pooling field
         gabor_energy = tf.transpose(gabor_energy, perm=[3, 1, 2, 0])
@@ -798,8 +807,8 @@ if __name__ == '__main__':
         os.makedirs(roi_dir, 0755)
 
     #-- parameter preparation
-    gabor_bank_file = os.path.join(db_dir, 'gabor_kernels_small.npz')
-    gabor_bank = np.load(gabor_bank_file)
+    #gabor_bank_file = os.path.join(db_dir, 'gabor_kernels_small.npz')
+    #gabor_bank = np.load(gabor_bank_file)
 
     #-- load vim1 stimuli
     #train_stimuli_file = os.path.join(db_dir, 'train_stimuli.npy')
@@ -909,6 +918,9 @@ if __name__ == '__main__':
     vxl_rsp = val_ts[sel_idx, 0]
     print 'Voxel response shape: ',
     print vxl_rsp.shape
+    # load gabor bank
+    gabor_bank_file = os.path.join(db_dir, 'gabor_kernels.npz')
+    gabor_bank = np.load(gabor_bank_file)
     rec = prf_reconstructor(gabor_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp)
 
     ## model pre-testing and visual reconstruction
