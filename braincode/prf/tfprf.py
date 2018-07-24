@@ -721,66 +721,65 @@ def get_prf_weights(vxl_dir):
 
 def prf_reconstructor(gobar_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp):
     """Image reconstructor based on Activation Maximization."""
-    graph = tf.Graph()
-    with graph.as_default():
-        # vars for image
-        img = tf.Variable(tf.random_normal([1, 500, 500, 1], stddev=0.001),
-                          name='input-img')
+    # vars for image
+    img = tf.Variable(tf.random_normal([1, 500, 500, 1], stddev=0.001),
+                      name='input-img')
 
-        # gabor features extraction
-        #gabor_list = []
-        #for i in range(9):
-        #    # config for the gabor filters
-        #    gabor_real = np.expand_dims(gabor_bank['f%s_real'%(i+1)], 2)
-        #    gabor_imag = np.expand_dims(gabor_bank['f%s_imag'%(i+1)], 2)
-        #    rconv = tf.nn.conv2d(img, gabor_real, strides=[1, 2, 2, 1],
-        #                         padding='SAME')
-        #    iconv = tf.nn.conv2d(img, gabor_imag, strides=[1, 2, 2, 1],
-        #                         padding='SAME')
-        #    gabor_energy = tf.sqrt(tf.square(rconv) + tf.square(iconv))
-        #    gabor_list.append(gabor_energy)
-        #gabor_energy = tf.concat(gabor_list, axis=3)
+    # gabor features extraction
+    #gabor_list = []
+    #for i in range(9):
+    #    # config for the gabor filters
+    #    gabor_real = np.expand_dims(gabor_bank['f%s_real'%(i+1)], 2)
+    #    gabor_imag = np.expand_dims(gabor_bank['f%s_imag'%(i+1)], 2)
+    #    rconv = tf.nn.conv2d(img, gabor_real, strides=[1, 2, 2, 1],
+    #                         padding='SAME')
+    #    iconv = tf.nn.conv2d(img, gabor_imag, strides=[1, 2, 2, 1],
+    #                         padding='SAME')
+    #    gabor_energy = tf.sqrt(tf.square(rconv) + tf.square(iconv))
+    #    gabor_list.append(gabor_energy)
+    #gabor_energy = tf.concat(gabor_list, axis=3)
         
-        # full-size gabor bank
-        gabor_real = np.expand_dims(gabor_bank['gabor_real'], 2)
-        gabor_imag = np.expand_dims(gabor_bank['gabor_imag'], 2)
-        real_conv = tf.nn.conv2d(img, gabor_real, strides=[1, 2, 2, 1],
-                                 padding='SAME')
-        imag_conv = tf.nn.conv2d(img, gabor_imag, strides=[1, 2, 2, 1],
-                                 padding='SAME')
-        gabor_energy = tf.sqrt(tf.square(real_conv) + tf.square(imag_conv))
+    # full-size gabor bank
+    gabor_real = np.expand_dims(gabor_bank['gabor_real'], 2)
+    gabor_imag = np.expand_dims(gabor_bank['gabor_imag'], 2)
+    real_conv = tf.nn.conv2d(img, gabor_real, strides=[1, 2, 2, 1],
+                             padding='SAME')
+    imag_conv = tf.nn.conv2d(img, gabor_imag, strides=[1, 2, 2, 1],
+                             padding='SAME')
+    gabor_energy = tf.sqrt(tf.square(real_conv) + tf.square(imag_conv))
 
-        # get feature summary from pooling field
-        gabor_energy = tf.transpose(gabor_energy, perm=[3, 1, 2, 0])
-        fpfs = np.expand_dims(np.moveaxis(sel_fpfs, 0, -1), 2)
-        feat_vtr = tf.nn.conv2d(gabor_energy, fpfs, strides=[1, 1, 1, 1],
-                                padding='VALID')
-        feat_vtr = tf.transpose(tf.squeeze(feat_vtr), perm=[1, 0])
+    # get feature summary from pooling field
+    gabor_energy = tf.transpose(gabor_energy, perm=[3, 1, 2, 0])
+    fpfs = np.expand_dims(np.moveaxis(sel_fpfs, 0, -1), 2)
+    feat_vtr = tf.nn.conv2d(gabor_energy, fpfs, strides=[1, 1, 1, 1],
+                            padding='VALID')
+    feat_vtr = tf.transpose(tf.squeeze(feat_vtr), perm=[1, 0])
 
-        # get estimate neural activity
-        pred_rsp = tf.reduce_sum(tf.multiply(feat_vtr, sel_wts), 1) + sel_bias
+    # get estimate neural activity
+    pred_rsp = tf.reduce_sum(tf.multiply(feat_vtr, sel_wts), 1) + sel_bias
 
-        # loss config
-        real_rsp = tf.placeholder(tf.float32, shape=(vxl_rsp.shape[0],))
-        error = tf.reduce_mean(tf.square(real_rsp - pred_rsp))
-        opt = tf.train.GradientDescentOptimizer(0.5)
-        vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'input-img')
-        solver = opt.minimize(error, var_list=vars_x)
+    # loss config
+    real_rsp = tf.placeholder(tf.float32, shape=(vxl_rsp.shape[0],))
+    error = tf.reduce_mean(tf.square(real_rsp - pred_rsp))
+    opt = tf.train.GradientDescentOptimizer(0.5)
+    vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'input-img')
+    solver = opt.minimize(error, var_list=vars_x)
 
     # model solving
-    with tf.Session(graph=graph) as sess:
-        print 'Start ...'
-        sess.run(tf.global_variables_initializer())
-        for step in range(50):
-            _, current_err, rec_img = sess.run([solver, error, img],
-                                               feed_dict={real_rsp: vxl_rsp})
-            print 'Step %s'%(step)
-            if step%10==0:
-                print('Iter: {}; loss: {:.4}'.format(step, current_err))    
-                fig=plt.figure()
-                plt.imshow(rec_img.reshape(500, 500))
-                plt.savefig('recons'+str(step)+'.png')
-                plt.close(fig)             
+    sess = tf.Session()
+    sess.run(tf.global_variables_initializer())
+
+    print 'Start ...'
+    for step in range(50):
+        print 'Step %s'%(step)
+        _, current_err, rec_img = sess.run([solver, error, img],
+                                           feed_dict={real_rsp: vxl_rsp})
+        if step%10==0:
+            print('Iter: {}; loss: {:.4}'.format(step, current_err))    
+            fig=plt.figure()
+            plt.imshow(rec_img.reshape(500, 500))
+            plt.savefig('recons'+str(step)+'.png')
+            plt.close(fig)             
     return rec_img
 
 
