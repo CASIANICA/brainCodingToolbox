@@ -725,20 +725,6 @@ def prf_reconstructor(gobar_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp):
     img = tf.Variable(tf.random_normal([1, 500, 500, 1], stddev=0.001),
                       name='input-img')
 
-    # gabor features extraction
-    #gabor_list = []
-    #for i in range(9):
-    #    # config for the gabor filters
-    #    gabor_real = np.expand_dims(gabor_bank['f%s_real'%(i+1)], 2)
-    #    gabor_imag = np.expand_dims(gabor_bank['f%s_imag'%(i+1)], 2)
-    #    rconv = tf.nn.conv2d(img, gabor_real, strides=[1, 2, 2, 1],
-    #                         padding='SAME')
-    #    iconv = tf.nn.conv2d(img, gabor_imag, strides=[1, 2, 2, 1],
-    #                         padding='SAME')
-    #    gabor_energy = tf.sqrt(tf.square(rconv) + tf.square(iconv))
-    #    gabor_list.append(gabor_energy)
-    #gabor_energy = tf.concat(gabor_list, axis=3)
-        
     # full-size gabor bank
     gabor_real = np.expand_dims(gabor_bank['gabor_real'], 2)
     gabor_imag = np.expand_dims(gabor_bank['gabor_imag'], 2)
@@ -751,7 +737,8 @@ def prf_reconstructor(gobar_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp):
     # get feature summary from pooling field
     gabor_energy = tf.transpose(gabor_energy, perm=[3, 1, 2, 0])
     fpfs = np.expand_dims(np.moveaxis(sel_fpfs, 0, -1), 2)
-    feat_vtr = tf.nn.conv2d(gabor_energy, fpfs, strides=[1, 1, 1, 1],
+    fpfs[fpfs<0] = 0
+    feat_vtr = tf.nn.conv2d(gabor_energy, fpfs,strides=[1, 1, 1, 1],
                             padding='VALID')
     feat_vtr = tf.transpose(tf.squeeze(feat_vtr), perm=[1, 0])
 
@@ -902,6 +889,12 @@ if __name__ == '__main__':
     ts_m = np.mean(val_ts, axis=1, keepdims=True)
     ts_s = np.std(val_ts, axis=1, keepdims=True)
     val_ts = (val_ts - ts_m) / (ts_s + 1e-5)
+    # load training images
+    train_stimuli_file = os.path.join(db_dir, 'train_stimuli.npy')
+    train_imgs = np.load(train_stimuli_file)
+    img_m = np.mean(train_imgs, axis=2)
+    img_mask = imresize(img_m, (250, 250))
+    img_mask = img_mask<170
     # load estimated prf parameters
     model_wts = np.load(os.path.join(roi_dir, 'merged_model_wts.npz'))
     # load model test result
@@ -912,7 +905,16 @@ if __name__ == '__main__':
     print 'Select %s voxels for image reconstruction'%(sel_idx.shape[0])
     sel_wts = model_wts['wts'][sel_idx]
     sel_fpfs = model_wts['fpfs'][sel_idx]
+    sel_fpfs = sel_fpfs * img_mask
     sel_bias = model_wts['biases'][sel_idx]
+    # generate selcted voxels' fpfs
+    fpf_mask = sel_fpfs>0
+    fpf_mask = np.mean(fpf_mask, axis=0)
+    fig=plt.figure()
+    plt.imshow(fpf_mask)
+    plt.colorbar()
+    plt.savefig('fpf_mask.png')
+    plt.close(fig)             
     # get voxel response and reconstruct image
     vxl_rsp = val_ts[sel_idx, 0]
     print 'Voxel response shape: ',
