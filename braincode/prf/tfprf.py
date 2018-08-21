@@ -719,7 +719,7 @@ def get_prf_weights(vxl_dir):
         b = graph.get_tensor_by_name('weighted-features/bias:0').eval()
         return fpf, b, wts
 
-def prf_reconstructor(gobar_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp):
+def prf_reconstructor(img_mask, gobar_bank, wts, bias, fpfs, vxl_rsp):
     """Image reconstructor based on Activation Maximization."""
     # vars for image
     img = tf.Variable(tf.random_normal([1, 500, 500, 1], stddev=0.001),
@@ -735,15 +735,23 @@ def prf_reconstructor(gobar_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp):
     gabor_energy = tf.sqrt(tf.square(real_conv) + tf.square(imag_conv))
 
     # get feature summary from pooling field
+    # gabor energy shape: 72, 250, 250, 1
     gabor_energy = tf.transpose(gabor_energy, perm=[3, 1, 2, 0])
-    fpfs = np.expand_dims(np.moveaxis(sel_fpfs, 0, -1), 2)
-    fpfs[fpfs<0] = 0
-    feat_vtr = tf.nn.conv2d(gabor_energy, fpfs,strides=[1, 1, 1, 1],
-                            padding='VALID')
-    feat_vtr = tf.transpose(tf.squeeze(feat_vtr), perm=[1, 0])
+    # gabor energy shape: mask# * 72
+    gabor_energy = tf.boolean_mask(tf.reshape(gabor_energy, [62500, -1]),
+                                   img_mask)
+    
+    # get valid space from fpfs
+    # flat_fpfps shape: 250, 250, voxel#
+    flat_fpfs = tf.transpose(fpfs, perm=[1, 2, 0])
+    # flat_fpfs shape: mask# * voxel#
+    flat_fpfs = tf.boolean_mask(tf.reshape(flat_fpfs, [62500, -1]), img_mask)
+    flat_fpfs = tf.transpose(flat_fpfs, perm=[1, 0])
+    # feat_vtr shape: voxel# * 72
+    feat_vtr = tf.matmul(flat_fpfs, gabor_energy)
 
     # get estimate neural activity
-    pred_rsp = tf.reduce_sum(tf.multiply(feat_vtr, sel_wts), 1) + sel_bias
+    pred_rsp = tf.reduce_sum(tf.multiply(feat_vtr, wts), 1) + bias
 
     # loss config
     real_rsp = tf.placeholder(tf.float32, shape=(vxl_rsp.shape[0],))
@@ -892,9 +900,12 @@ if __name__ == '__main__':
     # load training images
     train_stimuli_file = os.path.join(db_dir, 'train_stimuli.npy')
     train_imgs = np.load(train_stimuli_file)
+    # get image mask
     img_m = np.mean(train_imgs, axis=2)
     img_mask = imresize(img_m, (250, 250))
-    img_mask = img_mask<170
+    #img_mask = img_mask<170
+    img_mask = np.reshape(img_mask<170, [-1])
+
     # load estimated prf parameters
     model_wts = np.load(os.path.join(roi_dir, 'merged_model_wts.npz'))
     # load model test result
@@ -905,16 +916,16 @@ if __name__ == '__main__':
     print 'Select %s voxels for image reconstruction'%(sel_idx.shape[0])
     sel_wts = model_wts['wts'][sel_idx]
     sel_fpfs = model_wts['fpfs'][sel_idx]
-    sel_fpfs = sel_fpfs * img_mask
+    #sel_fpfs = sel_fpfs * img_mask
     sel_bias = model_wts['biases'][sel_idx]
-    # generate selcted voxels' fpfs
-    fpf_mask = sel_fpfs>0
-    fpf_mask = np.mean(fpf_mask, axis=0)
-    fig=plt.figure()
-    plt.imshow(fpf_mask)
-    plt.colorbar()
-    plt.savefig('fpf_mask.png')
-    plt.close(fig)             
+    ## generate selcted voxels' fpfs
+    #fpf_mask = sel_fpfs>0
+    #fpf_mask = np.mean(fpf_mask, axis=0)
+    #fig=plt.figure()
+    #plt.imshow(fpf_mask)
+    #plt.colorbar()
+    #plt.savefig('fpf_mask.png')
+    #plt.close(fig)             
     # get voxel response and reconstruct image
     vxl_rsp = val_ts[sel_idx, 0]
     print 'Voxel response shape: ',
@@ -922,7 +933,8 @@ if __name__ == '__main__':
     # load gabor bank
     gabor_bank_file = os.path.join(db_dir, 'gabor_kernels.npz')
     gabor_bank = np.load(gabor_bank_file)
-    rec = prf_reconstructor(gabor_bank, sel_wts, sel_bias, sel_fpfs, vxl_rsp)
+    rec = prf_reconstructor(img_mask, gabor_bank, sel_wts, sel_bias,
+                            sel_fpfs, vxl_rsp)
 
     ## model pre-testing and visual reconstruction
     #-- parameter preparation
