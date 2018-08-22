@@ -748,7 +748,7 @@ def prf_reconstructor(img_mask, gobar_bank, wts, bias, fpfs, vxl_rsp):
     flat_fpfs = tf.boolean_mask(tf.reshape(flat_fpfs, [62500, -1]), img_mask)
     flat_fpfs = tf.transpose(flat_fpfs, perm=[1, 0])
     # feat_vtr shape: voxel# * 72
-    feat_vtr = tf.matmul(flat_fpfs, gabor_energy)
+    feat_vtr = tf.matmul(tf.nn.relu(flat_fpfs), gabor_energy)
 
     # get estimate neural activity
     pred_rsp = tf.reduce_sum(tf.multiply(feat_vtr, wts), 1) + bias
@@ -914,10 +914,10 @@ if __name__ == '__main__':
     thres = 0.1
     sel_idx = np.nonzero(dl_test_r2>=thres)[0]
     print 'Select %s voxels for image reconstruction'%(sel_idx.shape[0])
-    sel_wts = model_wts['wts'][sel_idx]
-    sel_fpfs = model_wts['fpfs'][sel_idx]
+    sel_wts = model_wts['wts'][sel_idx].astype(np.float32)
+    sel_fpfs = model_wts['fpfs'][sel_idx].astype(np.float32)
     #sel_fpfs = sel_fpfs * img_mask
-    sel_bias = model_wts['biases'][sel_idx]
+    sel_bias = model_wts['biases'][sel_idx].astype(np.float32)
     ## generate selcted voxels' fpfs
     #fpf_mask = sel_fpfs>0
     #fpf_mask = np.mean(fpf_mask, axis=0)
