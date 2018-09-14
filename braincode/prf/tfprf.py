@@ -318,7 +318,7 @@ def tfprf_laplacian_bn(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
                         patience_cnt += 1
                 # stop signal
                 if patience_cnt > patience:
-                    if training_stage==1 and iter_num>174:
+                    if training_stage==1 and min_err<0.999:
                         training_stage = 2
                         patience_cnt = 0
                         err_patience = err_patience_2
