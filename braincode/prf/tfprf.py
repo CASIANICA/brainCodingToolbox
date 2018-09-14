@@ -203,7 +203,7 @@ def tfprf_laplacian_bn(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
 
     with tf.Session(graph=graph) as sess:
         vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
-        solver =  tf.train.AdamOptimizer(0.0003).minimize(total_error,
+        solver =  tf.train.AdamOptimizer(0.0005).minimize(total_error,
                                                          var_list = vars_x)
         # merge summaries
         merged = tf.summary.merge_all()
@@ -318,9 +318,11 @@ def tfprf_laplacian_bn(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
                         patience_cnt += 1
                 # stop signal
                 if patience_cnt > patience:
-                    if training_stage==1:
+                    if training_stage==1 and iter_num>174:
                         training_stage = 2
+                        patience_cnt = 0
                         err_patience = err_patience_2
+                        print '################################'
                         print 'Enter training stage 2 ...'
                     else:
                         print 'Early stopping - step %s'%(iter_num)
