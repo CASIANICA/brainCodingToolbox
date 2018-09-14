@@ -110,7 +110,7 @@ def variable_summaries(var):
         tf.summary.scalar('min', tf.reduce_min(var))
         tf.summary.histogram('histogram', var)
 
-def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
+def tfprf_laplacian_bn(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
     """laplacian regularized pRF model."""
     # get image mask
     img_m = np.mean(input_imgs, axis=2)
@@ -144,6 +144,7 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
         # gabor features extraction
         with tf.name_scope('feature-extract'):
             feat_vtr = []
+
             for i in range(9):
                 # config for the gabor filters
                 gabor_real = np.expand_dims(gabor_bank['f%s_real'%(i+1)], 2)
@@ -153,6 +154,10 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
                 iconv = tf.nn.conv2d(img, gabor_imag, strides=[1, 2, 2, 1],
                                      padding='SAME')
                 gabor_energy = tf.sqrt(tf.square(rconv) + tf.square(iconv))
+                # normalization across orientations
+                gabor_energy = tf.nn.local_response_normalization(gabor_energy,
+                                    depth_radius=7, bias=1, alpha=1, beta=0.5)
+
                 gabor_energy = tf.transpose(gabor_energy, perm=[1, 2, 3, 0])
                 gabor_energy = tf.boolean_mask(tf.reshape(gabor_energy,
                                                         [62500, -1]), img_mask)
@@ -198,7 +203,259 @@ def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
 
     with tf.Session(graph=graph) as sess:
         vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
-        solver =  tf.train.AdamOptimizer(0.0005).minimize(total_error,
+        solver =  tf.train.AdamOptimizer(0.0003).minimize(total_error,
+                                                         var_list = vars_x)
+        # merge summaries
+        merged = tf.summary.merge_all()
+        train_writer = tf.summary.FileWriter(os.path.join(vxl_dir, 'train'),
+                                             sess.graph)
+        #test_writer = tf.summary.FileWriter('./test')
+        sess.run(tf.global_variables_initializer())
+
+        # data splitting
+        input_imgs = input_imgs - np.expand_dims(img_m, 2)
+        sample_num = input_imgs.shape[2]
+        train_imgs = input_imgs[..., :int(sample_num*0.9)]
+        val_imgs = input_imgs[..., int(sample_num*0.9):]
+        val_imgs = np.transpose(val_imgs, (2, 0, 1))
+        val_imgs = np.expand_dims(val_imgs, 3)
+        train_rsp = vxl_rsp[:int(sample_num*0.9)]
+        val_rsp = vxl_rsp[int(sample_num*0.9):]
+        #print train_imgs.shape
+        #print val_imgs.shape
+        #print train_rsp.shape
+        #print val_rsp.shape
+
+        # model training
+        batch_size = 9
+        index_in_epoch = 0
+        epochs_completed = 0
+        min_err = None
+        err_patience_1 = 0.0025
+        err_patience_2 = 0.001
+        err_patience = err_patience_1
+        patience_cnt = 0
+        patience = 6
+        training_stage = 1
+        iter_num = 0
+        val_loss = []
+        while 1:
+            start = index_in_epoch
+            if epochs_completed==0 and start==0:
+                perm0 = np.arange(train_imgs.shape[2])
+                np.random.shuffle(perm0)
+                shuffle_imgs = train_imgs[..., perm0]
+                shuffle_rsp = train_rsp[perm0]
+            # go to next epoch
+            if start + batch_size > train_imgs.shape[2]:
+                # finish epoch
+                epochs_completed += 1
+                # get the rest examples in this epoch
+                rest_num_examples = int(train_imgs.shape[2]) - start
+                img_rest_part = shuffle_imgs[..., start:train_imgs.shape[2]]
+                rsp_rest_part = shuffle_rsp[start:train_imgs.shape[2]]
+                # shuffle the data
+                perm = np.arange(train_imgs.shape[2])
+                np.random.shuffle(perm)
+                shuffle_imgs = train_imgs[..., perm]
+                shuffle_rsp = train_rsp[perm]
+                # start next epoch
+                start = 0
+                index_in_epoch = batch_size - rest_num_examples
+                end = index_in_epoch
+                img_new_part = shuffle_imgs[..., start:end]
+                rsp_new_part = shuffle_rsp[start:end]
+                img_batch = np.concatenate((img_rest_part,img_new_part), axis=2)
+                img_batch = np.transpose(img_batch, (2, 0, 1))
+                img_batch = np.expand_dims(img_batch, 3)
+                batch = [img_batch,
+                         np.concatenate((rsp_rest_part, rsp_new_part), axis=0)]
+            else:
+                index_in_epoch += batch_size
+                end = index_in_epoch
+                img_batch = shuffle_imgs[..., start:end]
+                img_batch = np.transpose(img_batch, (2, 0, 1))
+                img_batch = np.expand_dims(img_batch, 3)
+                batch = [img_batch, shuffle_rsp[start:end]]
+            _, summary, step_error, step_fpf = sess.run(
+                                    [solver, merged, total_error, fpf],
+                                    feed_dict={img: batch[0], rsp_: batch[1]})
+            train_writer.add_summary(summary, iter_num)
+            if (iter_num+1)%175==0:
+                print 'Ep %s'%((iter_num+1)/175)
+                print 'Training Error: %s'%(step_error)
+                rsp_err = sess.run(error, feed_dict={img: batch[0],
+                                                     rsp_: batch[1]})
+                #l2_err = sess.run(l2_error, feed_dict={img:batch[0],
+                #                                       rsp_: batch[1]})
+                lap_err = sess.run(laplacian_error, feed_dict={img:batch[0],
+                                                               rsp_: batch[1]})
+                #l1_err = sess.run(l1_error, feed_dict={img:batch[0],
+                #                                       rsp_: batch[1]})
+                print 'Rsp error: %s'%(rsp_err)
+                #print 'L2 error: %s'%(l2_err)
+                print 'Laplacian error: %s'%(lap_err)
+                #print 'L1 error: %s'%(l1_err)
+                # model validation
+                pred_val_rsp = np.zeros(175)
+                for j in range(35):
+                    part_rsp = sess.run(rsp,
+                                feed_dict={img: val_imgs[(j*5):(j*5+5)],
+                                           rsp_: val_rsp[(j*5):(j*5+5)]})
+                    pred_val_rsp[(j*5):(j*5+5)] = part_rsp
+                val_err = np.mean(np.square(pred_val_rsp - val_rsp))
+                print 'Validation Error: %s'%(val_err)
+                val_loss.append(val_err)
+                #val_corr = np.corrcoef(pred_val_rsp, val_rsp)[0, 1]
+                #print 'Validation Corr: %s'%(val_corr)
+                if iter_num==174:
+                    min_err = val_err
+                else:
+                    if (min_err - val_err) >= err_patience:
+                        min_err = val_err
+                        patience_cnt = 0
+                    else:
+                        patience_cnt += 1
+                # stop signal
+                if patience_cnt > patience:
+                    if training_stage==1:
+                        training_stage = 2
+                        err_patience = err_patience_2
+                        print 'Enter training stage 2 ...'
+                    else:
+                        print 'Early stopping - step %s'%(iter_num)
+                        # plot fpf
+                        fig, ax = plt.subplots()
+                        cax = ax.imshow(step_fpf, cmap='gray')
+                        fig.colorbar(cax)
+                        plt.savefig(os.path.join(vxl_dir,
+                                    'fpf_epoch%s.png'%((iter_num+1)/175)))
+                        plt.close(fig)
+                        # save model
+                        saver.save(sess, os.path.join(vxl_dir, 'prf_model'),
+                                   global_step=(iter_num - (patience+1)*175))
+                        saver.save(sess, os.path.join(vxl_dir, 'prf_model'),
+                                   global_step=iter_num, write_meta_graph=False)
+                        # save final validation loss
+                        with open(os.path.join(vxl_dir, 'val_loss.txt'), 'w+') as f:
+                            val_idx = -1 * patience - 2
+                            f.write('%s\n'%(val_loss[val_idx]))
+                        break
+            iter_num += 1
+
+        train_writer.close()
+        #test_writer.close()
+    return
+
+def tfprf_laplacian(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
+    """laplacian regularized pRF model."""
+    # get image mask
+    img_m = np.mean(input_imgs, axis=2)
+    img_mask = imresize(img_m, (250, 250))
+    # resized image value range: 0-255
+    img_mask = np.reshape(img_mask<170, [-1])
+
+    graph = tf.Graph()
+    with graph.as_default():
+        # vars for input data
+        with tf.name_scope('input'):
+            img = tf.placeholder("float", [None, 500, 500, 1], name='input-img')
+            rsp_ = tf.placeholder("float", [None,], name='vxl-rsp')
+
+        # var for feature pooling field
+        with tf.name_scope('pooling-field'):
+            fpf_kernel = tf.random_normal([1, 250, 250, 1], stddev=0.01)
+            blur = np.array([[1.0/256,  4.0/256,  6.0/256,  4.0/256, 1.0/256],
+                             [4.0/256, 16.0/256, 24.0/256, 16.0/256, 4.0/256],
+                             [6.0/256, 24.0/256, 36.0/256, 24.0/256, 6.0/256],
+                             [4.0/256, 16.0/256, 24.0/256, 16.0/256, 4.0/256],
+                             [1.0/256,  4.0/256,  6.0/256,  4.0/256, 1.0/256]])
+            blur = np.expand_dims(np.expand_dims(blur, 2), 3)
+            fpf_kernel = tf.nn.conv2d(fpf_kernel, blur, strides=[1, 1, 1, 1],
+                                      padding='SAME')
+            fpf = tf.Variable(tf.reshape(fpf_kernel, [250, 250]), name='fpf')
+            flat_fpf = tf.transpose(tf.boolean_mask(tf.reshape(tf.nn.relu(fpf),
+                                                               (62500, 1)),
+                                                    img_mask), [1, 0])
+
+        # gabor features extraction
+        with tf.name_scope('feature-extract'):
+            feat_vtr = []
+            # batch normalization vars
+            #bscale = []
+            #bbeta = []
+            #for i in range(9):
+            #    bscale.append(tf.Variable(1.0))
+            #    bbeta.append(tf.Variable(1.0))
+
+            for i in range(9):
+                # config for the gabor filters
+                gabor_real = np.expand_dims(gabor_bank['f%s_real'%(i+1)], 2)
+                gabor_imag = np.expand_dims(gabor_bank['f%s_imag'%(i+1)], 2)
+                rconv = tf.nn.conv2d(img, gabor_real, strides=[1, 2, 2, 1],
+                                     padding='SAME')
+                iconv = tf.nn.conv2d(img, gabor_imag, strides=[1, 2, 2, 1],
+                                     padding='SAME')
+                gabor_energy = tf.sqrt(tf.square(rconv) + tf.square(iconv))
+                # normalization across orientations
+                #batch_mean, batch_var = tf.nn.moments(gabor_energy, [3],
+                #                                      keep_dims=True)
+                #gabor_energy = (gabor_energy - batch_mean) / tf.sqrt(batch_var + 1e-3)
+                #gabor_energy = bscale[i]*gabor_energy + bbeta[i]
+                ##gabor_energy = tf.nn.batch_normalization(gabor_energy,
+                ##                                         batch_mean,
+                ##                                         batch_var,
+                ##                                         bbeta[i],
+                ##                                         bscale[i],
+                ##                                         1e-3)
+                gabor_energy = tf.nn.local_response_normalization(gabor_energy, depth_radius=7, bias=1, alpha=1, beta=0.5)
+
+                gabor_energy = tf.transpose(gabor_energy, perm=[1, 2, 3, 0])
+                gabor_energy = tf.boolean_mask(tf.reshape(gabor_energy,
+                                                        [62500, -1]), img_mask)
+                # get feature summary from pooling field
+                gabor_feat = tf.reshape(tf.matmul(flat_fpf, gabor_energy),
+                                        (8, -1))
+                feat_vtr.append(gabor_feat)
+            # concatenate gabor features within fpf
+            vxl_feats = tf.concat(feat_vtr, 0)
+
+        # vars for feature weights
+        with tf.name_scope('weighted-features'):
+            b = tf.Variable(tf.constant(0.01, shape=[1]), name='bias')
+            variable_summaries(b)
+            w = tf.Variable(tf.constant(0.01, shape=[1, 72]), name='weights')
+            variable_summaries(w)
+            vxl_wt_feats = tf.matmul(w, vxl_feats)
+            rsp = tf.reshape(vxl_wt_feats + b, [-1])
+
+        # loss defination
+        with tf.name_scope('loss'):
+            # calculate fitting error
+            error = tf.reduce_mean(tf.square(rsp - rsp_))
+            # laplacian regularization
+            laplacian_kernel = np.array([[0, -1, 0],
+                                         [-1, 4, -1],
+                                         [0, -1, 0]])
+            laplacian_kernel = np.expand_dims(laplacian_kernel, 2)
+            laplacian_kernel = np.expand_dims(laplacian_kernel, 3)
+            fpf_shadow = tf.expand_dims(tf.expand_dims(fpf, 0), 3)
+            laplacian_error = tf.reduce_sum(tf.square(tf.nn.conv2d(fpf_shadow,
+                                                         laplacian_kernel,
+                                                         strides=[1, 1, 1, 1],
+                                                         padding='VALID')))
+            # get total error
+            total_error = 10*error + 0.1*laplacian_error
+
+        tf.summary.scalar('fitting-loss', error)
+        tf.summary.scalar('total-loss', total_error)
+
+        # for model saving
+        saver = tf.train.Saver()
+
+    with tf.Session(graph=graph) as sess:
+        vars_x = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+        solver =  tf.train.AdamOptimizer(0.0003).minimize(total_error,
                                                          var_list = vars_x)
         # merge summaries
         merged = tf.summary.merge_all()
@@ -732,11 +989,11 @@ def prf_reconstructor(img_mask, gobar_bank, wts, bias, fpfs, vxl_rsp):
                              padding='SAME')
     imag_conv = tf.nn.conv2d(img, gabor_imag, strides=[1, 2, 2, 1],
                              padding='SAME')
+    # gabor energy shape: 1, 250, 250, 72
     gabor_energy = tf.sqrt(tf.square(real_conv) + tf.square(imag_conv))
 
     # get feature summary from pooling field
-    # gabor energy shape: 72, 250, 250, 1
-    gabor_energy = tf.transpose(gabor_energy, perm=[3, 1, 2, 0])
+    #gabor_energy = tf.transpose(gabor_energy, perm=[3, 1, 2, 0])
     # gabor energy shape: mask# * 72
     gabor_energy = tf.boolean_mask(tf.reshape(gabor_energy, [62500, -1]),
                                    img_mask)
@@ -796,48 +1053,49 @@ if __name__ == '__main__':
     # directory config
     subj_dir = os.path.join(res_dir, 'vim1_S%s'%(subj_id))
     prf_dir = os.path.join(subj_dir, 'prf')
-    roi_dir = os.path.join(prf_dir, roi, 'refine')
+    roi_dir = os.path.join(prf_dir, roi, 'bn')
     if not os.path.exists(roi_dir):
         os.makedirs(roi_dir, 0755)
 
     #-- parameter preparation
-    #gabor_bank_file = os.path.join(db_dir, 'gabor_kernels_small.npz')
-    #gabor_bank = np.load(gabor_bank_file)
+    gabor_bank_file = os.path.join(db_dir, 'gabor_kernels_small.npz')
+    gabor_bank = np.load(gabor_bank_file)
 
     #-- load vim1 stimuli
-    #train_stimuli_file = os.path.join(db_dir, 'train_stimuli.npy')
-    #train_imgs = np.load(train_stimuli_file)
-    #val_stimuli_file = os.path.join(db_dir, 'val_stimuli.npy')
-    #val_imgs = np.load(val_stimuli_file)
+    train_stimuli_file = os.path.join(db_dir, 'train_stimuli.npy')
+    train_imgs = np.load(train_stimuli_file)
+    val_stimuli_file = os.path.join(db_dir, 'val_stimuli.npy')
+    val_imgs = np.load(val_stimuli_file)
 
     #-- get gabor features from stimuli
     #get_gabor_features(train_imgs, gabor_bank)
 
     #-- pRF model test bench
-    #vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
-    #ts_m = np.mean(train_ts, axis=1, keepdims=True)
-    #ts_s = np.std(train_ts, axis=1, keepdims=True)
-    #train_ts = (train_ts - ts_m) / (ts_s + 1e-5)
-    #ts_m = np.mean(val_ts, axis=1, keepdims=True)
-    #ts_s = np.std(val_ts, axis=1, keepdims=True)
-    #val_ts = (val_ts - ts_m) / (ts_s + 1e-5)
-    ### to test the model. select following voxels
-    ##sel_vxl_idx = [93, 257, 262, 385, 409, 485, 511, 517, 518, 603, 614,
-    ##               807, 819, 820, 822, 826, 871, 929, 953, 1211]
-    ##for i in sel_vxl_idx[:3]:
-    #for i in range(1000, 1294):
-    #    print 'Voxel %s - %s'%(i, vxl_idx[i])
-    #    vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
-    #    #os.makedirs(vxl_dir, 0755)
-    #    # load voxel fmri data
-    #    vxl_rsp = train_ts[i]
-    #    #tfprf_laplacian(train_imgs, vxl_rsp, gabor_bank, vxl_dir)
-    #    refine_dir = os.path.join(vxl_dir, 'refine')
-    #    if os.path.exists(refine_dir):
-    #        os.system('rm -rf %s'%(refine_dir))
-    #    tfprf_laplacian_refine(train_imgs, vxl_rsp, gabor_bank, vxl_dir)
-    #    vxl_rsp = val_ts[i]
-    #    tfprf_test(train_imgs, val_imgs, vxl_rsp, gabor_bank, refine_dir)
+    vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
+    ts_m = np.mean(train_ts, axis=1, keepdims=True)
+    ts_s = np.std(train_ts, axis=1, keepdims=True)
+    train_ts = (train_ts - ts_m) / (ts_s + 1e-5)
+    ts_m = np.mean(val_ts, axis=1, keepdims=True)
+    ts_s = np.std(val_ts, axis=1, keepdims=True)
+    val_ts = (val_ts - ts_m) / (ts_s + 1e-5)
+    ## to test the model. select following voxels
+    #sel_vxl_idx = [93, 257, 262, 385, 409, 485, 511, 517, 518, 603, 614,
+    #               807, 819, 820, 822, 826, 871, 929, 953, 1211]
+    #for i in sel_vxl_idx[:5]:
+    for i in range(0, 10):
+        print 'Voxel %s - %s'%(i, vxl_idx[i])
+        vxl_dir = os.path.join(roi_dir, 'voxel_%s'%(vxl_idx[i]))
+        os.makedirs(vxl_dir, 0755)
+        # load voxel fmri data
+        vxl_rsp = train_ts[i]
+        tfprf_laplacian_bn(train_imgs, vxl_rsp, gabor_bank, vxl_dir)
+        #tfprf_laplacian(train_imgs, vxl_rsp, gabor_bank, vxl_dir)
+        #refine_dir = os.path.join(vxl_dir, 'refine')
+        #if os.path.exists(refine_dir):
+        #    os.system('rm -rf %s'%(refine_dir))
+        #tfprf_laplacian_refine(train_imgs, vxl_rsp, gabor_bank, vxl_dir)
+        #vxl_rsp = val_ts[i]
+        #tfprf_test(train_imgs, val_imgs, vxl_rsp, gabor_bank, refine_dir)
 
     #-- get validation r^2
     #vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
@@ -893,48 +1151,48 @@ if __name__ == '__main__':
     #np.savez(model_wts_file, fpfs=fpfs, wts=wts, biases=biases)
 
     #-- visual reconstruction using cnn-prf
-    vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
-    ts_m = np.mean(val_ts, axis=1, keepdims=True)
-    ts_s = np.std(val_ts, axis=1, keepdims=True)
-    val_ts = (val_ts - ts_m) / (ts_s + 1e-5)
-    # load training images
-    train_stimuli_file = os.path.join(db_dir, 'train_stimuli.npy')
-    train_imgs = np.load(train_stimuli_file)
-    # get image mask
-    img_m = np.mean(train_imgs, axis=2)
-    img_mask = imresize(img_m, (250, 250))
-    #img_mask = img_mask<170
-    img_mask = np.reshape(img_mask<170, [-1])
+    #vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
+    #ts_m = np.mean(val_ts, axis=1, keepdims=True)
+    #ts_s = np.std(val_ts, axis=1, keepdims=True)
+    #val_ts = (val_ts - ts_m) / (ts_s + 1e-5)
+    ## load training images
+    #train_stimuli_file = os.path.join(db_dir, 'train_stimuli.npy')
+    #train_imgs = np.load(train_stimuli_file)
+    ## get image mask
+    #img_m = np.mean(train_imgs, axis=2)
+    #img_mask = imresize(img_m, (250, 250))
+    ##img_mask = img_mask<170
+    #img_mask = np.reshape(img_mask<170, [-1])
 
     # load estimated prf parameters
-    model_wts = np.load(os.path.join(roi_dir, 'merged_model_wts.npz'))
-    # load model test result
-    dl_test_r2 = np.load(os.path.join(roi_dir, 'dl_prf_refine_test_r2.npy'))
-    # select voxels
-    thres = 0.1
-    sel_idx = np.nonzero(dl_test_r2>=thres)[0]
-    print 'Select %s voxels for image reconstruction'%(sel_idx.shape[0])
-    sel_wts = model_wts['wts'][sel_idx].astype(np.float32)
-    sel_fpfs = model_wts['fpfs'][sel_idx].astype(np.float32)
-    #sel_fpfs = sel_fpfs * img_mask
-    sel_bias = model_wts['biases'][sel_idx].astype(np.float32)
-    ## generate selcted voxels' fpfs
-    #fpf_mask = sel_fpfs>0
-    #fpf_mask = np.mean(fpf_mask, axis=0)
-    #fig=plt.figure()
-    #plt.imshow(fpf_mask)
-    #plt.colorbar()
-    #plt.savefig('fpf_mask.png')
-    #plt.close(fig)             
-    # get voxel response and reconstruct image
-    vxl_rsp = val_ts[sel_idx, 0]
-    print 'Voxel response shape: ',
-    print vxl_rsp.shape
-    # load gabor bank
-    gabor_bank_file = os.path.join(db_dir, 'gabor_kernels.npz')
-    gabor_bank = np.load(gabor_bank_file)
-    rec = prf_reconstructor(img_mask, gabor_bank, sel_wts, sel_bias,
-                            sel_fpfs, vxl_rsp)
+    #model_wts = np.load(os.path.join(roi_dir, 'merged_model_wts.npz'))
+    ## load model test result
+    #dl_test_r2 = np.load(os.path.join(roi_dir, 'dl_prf_refine_test_r2.npy'))
+    ## select voxels
+    #thres = 0.1
+    #sel_idx = np.nonzero(dl_test_r2>=thres)[0]
+    #print 'Select %s voxels for image reconstruction'%(sel_idx.shape[0])
+    #sel_wts = model_wts['wts'][sel_idx].astype(np.float32)
+    #sel_fpfs = model_wts['fpfs'][sel_idx].astype(np.float32)
+    ##sel_fpfs = sel_fpfs * img_mask
+    #sel_bias = model_wts['biases'][sel_idx].astype(np.float32)
+    ### generate selcted voxels' fpfs
+    ##fpf_mask = sel_fpfs>0
+    ##fpf_mask = np.mean(fpf_mask, axis=0)
+    ##fig=plt.figure()
+    ##plt.imshow(fpf_mask)
+    ##plt.colorbar()
+    ##plt.savefig('fpf_mask.png')
+    ##plt.close(fig)             
+    ## get voxel response and reconstruct image
+    #vxl_rsp = val_ts[sel_idx, 0]
+    #print 'Voxel response shape: ',
+    #print vxl_rsp.shape
+    ## load gabor bank
+    #gabor_bank_file = os.path.join(db_dir, 'gabor_kernels.npz')
+    #gabor_bank = np.load(gabor_bank_file)
+    #rec = prf_reconstructor(img_mask, gabor_bank, sel_wts, sel_bias,
+    #                        sel_fpfs, vxl_rsp)
 
     ## model pre-testing and visual reconstruction
     #-- parameter preparation
