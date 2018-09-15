@@ -193,7 +193,7 @@ def tfprf_laplacian_bn(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
                                                          strides=[1, 1, 1, 1],
                                                          padding='VALID')))
             # get total error
-            total_error = 10*error + 0.1*laplacian_error
+            total_error = 10*error + 0.5*laplacian_error
 
         tf.summary.scalar('fitting-loss', error)
         tf.summary.scalar('total-loss', total_error)
@@ -1097,7 +1097,7 @@ if __name__ == '__main__':
         #    os.system('rm -rf %s'%(refine_dir))
         #tfprf_laplacian_refine(train_imgs, vxl_rsp, gabor_bank, vxl_dir)
         #vxl_rsp = val_ts[i]
-        #tfprf_test(train_imgs, val_imgs, vxl_rsp, gabor_bank, refine_dir)
+        tfprf_test(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir)
 
     #-- get validation r^2
     #vxl_idx, train_ts, val_ts = dataio.load_vim1_fmri(db_dir, subj_id, roi=roi)
