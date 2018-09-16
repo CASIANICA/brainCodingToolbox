@@ -144,7 +144,6 @@ def tfprf_laplacian_bn(input_imgs, vxl_rsp, gabor_bank, vxl_dir):
         # gabor features extraction
         with tf.name_scope('feature-extract'):
             feat_vtr = []
-
             for i in range(9):
                 # config for the gabor filters
                 gabor_real = np.expand_dims(gabor_bank['f%s_real'%(i+1)], 2)
@@ -861,6 +860,9 @@ def tfprf_test(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir):
                 iconv = tf.nn.conv2d(img, gabor_imag, strides=[1, 2, 2, 1],
                                      padding='SAME')
                 gabor_energy = tf.sqrt(tf.square(rconv) + tf.square(iconv))
+                gabor_energy = tf.nn.local_response_normalization(gabor_energy,
+                                    depth_radius=7, bias=1, alpha=1, beta=0.5)
+
                 gabor_energy = tf.transpose(gabor_energy, perm=[1, 2, 3, 0])
                 gabor_energy = tf.boolean_mask(tf.reshape(gabor_energy,
                                                         [62500, -1]), img_mask)
@@ -1096,7 +1098,7 @@ if __name__ == '__main__':
         #if os.path.exists(refine_dir):
         #    os.system('rm -rf %s'%(refine_dir))
         #tfprf_laplacian_refine(train_imgs, vxl_rsp, gabor_bank, vxl_dir)
-        #vxl_rsp = val_ts[i]
+        vxl_rsp = val_ts[i]
         tfprf_test(train_imgs, val_imgs, vxl_rsp, gabor_bank, vxl_dir)
 
     #-- get validation r^2
