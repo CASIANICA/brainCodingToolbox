@@ -6,6 +6,7 @@ import numpy as np
 import tables
 import bob.ip.gabor
 from joblib import Parallel, delayed
+from sklearn import linear_model
 
 from braincode.util import configParser
 from braincode.math import make_2d_gaussian, ridge
@@ -73,7 +74,6 @@ def get_candidate_model(feat_dir, data_type):
     # 55, 60, 70, 80, 90, 100 pixels) between 0.04 degree (1 pixel) and 4
     # degree (100 pixels)
     prefix = {'train': 'Stimuli_Trn_FullRes', 'val': 'Stimuli_Val_FullRes'}
-    feat_ptr = []
     if data_type=='train':
         time_count = 0
         for i in range(15):
@@ -137,6 +137,58 @@ def model_pro(feat, cand_model, xi, yi, si):
         res = tmp.dot(kernel).astype(np.float16)
         cand_model[mi, idx_head:(idx_head+10), ...] = res.reshape(10, 72)
         idx_head += 10
+
+def get_candidate_model_new(db_dir, data_type):
+    """Get gaussian kernel based on receptivefield features."""
+    # derived gauusian-kernel based features
+    # candidate pooling centers are spaces 0.4 degrees apart (5 pixels)
+    # candidate pooling fields included 10 radii (2, 4, 8, 16, 32, 60,
+    # 70, 80, 90, 100 pixels) between 0.16 degree (0.08 per pixel) and 8
+    # degree (100 pixels)
+    img_num = {'train': 1750, 'val': 120}
+    feat_file = os.path.join(db_dir, data_type+'_gabor_feat.memdat')
+    feat = np.memmap(feat_file, dtype='float32', mode='r',
+                     shape=(img_num[data_type], 250, 250, 72))
+    out_file = os.path.join(db_dir, '%s_candidate_model.npy'%(data_type))
+    cand_model = np.memmap(out_file, dtype='float16', mode='w+',
+                           shape=(50*50*10, img_num[data_type], 72))
+    Parallel(n_jobs=4)(delayed(model_pro_new)(feat, cand_model, xi, yi, si)
+                for si in range(10) for xi in range(50) for yi in range(50))
+    # save memmap object as a numpy.array
+    model_array = np.array(cand_model)
+    np.save(out_file, model_array)
+
+def model_pro_new(feat, cand_model, xi, yi, si):
+    """Sugar function for generating candidate model."""
+    mi = si*50*50 + xi*50 + yi
+    center_x = np.arange(2, 250, 5)
+    center_y = np.arange(2, 250, 5)
+    sigma = [2, 4, 8, 16, 32, 60, 70, 80, 90, 100]
+    x0 = center_x[xi]
+    y0 = center_y[yi]
+    s = sigma[si]
+    print 'Model %s : center - (%s, %s), sigma %s'%(mi, y0, x0, s)
+    kernel = make_2d_gaussian(250, s, center=(x0, y0))
+    kernel = kernel.flatten()
+    idx_head = 0
+    parts = feat.shape[0] / 10
+    for i in range(parts):
+        tmp = feat[(i*10):(i*10+10), ...]
+        tmp = np.transpose(tmp, (0, 3, 1, 2))
+        tmp = tmp.reshape(720, 62500)
+        res = tmp.dot(kernel).astype(np.float16)
+        cand_model[mi, idx_head:(idx_head+10), ...] = res.reshape(10, 72)
+        idx_head += 10
+
+def get_vxl_idx(prf_dir, db_dir, subj_id, roi):
+    """Get voxel index in specific ROI"""
+    # load fmri response
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_vim1_fmri(db_dir, subj_id,
+                                                                roi=roi)
+    print 'Voxel number: %s'%(len(vxl_idx))
+    roi_dir = os.path.join(prf_dir, roi)
+    check_path(roi_dir)
+    np.save(os.path.join(roi_dir, 'vxl_idx.npy'), vxl_idx)
 
 def ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi):
     """pRF model fitting using ridge regression.
@@ -209,6 +261,157 @@ def ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi):
     np.save(mcorr_file, mcorr)
     alphas = np.array(alphas)
     np.save(alphas_file, alphas)
+
+def ridge_regression(prf_dir, db_dir, subj_id, roi):
+    """pRF model fitting using ridge regression.
+    90% trainning data used for model tuning, and another 10% data used for
+    model seletion.
+    """
+    # load fmri response
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_vim1_fmri(db_dir, subj_id,
+                                                                roi=roi)
+    del val_fmri_ts
+    print 'Voxel number: %s'%(len(vxl_idx))
+    # load candidate models
+    train_models = np.load(os.path.join(db_dir, 'train_candidate_model.npy'),
+                           mmap_mode='r')
+    # output directory config
+    roi_dir = os.path.join(prf_dir,  roi)
+    check_path(roi_dir)
+
+    # model seletion and tuning
+    ALPHA_NUM = 10
+    paras_file = os.path.join(roi_dir, 'reg_paras.npy')
+    paras = np.memmap(paras_file, dtype='float64', mode='w+',
+                      shape=(len(vxl_idx), 73))
+    val_r2_file= os.path.join(roi_dir, 'reg_val_r2.npy')
+    val_r2 = np.memmap(val_r2_file, dtype='float64', mode='w+',
+                       shape=(len(vxl_idx), 25000, ALPHA_NUM))
+    alphas_file = os.path.join(roi_dir, 'reg_alphas.npy')
+    alphas = np.memmap(alphas_file, dtype='float64', mode='w+',
+                       shape=(len(vxl_idx)))
+    # fMRI data z-score
+    print 'fmri data temporal z-score'
+    m = np.mean(train_fmri_ts, axis=1, keepdims=True)
+    s = np.std(train_fmri_ts, axis=1, keepdims=True)
+    train_fmri_ts = (train_fmri_ts - m) / (1e-5 + s)
+    # split training dataset into model tunning set and model selection set
+    tune_fmri_ts = train_fmri_ts[:, :int(1750*0.9)]
+    sel_fmri_ts = train_fmri_ts[:, int(1750*0.9):]
+    # model fitting
+    for i in range(len(vxl_idx)):
+        print '-----------------'
+        print 'Voxel %s'%(i)
+        for j in range(25000):
+            #print 'Model %s'%(j)
+            # remove models which centered outside the 20 degree of visual angle
+            xi = (j % 2500) / 50
+            yi = (j % 2500) % 50
+            x0 = np.arange(2, 250, 5)[xi]
+            y0 = np.arange(2, 250, 5)[yi]
+            d = np.sqrt(np.square(x0-125)+np.square(y0-125))
+            if d > 124:
+                #print 'Model center outside the visual angle'
+                paras[i, ...] = np.NaN
+                val_r2[i, j, :] = np.NaN
+                continue
+            train_x = np.array(train_models[j, ...]).astype(np.float64)
+            # split training dataset into model tunning and selection sets
+            tune_x = train_x[:int(1750*0.9), :]
+            sel_x = train_x[int(1750*0.9):, :]
+            for a in range(ALPHA_NUM):
+                alpha_list = np.logspace(-2, 3, ALPHA_NUM)
+                # model fitting
+                reg = linear_model.Ridge(alpha=alpha_list[a])
+                reg.fit(tune_x, tune_fmri_ts[i])
+                val_pred = reg.predict(sel_x)
+                ss_tol = np.var(sel_fmri_ts[i]) * 175
+                r2 = 1.0 - np.sum(np.square(sel_fmri_ts[i] - val_pred))/ss_tol
+                val_r2[i, j, a] = r2
+        # select best model
+        vxl_r2 = np.nan_to_num(val_r2[i, ...])
+        sel_mdl_i, sel_alpha_i = np.unravel_index(vxl_r2.argmax(), vxl_r2.shape)
+        train_x = np.array(train_models[sel_mdl_i, ...]).astype(np.float64)
+        # split training dataset into model tunning and selection sets
+        tune_x = train_x[:int(1750*0.9), :]
+        sel_x = train_x[int(1750*0.9):, :]
+        alpha_list = np.logspace(-2, 3, ALPHA_NUM)
+        # selected model fitting
+        reg = linear_model.Ridge(alpha=alpha_list[sel_alpha_i])
+        reg.fit(tune_x, tune_fmri_ts[i])
+        val_pred = reg.predict(sel_x)
+        ss_tol = np.var(sel_fmri_ts[i]) * 175
+        r2 = 1.0 - np.sum(np.square(sel_fmri_ts[i] - val_pred))/ss_tol
+        print 'r-square recal: %s'%(r2)
+        #print 'r-square cal: %s'%(vxl_r2.max())
+        paras[i, ...] = np.concatenate((np.array([reg.intercept_]), reg.coef_))
+        alphas[i] = alpha_list[sel_alpha_i]
+    # save output
+    paras = np.array(paras)
+    np.save(paras_file, paras)
+    val_r2 = np.array(val_r2)
+    np.save(val_r2_file, val_r2)
+    alphas = np.array(alphas)
+    np.save(alphas_file, alphas)
+
+def ridge_regression_model_test(prf_dir, db_dir, subj_id, roi):
+    """Test pRF model derived from ridge regression with test dataset."""
+    # load fmri response
+    vxl_idx, train_fmri_ts, val_fmri_ts = dataio.load_vim1_fmri(db_dir, subj_id,
+                                                                roi=roi)
+    del train_fmri_ts
+    print 'Voxel number: %s'%(len(vxl_idx))
+    # load candidate models
+    val_models = np.load(os.path.join(db_dir, 'val_candidate_model.npy'),
+                         mmap_mode='r')
+    # fMRI data z-score
+    print 'fmri data temporal z-score'
+    m = np.mean(val_fmri_ts, axis=1, keepdims=True)
+    s = np.std(val_fmri_ts, axis=1, keepdims=True)
+    val_fmri_ts = (val_fmri_ts - m) / (1e-5 + s)
+    # output directory config
+    roi_dir = os.path.join(prf_dir,  roi)
+    check_path(roi_dir)
+
+    # load selected models and the corresponding parameters
+    val_r2_file = os.path.join(roi_dir, 'reg_val_r2.npy')
+    val_r2 = np.load(val_r2_file, mmap_mode='r')
+    paras_file = os.path.join(roi_dir, 'reg_paras.npy')
+    paras = np.load(paras_file)
+    alphas_file = os.path.join(roi_dir, 'reg_alphas.npy')
+    alphas = np.load(alphas_file)
+
+    # output var
+    test_r2 = np.zeros(len(vxl_idx))
+    prf_pos = np.zeros((len(vxl_idx), 3))
+    # parameter candidates
+    alpha_list = np.logspace(-2, 3, 10)
+    sigma = [2, 4, 8, 16, 32, 60, 70, 80, 90, 100]
+    for i in range(len(vxl_idx)):
+        print '----------------'
+        print 'Voxel %s'%(i)
+        vxl_r2 = np.nan_to_num(val_r2[i, ...])
+        sel_mdl_i, sel_alpha_i = np.unravel_index(vxl_r2.argmax(), vxl_r2.shape)
+        print 'Select model %s'%(sel_mdl_i)
+        print 'Select alpha value %s - %s'%(alpha_list[sel_alpha_i], alphas[i])
+        # get model position info
+        xi = (sel_mdl_i % 2500) / 50
+        yi = (sel_mdl_i % 2500) % 50
+        x0 = np.arange(2, 250, 5)[xi]
+        y0 = np.arange(2, 250, 5)[yi]
+        s = sigma[sel_mdl_i / 2500]
+        prf_pos[i] = np.array([y0, x0, s])
+        # compute r^2 using test dataset
+        test_x = np.array(val_models[sel_mdl_i, ...]).astype(np.float64)
+        test_x = np.concatenate((np.ones((120, 1)), test_x), axis=1)
+        val_pred = test_x.dot(paras[i])
+        ss_tol = np.var(val_fmri_ts[i]) * 120
+        r2 = 1.0 - np.sum(np.square(val_fmri_ts[i] - val_pred))/ss_tol
+        print 'r-square on test dataset: %s'%(r2)
+        test_r2[i] = r2
+    # save output
+    np.save(os.path.join(roi_dir, 'reg_prf_test_r2.npy'), test_r2)
+    np.save(os.path.join(roi_dir, 'sel_reg_prf_pos.npy'), prf_pos)
 
 def prf_selection(feat_dir, prf_dir, db_dir, subj_id, roi):
     """Select best model for each voxel and validating."""
@@ -498,28 +701,33 @@ if __name__ == '__main__':
     # config parser
     cf = configParser.Config('config')
     # database directory config
-    db_dir = os.path.join(cf.get('database', 'path'), 'vim1')
+    #db_dir = os.path.join(cf.get('database', 'path'), 'vim1')
     # directory config for analysis
     root_dir = cf.get('base', 'path')
     feat_dir = os.path.join(root_dir, 'sfeatures', 'vim1')
     res_dir = os.path.join(root_dir, 'subjects')
+    db_dir = os.path.join(root_dir, 'db', 'vim1')
  
     # get gabor features
     #get_stim_features(db_dir, feat_dir, 'train')
     # get candidate models
     #get_candidate_model(feat_dir, 'val')
+    #get_candidate_model_new(db_dir, 'train')
 
     #-- general config
     subj_id = 1
     roi = 'v1'
     # directory config
     subj_dir = os.path.join(res_dir, 'vim1_S%s'%(subj_id))
-    prf_dir = os.path.join(subj_dir, 'prf')
+    prf_dir = os.path.join(subj_dir, 'regress_prf')
 
     #-- pRF model fitting
     # pRF model tunning
+    #get_vxl_idx(prf_dir, db_dir, subj_id, roi)
     #ridge_fitting(feat_dir, prf_dir, db_dir, subj_id, roi)
     #prf_selection(feat_dir, prf_dir, db_dir, subj_id, roi)
+    #ridge_regression(prf_dir, db_dir, subj_id, roi)
+    ridge_regression_model_test(prf_dir, db_dir, subj_id, roi)
     # get null distribution of tunning performance
     #null_distribution_prf_tunning(feat_dir, prf_dir, db_dir, subj_id, roi)
     # calculate tunning contribution of each gabor sub-banks
@@ -527,7 +735,7 @@ if __name__ == '__main__':
     # pRF reconstruction
     #prf_recon(prf_dir, db_dir, subj_id, roi)
     # filter reconstruction
-    filter_recon(prf_dir, db_dir, subj_id, roi)
+    #filter_recon(prf_dir, db_dir, subj_id, roi)
     # validation stimuli reconstruction
     #stimuli_recon(prf_dir, db_dir, subj_id, roi)
     # retinotopic mapping
